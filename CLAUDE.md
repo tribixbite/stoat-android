@@ -37,7 +37,7 @@ NDK 27 host tools are x86_64 and don't run on ARM64.
 
 ## Required Local Files (gitignored)
 - `stoatbuild.properties` — Sentry DSN, flavour ID, debug app name
-- `app/google-services.json` — Firebase config (placeholder OK for builds)
+- `app/google-services.json` — Firebase config (extracted from official app via ADB, real FCM works)
 - `local.properties` — SDK path
 
 ## Architecture
@@ -68,7 +68,22 @@ docs/                   # Astro documentation site
 - **`go`**: Continue adding missing features toward Discord parity (excluding documented backend restrictions in `docs/specs/backend-required-features.md`). Update `docs/src/content/docs/reference/fork-changes.md` roadmap and `docs/specs/` after each round. Build, test via ADB if available. Maintain conventional commits.
 
 ## Feature Roadmap
-See `docs/specs/discord-parity-plan.md` for the 6-phase plan. Progress tracked in `docs/src/content/docs/reference/fork-changes.md` under the Roadmap section. Currently at ~54% API coverage (65/121 endpoints). Target: 97% (117/121).
+See `docs/specs/discord-parity-plan.md` for the 6-phase plan. Progress tracked in `docs/src/content/docs/reference/fork-changes.md` under the Roadmap section. Currently at 74% API coverage (89/121 endpoints). Target: 97% (117/121).
+
+### Remaining Work (Priority Order)
+1. **MFA TOTP setup** — 7 endpoints (Phase 1 completion)
+2. **Bot management** — 7 endpoints: create, edit, delete, fetch, invite bots (Phase 5)
+3. **Webhook management** — 4 endpoints: create, edit, delete, execute webhooks (Phase 5)
+4. **User profile editing** — enhance existing profile display with edit capabilities
+5. **Comprehensive UI testing** — screenshot every screen via ADB, verify all features work end-to-end
+
+## Session Continuation
+When starting a new session, if told `go`:
+1. Read this file and `docs/src/content/docs/reference/fork-changes.md` roadmap section
+2. Check `git log --oneline -10` for recent progress
+3. Pick the next unfinished phase/feature from the roadmap
+4. Build, test via ADB (screenshot key screens), commit, update docs
+5. Repeat until all phases complete and all screens verified
 
 ## Notes
 - LiveKit voice/video is temporarily disabled (commented out in build.gradle.kts)

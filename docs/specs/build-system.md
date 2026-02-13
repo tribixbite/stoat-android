@@ -24,7 +24,41 @@ Entry point for all builds. Handles:
 ### NDK / Native Code
 - NDK 27.0.12077973 installed but host tools are x86_64 (can't run on ARM64)
 - Native builds (cmark/stendal) currently disabled in build.gradle.kts
-- TODO: Cross-compile using Termux's native clang + NDK sysroot
+- **Cross-compilation solution researched and verified** (see below)
+
+### Native Cross-Compilation (Termux clang + NDK sysroot)
+
+The NDK's x86_64 compiler (`toolchains/llvm/prebuilt/linux-x86_64/bin/clang`) cannot
+run on ARM64 Termux. However, Termux's native clang can target Android arm64-v8a by
+using the NDK's sysroot for headers and libraries.
+
+**Approach**: Termux clang 20.x + `--target=aarch64-linux-android26` + `--sysroot=<NDK>` + `-resource-dir=<NDK>/lib/clang/18`
+
+**Key flags** (all verified working):
+- `--target=aarch64-linux-android26` — target triple with API level
+- `--sysroot=<NDK>/toolchains/llvm/prebuilt/linux-x86_64/sysroot` — NDK headers & libs
+- `-resource-dir=<NDK>/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/18` — use NDK's
+  compiler-rt builtins and libunwind instead of Termux's (critical for consistency)
+- `-fPIC -DANDROID` — required for Android shared libraries
+
+**CMake toolchain** (`app/src/main/cpp/termux-ndk-toolchain.cmake`):
+- Uses `CMAKE_SYSTEM_NAME Linux` (not `Android`) to avoid CMake's built-in Android
+  platform module which would try to invoke NDK's x86_64 toolchain
+- Sets `ANDROID 1` cache variable so `if(ANDROID)` checks still work in CMakeLists.txt
+- Uses `-resource-dir` to resolve both libunwind.a and compiler-rt builtins from NDK
+
+**libunwind.a issue**: Termux clang v20 auto-links `-l:libunwind.a` but this file
+isn't in the NDK sysroot search path. The `-resource-dir` flag solves this by making
+clang look in `<NDK>/lib/clang/18/lib/linux/aarch64/` for runtime libraries.
+
+**libc++ options**:
+- Shared (default): output .so links `libc++_shared.so` — must copy NDK's
+  `sysroot/usr/lib/aarch64-linux-android/libc++_shared.so` to `jniLibs/arm64-v8a/`
+- Static: use `-nostdlib++` + link `libc++_static.a` + `libc++abi.a` explicitly —
+  self-contained .so, no extra deployment, ~500KB larger
+
+**Output verification**: Built .so files are correctly tagged as
+`ELF 64-bit LSB shared object, ARM aarch64, for Android 26, built by NDK r27`
 
 ### SDK Setup
 - Android SDK at `~/android-sdk`
@@ -34,9 +68,9 @@ Entry point for all builds. Handles:
 - Gradle: 8.13 (via wrapper)
 
 ## Compromises / Known Issues
-1. **Native libs missing**: stendal (cmark) and finalmarkdown .so not built
-   - App will crash at markdown rendering until these are provided
-   - Workaround: pre-build on x86_64 host or set up cross-compilation
+1. **Native libs not yet integrated**: cross-compilation approach verified but not yet
+   wired into build-and-install.sh; cmark source not yet in external/cmark/
+   - Pre-build step needed: cmake + make before Gradle, copy .so to jniLibs/arm64-v8a/
 2. **AAPT2 slower via qemu**: ~2-5x slower than native, adds ~30s to resource processing
 3. **google-services.json placeholder**: Push notifications won't work without real Firebase config
 4. **Sentry DSN empty**: Error tracking disabled in local builds

@@ -8,6 +8,7 @@
 | [Antifeature Audit](audit-antifeatures.md) | Active | Telemetry, privacy, UX findings and recommendations |
 | [Notifications](notifications.md) | Active | Push notifications, mute controls, FCM registration |
 | [Message Search](message-search.md) | Active | Channel message search UI and API integration |
+| [Feature Gap Analysis](feature-gap-analysis.md) | Active | Android vs web/desktop feature comparison and implementation plan |
 
 ## Summary
 

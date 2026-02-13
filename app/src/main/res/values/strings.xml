@@ -866,6 +866,30 @@
     <string name="search_filter_from_hint">Username…</string>
     <string name="search_filter_clear_all">Clear all</string>
 
+    <!-- Message context: pin/unpin -->
+    <string name="message_context_sheet_actions_pin">Pin message</string>
+    <string name="message_context_sheet_actions_unpin">Unpin message</string>
+
+    <!-- Moderation -->
+    <string name="moderation_kick_button">Kick</string>
+    <string name="moderation_kick_title">Kick member</string>
+    <string name="moderation_kick_confirm">Are you sure you want to kick %1$s from this server?</string>
+    <string name="moderation_kick_success">Member kicked</string>
+    <string name="moderation_ban_button">Ban</string>
+    <string name="moderation_ban_title">Ban member</string>
+    <string name="moderation_ban_confirm">Are you sure you want to ban %1$s from this server? They will not be able to rejoin unless unbanned.</string>
+    <string name="moderation_ban_reason_hint">Reason (optional)</string>
+    <string name="moderation_ban_success">Member banned</string>
+    <string name="moderation_unban_button">Unban</string>
+    <string name="moderation_unban_success">Member unbanned</string>
+
+    <!-- Server management -->
+    <string name="server_create_channel">Create channel</string>
+    <string name="server_create_channel_name">Channel name</string>
+    <string name="server_create_channel_description">Description (optional)</string>
+    <string name="server_create_channel_type_text">Text</string>
+    <string name="server_create_channel_type_voice">Voice</string>
+
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>
     <string name="geogate_description">Stoat may block content in certain jurisdictions in response to legislation or legal notices</string>

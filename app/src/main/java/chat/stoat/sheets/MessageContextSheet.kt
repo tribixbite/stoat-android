@@ -41,7 +41,9 @@ import chat.stoat.api.internals.PermissionBit
 import chat.stoat.api.internals.Roles
 import chat.stoat.api.internals.has
 import chat.stoat.api.routes.channel.deleteMessage
+import chat.stoat.api.routes.channel.pinMessage
 import chat.stoat.api.routes.channel.react
+import chat.stoat.api.routes.channel.unpinMessage
 import chat.stoat.api.settings.Experiments
 import chat.stoat.callbacks.UiCallbacks
 import chat.stoat.composables.chat.Message
@@ -374,6 +376,55 @@ fun MessageContextSheet(
                 showReactSheet = true
             }
         )
+
+        // Pin/unpin message (requires ManageMessages permission)
+        if (
+            (message.channel?.let {
+                val channel = StoatAPI.channelCache[it] ?: return@let null
+                Roles.permissionFor(
+                    channel,
+                    StoatAPI.userCache[StoatAPI.selfId]
+                )
+            } ?: 0) has PermissionBit.ManageMessages
+        ) {
+            val isPinned = message.pinned == true
+            SheetButton(
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_pin_24dp),
+                        contentDescription = null
+                    )
+                },
+                headlineContent = {
+                    Text(
+                        text = stringResource(
+                            if (isPinned) R.string.message_context_sheet_actions_unpin
+                            else R.string.message_context_sheet_actions_pin
+                        ),
+                    )
+                },
+                onClick = {
+                    coroutineScope.launch {
+                        try {
+                            message.channel?.let { channelId ->
+                                if (isPinned) {
+                                    unpinMessage(channelId, messageId)
+                                } else {
+                                    pinMessage(channelId, messageId)
+                                }
+                            }
+                            onHideSheet()
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                "Failed: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            )
+        }
 
         if (message.author == StoatAPI.selfId) {
             SheetButton(

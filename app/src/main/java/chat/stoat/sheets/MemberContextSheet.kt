@@ -1,24 +1,43 @@
 package chat.stoat.sheets
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import chat.stoat.R
 import chat.stoat.api.StoatAPI
+import chat.stoat.api.internals.PermissionBit
+import chat.stoat.api.internals.Roles
+import chat.stoat.api.internals.has
 import chat.stoat.api.routes.channel.removeMember
+import chat.stoat.api.routes.server.banMember
+import chat.stoat.api.routes.server.kickMember
 import chat.stoat.composables.generic.SheetButton
 import chat.stoat.internals.Platform
 import kotlinx.coroutines.launch
@@ -114,6 +133,11 @@ fun ColumnScope.ServerMemberContextSheet(
     val channel = StoatAPI.channelCache[channelId]
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showKickConfirmation by remember { mutableStateOf(false) }
+    var showBanConfirmation by remember { mutableStateOf(false) }
+    var banReason by remember { mutableStateOf("") }
 
     LaunchedEffect(server) {
         if (server == null || channel == null) {
@@ -123,9 +147,138 @@ fun ColumnScope.ServerMemberContextSheet(
 
     if (server == null || channel == null) return
 
-    // TODO add something useful (moderation actions)
+    // Calculate permissions for the current user on this server
+    val selfMember = StoatAPI.members.getMember(serverId, StoatAPI.selfId ?: "")
+    val permissions = if (selfMember != null) {
+        Roles.permissionFor(server, selfMember)
+    } else 0L
 
-    // TODO replace with something useful (currently so that your sheet is not empty if you don't have permissions)
+    val isOwner = server.owner == StoatAPI.selfId
+    val isSelf = userId == StoatAPI.selfId
+
+    // Kick confirmation dialog
+    if (showKickConfirmation) {
+        val targetUser = StoatAPI.userCache[userId]
+        val displayName = targetUser?.displayName ?: targetUser?.username ?: userId
+
+        AlertDialog(
+            onDismissRequest = { showKickConfirmation = false },
+            title = { Text(stringResource(R.string.moderation_kick_title)) },
+            text = {
+                Text(stringResource(R.string.moderation_kick_confirm, displayName))
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showKickConfirmation = false
+                    scope.launch {
+                        try {
+                            kickMember(serverId, userId)
+                            onRequestUpdateMembers()
+                            dismissSheet()
+                            Toast.makeText(context, context.getString(R.string.moderation_kick_success), Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) {
+                    Text(stringResource(R.string.moderation_kick_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showKickConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Ban confirmation dialog with optional reason
+    if (showBanConfirmation) {
+        val targetUser = StoatAPI.userCache[userId]
+        val displayName = targetUser?.displayName ?: targetUser?.username ?: userId
+
+        AlertDialog(
+            onDismissRequest = { showBanConfirmation = false },
+            title = { Text(stringResource(R.string.moderation_ban_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.moderation_ban_confirm, displayName))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = banReason,
+                        onValueChange = { banReason = it },
+                        label = { Text(stringResource(R.string.moderation_ban_reason_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showBanConfirmation = false
+                    scope.launch {
+                        try {
+                            banMember(serverId, userId, banReason.ifBlank { null })
+                            onRequestUpdateMembers()
+                            dismissSheet()
+                            Toast.makeText(context, context.getString(R.string.moderation_ban_success), Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) {
+                    Text(stringResource(R.string.moderation_ban_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBanConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Kick member (requires KickMembers permission)
+    if (!isSelf && (isOwner || permissions has PermissionBit.KickMembers)) {
+        SheetButton(
+            headlineContent = {
+                CompositionLocalProvider(value = LocalContentColor provides MaterialTheme.colorScheme.error) {
+                    Text(stringResource(R.string.moderation_kick_button))
+                }
+            },
+            leadingContent = {
+                CompositionLocalProvider(value = LocalContentColor provides MaterialTheme.colorScheme.error) {
+                    Icon(
+                        painter = painterResource(R.drawable.icn_person_off_24dp),
+                        contentDescription = null
+                    )
+                }
+            },
+            onClick = { showKickConfirmation = true }
+        )
+    }
+
+    // Ban member (requires BanMembers permission)
+    if (!isSelf && (isOwner || permissions has PermissionBit.BanMembers)) {
+        SheetButton(
+            headlineContent = {
+                CompositionLocalProvider(value = LocalContentColor provides MaterialTheme.colorScheme.error) {
+                    Text(stringResource(R.string.moderation_ban_button))
+                }
+            },
+            leadingContent = {
+                CompositionLocalProvider(value = LocalContentColor provides MaterialTheme.colorScheme.error) {
+                    Icon(
+                        painter = painterResource(R.drawable.icn_gavel_24dp),
+                        contentDescription = null
+                    )
+                }
+            },
+            onClick = { showBanConfirmation = true }
+        )
+    }
+
+    // Copy user ID
     SheetButton(
         headlineContent = {
             Text(stringResource(R.string.user_info_sheet_copy_id))
@@ -148,6 +301,4 @@ fun ColumnScope.ServerMemberContextSheet(
             }
         }
     )
-
-
 }

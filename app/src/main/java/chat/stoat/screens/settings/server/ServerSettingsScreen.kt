@@ -397,6 +397,22 @@ fun ServerSettingsScreen(
                         )
                     }
 
+                    // Emoji management — requires ManageCustomisation
+                    if (canManage || permissions has PermissionBit.ManageCustomisation) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.emoji_management_title)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_emoji_objects_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/emojis")
+                            }
+                        )
+                    }
+
                     // Invite management — requires ManageServer
                     if (canManage) {
                         ListItem(

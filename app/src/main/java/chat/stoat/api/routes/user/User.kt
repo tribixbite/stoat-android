@@ -146,6 +146,18 @@ suspend fun addUserIfUnknown(id: String) {
     }
 }
 
+/** Fetch mutual friends and servers with a user. */
+suspend fun fetchMutualFriendsAndServers(userId: String): MutualInfo {
+    val response = StoatHttp.get("/users/$userId/mutual".api()).bodyAsText()
+    return StoatJson.decodeFromString(MutualInfo.serializer(), response)
+}
+
+@kotlinx.serialization.Serializable
+data class MutualInfo(
+    val users: List<String> = emptyList(),
+    val servers: List<String> = emptyList()
+)
+
 suspend fun fetchUserProfile(id: String): Profile {
     val res = StoatHttp.get("/users/$id/profile".api())
 

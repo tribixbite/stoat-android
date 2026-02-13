@@ -127,6 +127,7 @@ import chat.stoat.screens.settings.channel.ChannelSettingsPermissions
 import chat.stoat.screens.search.MessageSearchScreen
 import chat.stoat.screens.settings.server.BanManagementScreen
 import chat.stoat.screens.settings.server.CreateChannelScreen
+import chat.stoat.screens.settings.server.EmojiManagementScreen
 import chat.stoat.screens.settings.server.InviteManagementScreen
 import chat.stoat.screens.settings.server.DefaultPermissionsEditorScreen
 import chat.stoat.screens.settings.server.RoleManagementScreen
@@ -770,6 +771,10 @@ fun AppEntrypoint(
                     composable("settings/server/{serverId}/invites") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         InviteManagementScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/emojis") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        EmojiManagementScreen(navController, serverId)
                     }
                     composable("settings/server/{serverId}/permissions/default") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""

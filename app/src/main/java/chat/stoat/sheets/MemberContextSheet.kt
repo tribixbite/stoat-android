@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +41,8 @@ import chat.stoat.api.routes.channel.removeMember
 import chat.stoat.api.routes.server.banMember
 import chat.stoat.api.routes.server.editMember
 import chat.stoat.api.routes.server.kickMember
+import chat.stoat.api.routes.user.MutualInfo
+import chat.stoat.api.routes.user.fetchMutualFriendsAndServers
 import chat.stoat.composables.generic.SheetButton
 import chat.stoat.core.model.schemas.Role
 import chat.stoat.internals.Platform
@@ -425,6 +429,83 @@ fun ColumnScope.ServerMemberContextSheet(
             onClick = { showBanConfirmation = true }
         )
     }
+
+    // Mutual friends & servers (only for other users)
+    if (!isSelf) {
+        var mutualInfo by remember { mutableStateOf<MutualInfo?>(null) }
+        var mutualLoaded by remember { mutableStateOf(false) }
+
+        LaunchedEffect(userId) {
+            try {
+                mutualInfo = fetchMutualFriendsAndServers(userId)
+            } catch (_: Exception) {
+                // Silently fail — mutual info is non-critical
+            }
+            mutualLoaded = true
+        }
+
+        if (mutualLoaded && mutualInfo != null) {
+            val info = mutualInfo!!
+            val hasMutuals = info.users.isNotEmpty() || info.servers.isNotEmpty()
+
+            if (hasMutuals) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                if (info.users.isNotEmpty()) {
+                    val friendNames = info.users.mapNotNull { friendId ->
+                        val u = StoatAPI.userCache[friendId]
+                        u?.displayName ?: u?.username ?: friendId
+                    }
+                    SheetButton(
+                        headlineContent = {
+                            Text(stringResource(R.string.mutual_friends_count, info.users.size))
+                        },
+                        supportingContent = {
+                            Text(
+                                friendNames.joinToString(", "),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_group_24dp),
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {}
+                    )
+                }
+
+                if (info.servers.isNotEmpty()) {
+                    val serverNames = info.servers.mapNotNull { sId ->
+                        StoatAPI.serverCache[sId]?.name ?: sId
+                    }
+                    SheetButton(
+                        headlineContent = {
+                            Text(stringResource(R.string.mutual_servers_count, info.servers.size))
+                        },
+                        supportingContent = {
+                            Text(
+                                serverNames.joinToString(", "),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_language_24dp),
+                                contentDescription = null
+                            )
+                        },
+                        onClick = {}
+                    )
+                }
+            }
+        }
+    }
+
+    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
     // Copy user ID
     SheetButton(

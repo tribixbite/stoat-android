@@ -1079,4 +1079,24 @@
     <string name="invite_created">Invite created</string>
     <string name="invite_copy_link">Copy Link</string>
     <string name="invite_link_copied">Invite link copied</string>
+
+    <!-- Emoji management -->
+    <string name="emoji_management_title">Emoji</string>
+    <string name="emoji_list_header">%d Emoji</string>
+    <string name="emoji_empty">No custom emoji</string>
+    <string name="emoji_created_by">By %s</string>
+    <string name="emoji_delete_title">Delete Emoji</string>
+    <string name="emoji_delete_confirm">Delete :%s:? This cannot be undone.</string>
+    <string name="emoji_delete_button">Delete</string>
+    <string name="emoji_deleted">Emoji deleted</string>
+    <string name="emoji_add_title">Add Emoji</string>
+    <string name="emoji_add_button">Upload</string>
+    <string name="emoji_name_label">Emoji name</string>
+    <string name="emoji_pick_image">Choose Image</string>
+    <string name="emoji_image_selected">Image selected</string>
+    <string name="emoji_created">Emoji created</string>
+
+    <!-- Mutual friends/servers -->
+    <string name="mutual_friends_count">%d Mutual Friends</string>
+    <string name="mutual_servers_count">%d Mutual Servers</string>
 </resources>

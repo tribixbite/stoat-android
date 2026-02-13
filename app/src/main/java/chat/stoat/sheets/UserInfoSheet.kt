@@ -43,6 +43,7 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.BrushCompat
 import chat.stoat.api.internals.ULID
 import chat.stoat.api.internals.solidColor
+import chat.stoat.api.routes.user.fetchUser
 import chat.stoat.api.routes.user.fetchUserProfile
 import chat.stoat.api.settings.Experiments
 import chat.stoat.api.settings.FeatureFlags
@@ -65,7 +66,9 @@ fun UserInfoSheet(
     serverId: String? = null,
     dismissSheet: suspend () -> Unit
 ) {
-    val user = StoatAPI.userCache[userId]
+    // Read from cache reactively; fetch from API if missing
+    var user = StoatAPI.userCache[userId]
+    var fetchAttempted by remember { mutableStateOf(false) }
 
     val member = serverId?.let { StoatAPI.members.getMember(it, userId) }
 
@@ -74,19 +77,31 @@ fun UserInfoSheet(
     var profile by remember { mutableStateOf<Profile?>(null) }
     var profileNotFound by remember { mutableStateOf(false) }
 
-    LaunchedEffect(user) {
+    LaunchedEffect(userId) {
+        // Fetch user from API if not in cache
+        if (user == null && !fetchAttempted) {
+            fetchAttempted = true
+            try {
+                val fetched = fetchUser(userId)
+                StoatAPI.userCache[userId] = fetched
+            } catch (_: Exception) {
+                // Will show not-found state below
+            }
+        }
+        // Fetch profile
         try {
-            user?.id?.let { fetchUserProfile(it) }?.let { profile = it }
+            fetchUserProfile(userId).let { profile = it }
         } catch (e: Exception) {
             if (e.message == "NotFound") {
                 profileNotFound = true
             }
-            e.printStackTrace()
         }
     }
 
+    // Re-read after potential fetch
+    user = StoatAPI.userCache[userId]
+
     if (user == null) {
-        // TODO fetch user in this scenario
         NonIdealState(
             icon = {
                 Icon(

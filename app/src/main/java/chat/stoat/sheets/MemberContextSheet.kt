@@ -100,7 +100,7 @@ fun ColumnScope.GroupDMMemberContextSheet(
         )
     }
 
-    // TODO replace with something useful (currently so that your sheet is not empty if you don't have permissions)
+    // Always shown — ensures the sheet isn't empty when no moderation permissions
     SheetButton(
         headlineContent = {
             Text(stringResource(R.string.user_info_sheet_copy_id))

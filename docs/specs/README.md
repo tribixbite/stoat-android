@@ -13,6 +13,7 @@
 | [Discord Parity Plan](discord-parity-plan.md) | Active | 6-phase plan to implement all 56 remaining API endpoints |
 | [Revolt API Reference](revolt-api-reference.md) | Active | Exhaustive backend API reference: 113+ HTTP endpoints, 38 WS events, all schemas |
 | [API Discovery](api-discovery.md) | Active | DNS enumeration, domain/subdomain map, endpoint inventory, rate limits, infrastructure |
+| [Server Management](server-management.md) | Active | Server settings, role/ban management, channel creation, member moderation |
 
 ## Summary
 

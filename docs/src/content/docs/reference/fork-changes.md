@@ -29,15 +29,17 @@ Server moderation features with full UI, only API stubs existed upstream.
 - **Pin/unpin messages** — `POST /channels/{id}/messages/{msg}/pin` and `DELETE .../pin`
 - **Bulk delete messages** API route — `DELETE /channels/{id}/messages/bulk`
 
-### Server Management API Routes
-Backend API integrations for server administration (API routes ready, UI in progress).
+### Server Management (Full UI + API)
+Complete server administration screens with permission-gated access.
 
-- **Edit server** (name, description, icon, banner) — `PATCH /servers/{id}`
-- **Edit member** (nickname, avatar, roles, timeout) — `PATCH /servers/{id}/members/{userId}`
-- **Create channel** in server — `POST /servers/{id}/channels`
-- **Role CRUD**: create, edit, delete roles — `POST/PATCH/DELETE /servers/{id}/roles/{roleId}`
-- **Set role permissions** — `PUT /servers/{id}/permissions/{roleId}`
-- **Set channel permissions** — `PUT /channels/{id}/permissions/{roleId}`
+- **Server Settings screen** — edit name, description, icon upload with progress indicator
+- **Role Management screen** — create, edit (name + colour with hex preview), delete roles
+- **Ban Management screen** — view ban list with reasons, unban with confirmation
+- **Create Channel screen** — Text/Voice type selection, name, description
+- **Member nickname edit** — edit own or others' nicknames (permission-gated)
+- **Role assignment dialog** — toggle roles per member with visual checkmarks
+- **Server Settings entry point** — accessible from server context sheet (long-press server)
+- **11 API routes**: `PATCH /servers/{id}`, `POST/PATCH/DELETE roles`, `GET/DELETE bans`, `PATCH members`, `POST channels`, plus `uploadToAutumn()` for icons
 
 ### Termux ARM64 Build System
 Complete native Android build toolchain for ARM64 devices — enables building the app directly on Android phones.
@@ -69,6 +71,7 @@ Automated build and release system.
 - **Added HttpTimeout per-request overrides** since search is much slower than other API calls
 
 ### Notification Fixes
+- **FCM onNewToken ANR fix**: replaced `runBlocking` with `CoroutineScope(SupervisorJob() + Dispatchers.IO)` to prevent app-not-responding on token refresh
 - **FCM error handling**: `subscribePush()` no longer silently swallows registration failures
 - **Crash fix**: bitmap loading in `HandlerService` wrapped with timeout and fallback to default icon
 - **Error message display**: push notification errors now surface to the user instead of silent failure
@@ -103,6 +106,7 @@ Comprehensive technical documentation added (not present in upstream):
 | Implemented | ~55 | 65 (54%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
+| Server admin UI | None | Settings, roles, bans, channels, member edit (full UI) |
 | Server admin API | Partial | Roles, permissions, channels, members |
 | Documentation | Minimal | 10 spec documents, API reference |
 
@@ -126,3 +130,5 @@ All changes from upstream divergence point:
 | `9101558` | feat | Collapsible search filters, clear all, result count |
 | `40e859e` | feat | Moderation (kick/ban), pin messages, server management routes |
 | `465b458` | fix | Search socket timeout increased to 60s with 75s total cap |
+| `f48c580` | docs | Enable GitHub Pages, update URLs to fork, add fork changes reference |
+| `4ec7457` | feat | Server management UI, member moderation, FCM fix |

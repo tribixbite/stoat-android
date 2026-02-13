@@ -204,10 +204,8 @@ object StoatAPI {
                         RealtimeSocket.connect(sessionToken)
                     } catch (e: SocketException) {
                         Log.d("RevoltAPI", "Socket closed, probably no big deal /// " + e.message)
-                        RealtimeSocket.updateDisconnectionState(DisconnectionState.Disconnected)
                     } catch (e: Exception) {
                         Log.e("RevoltAPI", "WebSocket error", e)
-                        RealtimeSocket.updateDisconnectionState(DisconnectionState.Disconnected)
                     }
                 }
             } catch (e: Exception) {
@@ -217,11 +215,16 @@ object StoatAPI {
                     } else {
                         Log.e("RevoltAPI", "WebSocket error", e)
                     }
-                    RealtimeSocket.updateDisconnectionState(DisconnectionState.Disconnected)
                 } catch (e: Exception) {
                     Sentry.captureMessage("Error in socket error handling: $e")
                 }
             }
+            // Always mark as disconnected when connect() returns — whether
+            // via normal close (server timeout) or exception. This ensures
+            // the ON_RESUME lifecycle handler in ChatRouterScreen will
+            // detect the drop and trigger reconnection.
+            RealtimeSocket.updateDisconnectionState(DisconnectionState.Disconnected)
+            Log.d("RevoltAPI", "WebSocket session ended, marked as Disconnected")
         }
     }
 

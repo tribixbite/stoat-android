@@ -37,6 +37,16 @@ Push notifications are delivered via Firebase Cloud Messaging (FCM). The app reg
 - **ServerContextSheet**: Long-press server icon / server context menu
 - **ChannelSettingsOverview**: Channel settings -> mute toggle switch
 - **NotificationSettingsScreen**: Settings -> Notifications (summary + unmute)
+  - Muted servers show cached name (falls back to raw ID)
+  - Muted channels show cached name + parent server name
+  - Unmute button per entry
+
+### Notification Filtering in HandlerService
+
+- Before displaying, queries local SQLite for channel record to get server ID
+- Checks `NotificationSettingsProvider.isChannelMuted(channelId, serverId)`
+- Server mute overrides individual channel settings
+- Muted notifications are silently consumed (logged at debug level)
 
 ## Error Handling
 

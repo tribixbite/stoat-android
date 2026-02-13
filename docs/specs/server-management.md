@@ -78,7 +78,72 @@ All from `chat.stoat.api.internals.PermissionBit`:
 - `ManageNicknames` — edit other members' nicknames
 - `ChangeNickname` — edit own nickname
 
+### PermissionsEditorScreen
+- **DefaultPermissionsEditorScreen**
+  - Route: `settings/server/{serverId}/permissions/default`
+  - Permission: ManagePermissions or server owner
+  - Checkbox toggle per permission bit against `server.defaultPermissions`
+  - Save via `setDefaultPermissions(serverId, newPermissions)`
+  - Updates `StoatAPI.serverCache` on save
+- **RolePermissionsEditorScreen**
+  - Route: `settings/server/{serverId}/roles/{roleId}/permissions`
+  - Permission: ManagePermissions or server owner
+  - Tri-state per permission: Allow / Neutral / Deny (segmented buttons)
+  - Decomposes `PermissionDescription(a, d)` bitmask per-bit
+  - Save via `setServerPermissions(serverId, roleId, allow, deny)`
+  - Updates role in `StoatAPI.serverCache` on save
+- **Categories**: Admin (5), Members (8), Channels (6), Messaging (6), Voice (7)
+
+## Notification Settings
+
+### NotificationSettingsScreen
+- **Route**: `settings/notifications`
+- **Entry**: SettingsScreen → Notifications
+- **ViewModel**: `NotificationSettingsViewModel` (Hilt, KVStorage)
+- **Features**:
+  - System notification permission status with link to system settings
+  - FCM push registration status with retry button
+  - Muted servers list showing server names from cache (raw ID as subtitle)
+  - Muted channels list showing channel names + parent server from cache
+  - Unmute button per entry
+  - Reset all notification settings (danger action)
+
+### Mute Toggles
+- **Server mute**: ServerContextSheet → Mute/Unmute Server
+- **Channel mute**: ChannelContextSheet → Mute/Unmute Channel
+- **Notification filtering**: HandlerService checks `NotificationSettingsProvider.isChannelMuted()` before displaying
+
+## API Routes Used
+| Route | File |
+|-------|------|
+| `PATCH /servers/{id}` | `api/routes/server/Server.kt → editServer()` |
+| `POST /servers/{id}/roles` | `→ createRole()` |
+| `PATCH /servers/{id}/roles/{roleId}` | `→ editRole()` |
+| `DELETE /servers/{id}/roles/{roleId}` | `→ deleteRole()` |
+| `GET /servers/{id}/bans` | `→ fetchBans()` |
+| `DELETE /servers/{id}/bans/{userId}` | `→ unbanMember()` |
+| `DELETE /servers/{id}/members/{userId}` | `→ kickMember()` |
+| `PUT /servers/{id}/bans/{userId}` | `→ banMember()` |
+| `PATCH /servers/{id}/members/{userId}` | `→ editMember()` |
+| `POST /servers/{id}/channels` | `→ createChannel()` |
+| `POST /autumn/icons` | `→ uploadToAutumn()` |
+| `PUT /servers/{id}/permissions/default` | `→ setDefaultPermissions()` |
+| `PUT /servers/{id}/permissions/{roleId}` | `→ setServerPermissions()` |
+
+## Permission Bits
+All from `chat.stoat.api.internals.PermissionBit`:
+- `ManageServer` — edit server info
+- `ManageRole` — create/edit/delete roles
+- `ManageChannel` — create channels
+- `ManagePermissions` — edit default/role permissions
+- `BanMembers` — view bans, ban/unban
+- `KickMembers` — kick members
+- `AssignRoles` — assign roles to members
+- `ManageNicknames` — edit other members' nicknames
+- `ChangeNickname` — edit own nickname
+
 ## String Resources
-53 new entries in `strings.xml` under sections:
+128+ entries in `strings.xml`:
 - Server settings (9), Role management (13), Ban management (6),
   Channel creation (8), Member management (7)
+- Permission names and descriptions (75)

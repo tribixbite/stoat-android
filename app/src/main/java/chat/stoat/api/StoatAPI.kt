@@ -28,6 +28,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -98,6 +99,12 @@ val StoatHttp = HttpClient(OkHttp) {
     }
 
     install(WebSockets)
+
+    install(HttpTimeout) {
+        connectTimeoutMillis = 10_000
+        socketTimeoutMillis = 15_000
+        requestTimeoutMillis = 30_000
+    }
 
     install(HttpRequestRetry) {
         retryOnServerErrors(maxRetries = 5)

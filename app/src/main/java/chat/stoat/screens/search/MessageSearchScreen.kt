@@ -96,15 +96,19 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var query by mutableStateOf("")
     var isLoading by mutableStateOf(false)
     var hasSearched by mutableStateOf(false)
-    var sort by mutableStateOf(SearchSort.Relevance)
+    var sort by mutableStateOf(SearchSort.Latest)
     var pinnedOnly by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
 
-    // Discord-style content filters (applied client-side)
+    // Client-side content filters
     var hasLink by mutableStateOf(false)
     var hasAttachment by mutableStateOf(false)
     var hasImage by mutableStateOf(false)
     var hasFile by mutableStateOf(false)
+    var hasEmbed by mutableStateOf(false)
+    var hasReply by mutableStateOf(false)
+    var hasReaction by mutableStateOf(false)
+    var hasMention by mutableStateOf(false)
     var fromUser by mutableStateOf("")
 
     val results = mutableStateListOf<Message>()
@@ -114,10 +118,19 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     private var canLoadMore by mutableStateOf(true)
     private var searchJob: Job? = null
 
+    /** Whether any client-side filter is active (requires include_users for from:user) */
+    private val needsUserData: Boolean
+        get() = fromUser.isNotBlank()
+
     /** Trigger search explicitly (submit button / keyboard action) */
     fun submitSearch() {
-        // Allow search with just from:user filter (use wildcard query)
-        if (query.isBlank() && fromUser.isBlank() && !hasAttachment && !hasLink && !hasImage && !hasFile) {
+        // Allow search with just filters and no text query
+        val hasFilters = fromUser.isNotBlank() || hasAttachment || hasLink ||
+            hasImage || hasFile || hasEmbed || hasReply || hasReaction || hasMention
+        if (query.isBlank() && !pinnedOnly && !hasFilters) return
+        // Validate query length (API accepts 1-64 chars)
+        if (query.length > 64) {
+            errorMessage = "Query too long (max 64 characters)"
             return
         }
         performSearch(fresh = true)
@@ -125,16 +138,12 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
 
     fun onSortChanged(newSort: SearchSort) {
         sort = newSort
-        if (hasSearched) {
-            performSearch(fresh = true)
-        }
+        if (hasSearched) performSearch(fresh = true)
     }
 
     fun onPinnedToggled() {
         pinnedOnly = !pinnedOnly
-        if (hasSearched) {
-            performSearch(fresh = true)
-        }
+        if (hasSearched) performSearch(fresh = true)
     }
 
     /** Reapply client-side filters without refetching */
@@ -148,8 +157,9 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     }
 
     /**
-     * Apply client-side filters (has:link, has:attachment, has:image, has:file, from:user)
-     * to the raw results from the API.
+     * Apply client-side filters to raw API results.
+     * Filters: has:link, has:attachment, has:image, has:file, has:embed,
+     * has:reply, has:reaction, from:user
      */
     private fun applyClientFilters() {
         val filtered = rawResults.filter { msg ->
@@ -161,6 +171,10 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
             val passFile = !hasFile || msg.attachments?.any {
                 it.contentType?.startsWith("image/", ignoreCase = true) != true
             } == true
+            val passEmbed = !hasEmbed || !msg.embeds.isNullOrEmpty()
+            val passReply = !hasReply || !msg.replies.isNullOrEmpty()
+            val passReaction = !hasReaction || !msg.reactions.isNullOrEmpty()
+            val passMention = !hasMention || !msg.mentions.isNullOrEmpty()
 
             val passFrom = if (fromUser.isBlank()) {
                 true
@@ -171,7 +185,8 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                 name.contains(fromUser, ignoreCase = true)
             }
 
-            passLink && passAttachment && passImage && passFile && passFrom
+            passLink && passAttachment && passImage && passFile &&
+                passEmbed && passReply && passReaction && passMention && passFrom
         }
 
         results.clear()
@@ -197,9 +212,19 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                 canLoadMore = true
             }
 
-            // If no text query, use a single space as wildcard so the API accepts it.
-            // The from:user and has: filters are applied client-side afterward.
-            val apiQuery = query.ifBlank { " " }
+            // Pinned browse: send pinned=true with no query
+            // Text search: send query if provided, null to browse all messages
+            // Benchmark: null query returns all messages in ~0.4s vs " " returns nothing
+            val apiQuery = when {
+                pinnedOnly -> null
+                query.isNotBlank() -> query
+                else -> null // omit query to browse all (filter-only searches)
+            }
+
+            // Use include_users only when from:user filter is active or first search.
+            // Without it, API returns faster bare array (~2-3s vs ~5s).
+            // We rely on StoatAPI.userCache for display names when possible.
+            val useIncludeUsers = needsUserData || (fresh && userCache.isEmpty())
 
             try {
                 val result = searchMessages(
@@ -208,12 +233,13 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                     limit = 25,
                     before = beforeId,
                     sort = sort.apiValue,
-                    includeUsers = true,
+                    includeUsers = if (useIncludeUsers) true else null,
                     pinned = if (pinnedOnly) true else null
                 )
 
                 when (result) {
                     is SearchResult.Success -> {
+                        // Cache returned user data for display and from:user filter
                         result.data.users?.forEach { user ->
                             user.id?.let { userCache[it] = user }
                         }
@@ -233,7 +259,6 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
-                // Coroutine was cancelled (user submitted another search or navigated away)
                 throw e
             } catch (e: Exception) {
                 errorMessage = "${e.javaClass.simpleName}: ${e.message}"
@@ -342,7 +367,6 @@ fun MessageSearchScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        // Search/submit button
                         IconButton(onClick = { viewModel.submitSearch() }) {
                             Icon(
                                 painter = painterResource(R.drawable.icn_search_24dp),
@@ -359,7 +383,7 @@ fun MessageSearchScreen(
                 .padding(pv)
                 .fillMaxSize()
         ) {
-            // Sort + pinned filter row
+            // Sort chips + pinned toggle
             FlowRow(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -387,10 +411,11 @@ fun MessageSearchScreen(
                 }
             }
 
-            // Content filters row (Discord-style has: filters)
+            // Content filters (client-side has: and from: filters)
             FlowRow(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 FilterChip(
                     selected = viewModel.hasLink,
@@ -423,6 +448,38 @@ fun MessageSearchScreen(
                         viewModel.onFilterChanged()
                     },
                     label = { Text(stringResource(R.string.search_filter_has_file)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasEmbed,
+                    onClick = {
+                        viewModel.hasEmbed = !viewModel.hasEmbed
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_embed)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasReply,
+                    onClick = {
+                        viewModel.hasReply = !viewModel.hasReply
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_reply)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasReaction,
+                    onClick = {
+                        viewModel.hasReaction = !viewModel.hasReaction
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_reaction)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasMention,
+                    onClick = {
+                        viewModel.hasMention = !viewModel.hasMention
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_mention)) }
                 )
             }
 
@@ -607,10 +664,30 @@ private fun SearchResultItem(
                 lineHeight = 18.sp
             )
 
-            // Show attachment indicator
-            if (!message.attachments.isNullOrEmpty()) {
+            // Metadata indicators row
+            val indicators = buildList {
+                if (!message.attachments.isNullOrEmpty()) {
+                    add("${message.attachments!!.size} attachment(s)")
+                }
+                if (!message.embeds.isNullOrEmpty()) {
+                    add("${message.embeds!!.size} embed(s)")
+                }
+                if (!message.replies.isNullOrEmpty()) {
+                    add("reply")
+                }
+                if (!message.reactions.isNullOrEmpty()) {
+                    add("${message.reactions!!.size} reaction(s)")
+                }
+                if (!message.mentions.isNullOrEmpty()) {
+                    add("${message.mentions!!.size} mention(s)")
+                }
+                if (message.pinned == true) {
+                    add("pinned")
+                }
+            }
+            if (indicators.isNotEmpty()) {
                 Text(
-                    text = "${message.attachments!!.size} attachment(s)",
+                    text = indicators.joinToString(" · "),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                     maxLines = 1,

@@ -858,6 +858,10 @@
     <string name="search_filter_has_attachment">Has: Attachment</string>
     <string name="search_filter_has_image">Has: Image</string>
     <string name="search_filter_has_file">Has: File</string>
+    <string name="search_filter_has_embed">Has: Embed</string>
+    <string name="search_filter_has_reply">Has: Reply</string>
+    <string name="search_filter_has_reaction">Has: Reaction</string>
+    <string name="search_filter_has_mention">Has: Mention</string>
     <string name="search_filter_from">From:</string>
     <string name="search_filter_from_hint">Username…</string>
 

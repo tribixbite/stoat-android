@@ -6,6 +6,7 @@ import chat.stoat.api.StoatJson
 import chat.stoat.api.api
 import chat.stoat.core.model.schemas.Message
 import chat.stoat.core.model.schemas.MessagesInChannel
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -13,14 +14,26 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
+/**
+ * Request body for POST /channels/{channelId}/search.
+ *
+ * Per API spec, [query] and [pinned] are mutually exclusive:
+ * - Text search: send query (1-64 chars), optionally with sort/limit/before/after
+ * - Pinned browse: send pinned=true only, with sort/limit/before/after
+ *
+ * Query uses MongoDB $text $search syntax:
+ * - Multiple words: OR match (any word)
+ * - "exact phrase": wrap in escaped quotes
+ * - -negation: prefix with hyphen to exclude
+ * - Stemming: "running" matches "run", "runs", etc.
+ */
 @Serializable
 data class MessageSearchRequest(
-    val query: String,
+    val query: String? = null,
     val limit: Int? = null,
     val before: String? = null,
     val after: String? = null,
@@ -39,46 +52,54 @@ sealed class SearchResult {
     data class Error(val message: String) : SearchResult()
 }
 
-/** Max time for a single search request (prevents HttpRequestRetry from
- *  retrying SocketTimeoutException 5× with exponential backoff). */
-private const val SEARCH_TIMEOUT_MS = 15_000L
-
 /**
  * Search messages in a channel using the Revolt API.
  * POST /channels/{channelId}/search
- * Returns [SearchResult] so callers can display errors in the UI.
+ *
+ * Uses per-request HttpTimeout overrides (30s socket, 45s request) because
+ * the search endpoint is significantly slower than other API calls (~3-10s).
+ *
+ * @param query Text to search for (1-64 chars). Null for pinned-only browse.
+ * @param includeUsers True returns {messages,users,members}; false returns Message[].
+ *                     Use false for speed when user data is already cached.
+ * @param pinned True to browse pinned messages only (mutually exclusive with query).
+ * @param limit 1-100, validated server-side. Default 10 for performance.
+ * @param sort "Relevance", "Latest", or "Oldest" (PascalCase required).
  */
 suspend fun searchMessages(
     channelId: String,
-    query: String,
-    limit: Int? = 25,
+    query: String? = null,
+    limit: Int? = 10,
     before: String? = null,
     after: String? = null,
     sort: String? = null,
-    includeUsers: Boolean? = true,
+    includeUsers: Boolean? = null,
     pinned: Boolean? = null
 ): SearchResult {
+    // API requires either query or pinned, not both
     val body = MessageSearchRequest(
-        query = query,
-        limit = limit,
+        query = if (pinned == true) null else query,
+        limit = limit?.coerceIn(1, 100),
         before = before,
         after = after,
         sort = sort,
         includeUsers = includeUsers,
-        pinned = pinned
+        pinned = if (pinned == true) true else null
     )
 
     val responseText: String
     val statusCode: Int
 
     try {
-        // Coroutine timeout caps total time including Ktor's retry mechanism.
-        // Without this, HttpRequestRetry retries SocketTimeoutException 5×
-        // with exponential backoff (potentially 5+ minutes).
-        val httpResponse = withTimeout(SEARCH_TIMEOUT_MS) {
-            StoatHttp.post("/channels/$channelId/search".api()) {
-                contentType(ContentType.Application.Json)
-                setBody(body)
+        val httpResponse = StoatHttp.post("/channels/$channelId/search".api()) {
+            contentType(ContentType.Application.Json)
+            setBody(body)
+            // Search endpoint is slow (~3-10s) — override global timeouts.
+            // requestTimeoutMillis caps total time including Ktor's HttpRequestRetry,
+            // preventing 5x exponential backoff on SocketTimeoutException.
+            timeout {
+                socketTimeoutMillis = 30_000
+                requestTimeoutMillis = 45_000
             }
         }
         statusCode = httpResponse.status.value
@@ -90,7 +111,6 @@ suspend fun searchMessages(
             return SearchResult.Error(errorMsg)
         }
     } catch (e: CancellationException) {
-        // Rethrow cancellation (coroutine was cancelled by user action)
         throw e
     } catch (e: Exception) {
         val errorMsg = "${e.javaClass.simpleName}: ${e.message}"
@@ -100,20 +120,22 @@ suspend fun searchMessages(
 
     Log.d("Search", "Search response (first 500 chars): ${responseText.take(500)}")
 
-    // Revolt API returns MessagesInChannel when include_users=true,
-    // or a plain Message[] array when include_users is false/absent
+    // Response format depends on include_users:
+    // - true: JSON object {messages: [], users: [], members?: []}
+    // - false/null: bare JSON array of Message objects
     return try {
         val data = if (includeUsers == true) {
             try {
                 StoatJson.decodeFromString(MessagesInChannel.serializer(), responseText)
             } catch (e: Exception) {
-                Log.w("Search", "Trying array fallback: ${e.message}")
+                Log.w("Search", "Object parse failed, trying array fallback: ${e.message}")
                 val messages = StoatJson.decodeFromString(
                     ListSerializer(Message.serializer()), responseText
                 )
                 MessagesInChannel(messages = messages, users = emptyList(), members = emptyList())
             }
         } else {
+            // Without include_users, API returns bare Message[] array
             val messages = StoatJson.decodeFromString(
                 ListSerializer(Message.serializer()), responseText
             )

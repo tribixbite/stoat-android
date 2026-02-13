@@ -212,6 +212,15 @@ Prevents duplicate message sends from rapid tapping.
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
+### Mark as Unread
+- **Implemented mark-as-unread** — replaced "coming soon" toast with working implementation
+- Generates synthetic ULID just before the selected message, acks channel to that ID
+- Channel appears unread from the selected message onwards in the channel list
+
+### README Dead Links (Upstream #42)
+- Replaced broken `revoltchat.github.io` links with fork documentation
+- Updated development setup instructions with Termux ARM64 build info
+
 ### API Robustness
 - **HTTP status code checks** on all API responses (previously some routes ignored error status)
 - **Pin endpoint method fix**: corrected from `PUT` to `POST` per OpenAPI spec
@@ -343,3 +352,5 @@ All changes from upstream divergence point:
 | `c51e360` | fix | Navigation restoration on app restart for DM/saved notes (#41/#21) |
 | `8768da8` | fix | Friends list reactivity (#39), blocked user swipe reply (#11) |
 | `a444479` | fix | Swipe-to-reply no longer hijacks code block scroll (#14) |
+| `4a29c1d` | fix | README dead links, add fork docs URLs (#42) |
+| `1f7a26f` | feat | Mark-as-unread in message context menu |

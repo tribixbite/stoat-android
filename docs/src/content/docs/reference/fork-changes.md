@@ -181,6 +181,11 @@ Prevents duplicate message sends from rapid tapping.
 - Guard at top of `sendPendingMessage()` rejects rapid taps
 - Flag cleared in `finally` block after send completes or fails
 
+### Navigation Restoration (Upstream #41/#21)
+- **Fixed DM/Saved Notes stuck loading** — when app restarts on a DM or saved notes channel, the channel cache is empty until WebSocket Ready frame arrives
+- `switchChannel()` now watches the cache with `snapshotFlow` and retries loading once the channel appears
+- Previously left the screen permanently in Loading state
+
 ### Message Send Race Condition (Upstream #17)
 - **Fixed channel ID capture** — `sendPendingMessage()` captured `channel?.id` inside async `viewModelScope.launch{}` block, but channel could change if user switched channels during slow attachment upload
 - Channel ID now captured synchronously before the launch, preventing messages from being sent to the wrong channel
@@ -320,3 +325,4 @@ All changes from upstream divergence point:
 | `f2ad4d0` | fix | Message send race condition (#17), DM mention autocomplete (#52) |
 | `a3d8969` | docs | Update fork-changes with MFA, upstream bug fixes |
 | `e7e8101` | feat | Collapsible categories, reply jump, send debounce, retry fix |
+| `c51e360` | fix | Navigation restoration on app restart for DM/saved notes (#41/#21) |

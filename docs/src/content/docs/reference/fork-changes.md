@@ -94,6 +94,39 @@ Automated build and release system.
 - **Error message display**: push notification errors now surface to the user instead of silent failure
 - **Manage Notifications button** added to settings for direct access to system notification settings
 
+### Account Management
+Full account settings screen with API integration.
+
+- **Account info display** — `GET /auth/account/` with email, MFA status
+- **Change email** — `PATCH /auth/account/change/email` with password confirmation
+- **Change password** — `PATCH /auth/account/change/password` with confirm + mismatch check
+- **Disable account** — `POST /auth/account/disable` with confirmation dialog
+- **Delete account** — `POST /auth/account/delete` with danger confirmation
+- **Resend verification** — `POST /auth/account/reverify`
+
+### Custom Emoji Management
+Server emoji administration with upload and delete support.
+
+- **Emoji list** — shows all custom emoji for a server from cache, with names and creator info
+- **Upload emoji** — pick image, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
+- **Delete emoji** — `DELETE /custom/emoji/{id}` with confirmation dialog
+- **Permission-gated** — requires ManageCustomisation or ManageServer
+
+### Invite Management
+Server invite administration with list, copy, and delete.
+
+- **List invites** — `GET /servers/{id}/invites` showing invite links, creator, channel
+- **Copy invite link** — tap to copy `stt.gg/{code}` to clipboard
+- **Delete invite** — `DELETE /invites/{code}` with confirmation dialog
+- **Create invite** — `POST /channels/{id}/invites`
+
+### Mutual Friends & Servers
+Shows shared connections in member context sheets.
+
+- **Mutual friends** — `GET /users/{id}/mutual` with resolved friend names from cache
+- **Mutual servers** — shows shared server names
+- **Non-intrusive** — displays between moderation actions and copy ID, only for other users
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -123,10 +156,12 @@ Comprehensive technical documentation added (not present in upstream):
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
 | Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 67 (55%) |
+| Implemented | ~55 | 78 (64%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
-| Server admin UI | None | Settings, roles, bans, channels, permissions, member edit |
+| Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
+| Account management | None | View, edit email/password, delete/disable account |
+| Social features | Basic | Mutual friends/servers, user profiles |
 | Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
 | Documentation | Minimal | 10 spec documents, API reference |
 
@@ -137,26 +172,26 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 ### Phase 1: Account & Security (High Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Account info display | `GET /auth/account` | Planned |
-| Change email | `PATCH /auth/account` | Planned |
-| Change password | `PATCH /auth/account` | Planned |
-| Delete/disable account | `POST /auth/account/delete`, `disable` | Planned |
-| Email verification | `POST /auth/account/reverify` | Planned |
+| Account info display | `GET /auth/account` | **Done** |
+| Change email | `PATCH /auth/account/change/email` | **Done** |
+| Change password | `PATCH /auth/account/change/password` | **Done** |
+| Delete/disable account | `POST /auth/account/delete`, `disable` | **Done** |
+| Email verification | `POST /auth/account/reverify` | **Done** |
 | MFA setup (TOTP) | 7 endpoints | Planned |
 
 ### Phase 2: Server Admin Polish (High Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Default permissions editor | `PUT /servers/{id}/permissions/default` | Done |
-| Role permissions editor | `PUT /servers/{id}/permissions/{roleId}` | Done |
-| Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | Planned |
-| Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | Planned |
+| Default permissions editor | `PUT /servers/{id}/permissions/default` | **Done** |
+| Role permissions editor | `PUT /servers/{id}/permissions/{roleId}` | **Done** |
+| Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | **Done** |
+| Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | **Done** |
 | Member search | `GET /servers/{id}/members` with query | Planned |
 
 ### Phase 3: Social Features (Medium Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Mutual friends/servers | `GET /users/{id}/mutual` | Planned |
+| Mutual friends/servers | `GET /users/{id}/mutual` | **Done** |
 | DM channel listing | `GET /users/dms` | Existing |
 | User profile display | `GET /users/{id}/profile` | Existing (partial) |
 
@@ -165,7 +200,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 |---------|-----------|--------|
 | Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | Planned |
 | Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | API done, UI planned |
-| Server emoji listing | `GET /servers/{id}/emojis` | Planned |
+| Server emoji listing | `GET /servers/{id}/emojis` | **Done** (via cache) |
 
 ### Phase 5: Bots & Webhooks (Low Priority)
 | Feature | Endpoints | Status |
@@ -210,3 +245,5 @@ All changes from upstream divergence point:
 | `01c82b9` | fix | Show server/channel names in notification settings |
 | `ca3025a` | docs | Permissions editor and notification improvement specs |
 | `dc66ccf` | fix | Discover tab clicks, FCM placeholder detection, project memory |
+| `6dd4cc0` | feat | Account management, invite management screens |
+| `44699c7` | feat | Emoji management, mutual friends/servers display |

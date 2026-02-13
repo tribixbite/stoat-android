@@ -113,6 +113,35 @@ All from `chat.stoat.api.internals.PermissionBit`:
 - **Channel mute**: ChannelContextSheet → Mute/Unmute Channel
 - **Notification filtering**: HandlerService checks `NotificationSettingsProvider.isChannelMuted()` before displaying
 
+### EmojiManagementScreen
+- **Route**: `settings/server/{serverId}/emojis`
+- **Entry**: ServerSettingsScreen → Emoji (gated by ManageCustomisation)
+- **Features**:
+  - List all custom emoji for server from emojiCache, sorted by name
+  - Emoji preview via Glide (from `$STOAT_FILES/emojis/{id}`)
+  - Creator name from userCache, NSFW badge
+  - Delete emoji with confirmation dialog
+  - Add emoji dialog: name input (alphanumeric/underscore only), image picker, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
+  - Upload progress indicator
+
+### InviteManagementScreen
+- **Route**: `settings/server/{serverId}/invites`
+- **Entry**: ServerSettingsScreen → Invites (gated by ManageServer)
+- **Features**:
+  - List all server invites with creator name and channel name
+  - Tap to copy invite link to clipboard
+  - Delete invite with confirmation dialog
+  - Empty state when no invites
+
+### Mutual Friends/Servers (MemberContextSheet)
+- **Location**: ServerMemberContextSheet, between moderation actions and Copy ID
+- **API**: `GET /users/{id}/mutual` → `MutualInfo(users, servers)`
+- **Features**:
+  - Shows mutual friends count with resolved names from userCache
+  - Shows mutual servers count with server names from serverCache
+  - Non-blocking load (failure silently ignored)
+  - Only shown for other users (not self)
+
 ## API Routes Used
 | Route | File |
 |-------|------|
@@ -129,13 +158,20 @@ All from `chat.stoat.api.internals.PermissionBit`:
 | `POST /autumn/icons` | `→ uploadToAutumn()` |
 | `PUT /servers/{id}/permissions/default` | `→ setDefaultPermissions()` |
 | `PUT /servers/{id}/permissions/{roleId}` | `→ setServerPermissions()` |
+| `GET /servers/{id}/invites` | `→ fetchServerInvites()` |
+| `DELETE /invites/{code}` | `→ deleteInvite()` |
+| `POST /channels/{id}/invites` | `→ createChannelInvite()` |
+| `PUT /custom/emoji/{id}` | `api/routes/custom/Emoji.kt → createEmoji()` |
+| `DELETE /custom/emoji/{id}` | `→ deleteEmoji()` |
+| `GET /users/{id}/mutual` | `api/routes/user/User.kt → fetchMutualFriendsAndServers()` |
 
 ## Permission Bits
 All from `chat.stoat.api.internals.PermissionBit`:
-- `ManageServer` — edit server info
+- `ManageServer` — edit server info, manage invites
 - `ManageRole` — create/edit/delete roles
 - `ManageChannel` — create channels
 - `ManagePermissions` — edit default/role permissions
+- `ManageCustomisation` — manage custom emoji
 - `BanMembers` — view bans, ban/unban
 - `KickMembers` — kick members
 - `AssignRoles` — assign roles to members
@@ -143,7 +179,9 @@ All from `chat.stoat.api.internals.PermissionBit`:
 - `ChangeNickname` — edit own nickname
 
 ## String Resources
-128+ entries in `strings.xml`:
+180+ entries in `strings.xml`:
 - Server settings (9), Role management (13), Ban management (6),
   Channel creation (8), Member management (7)
 - Permission names and descriptions (75)
+- Account settings (28), Invite management (12), Emoji management (14)
+- Mutual friends/servers (2)

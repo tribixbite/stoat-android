@@ -229,8 +229,11 @@ class ChatRouterViewModel @Inject constructor(
                 val token = task.result
                 viewModelScope.launch {
                     kvStorage.set("fcmToken", token)
-                    val success = subscribePush(auth = token)
-                    kvStorage.set("pushRegistrationFailed", !success)
+                    val error = subscribePush(auth = token)
+                    kvStorage.set("pushRegistrationFailed", error != null)
+                    if (error != null) {
+                        Log.w("FCM", "Push registration failed: $error")
+                    }
                 }
             }
         )
@@ -246,10 +249,12 @@ class ChatRouterViewModel @Inject constructor(
             if (!failed) return@launch
 
             val token = kvStorage.get("fcmToken") ?: return@launch
-            val success = subscribePush(auth = token)
-            if (success) {
+            val error = subscribePush(auth = token)
+            if (error == null) {
                 kvStorage.set("pushRegistrationFailed", false)
                 Log.d("FCM", "Push registration retry succeeded")
+            } else {
+                Log.w("FCM", "Push registration retry failed: $error")
             }
         }
     }

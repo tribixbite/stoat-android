@@ -59,6 +59,8 @@ class NotificationSettingsViewModel @Inject constructor(
         private set
     var isRetrying by mutableStateOf(false)
         private set
+    var lastError by mutableStateOf<String?>(null)
+        private set
 
     init {
         viewModelScope.launch {
@@ -70,10 +72,12 @@ class NotificationSettingsViewModel @Inject constructor(
 
     fun retryFcmRegistration() {
         isRetrying = true
+        lastError = null
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w("NotificationSettings", "FCM token fetch failed", task.exception)
                 task.exception?.let { Sentry.captureException(it) }
+                lastError = "FCM token fetch failed: ${task.exception?.message}"
                 isRetrying = false
                 return@addOnCompleteListener
             }
@@ -81,10 +85,14 @@ class NotificationSettingsViewModel @Inject constructor(
             val token = task.result
             viewModelScope.launch {
                 kvStorage.set("fcmToken", token)
-                val success = subscribePush(auth = token)
-                kvStorage.set("pushRegistrationFailed", !success)
-                fcmRegistered = success
+                val error = subscribePush(auth = token)
+                kvStorage.set("pushRegistrationFailed", error != null)
+                fcmRegistered = error == null
+                lastError = error
                 isRetrying = false
+                if (error == null) {
+                    Log.d("NotificationSettings", "Push registration succeeded")
+                }
             }
         }
     }
@@ -214,6 +222,11 @@ fun NotificationSettingsScreen(
                 supportingContent = {
                     if (!notificationsEnabled) {
                         Text(stringResource(R.string.settings_notifications_grant_first))
+                    } else if (viewModel.lastError != null) {
+                        Text(
+                            text = viewModel.lastError!!,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 },
                 trailingContent = {

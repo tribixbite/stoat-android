@@ -46,9 +46,9 @@ class HandlerService : FirebaseMessagingService() {
         super.onNewToken(token)
         try {
             runBlocking {
-                val success = subscribePush(auth = token)
-                if (!success) {
-                    Log.w("HandlerService", "Push subscription failed during onNewToken")
+                val error = subscribePush(auth = token)
+                if (error != null) {
+                    Log.w("HandlerService", "Push subscription failed during onNewToken: $error")
                 }
             }
         } catch (e: Exception) {

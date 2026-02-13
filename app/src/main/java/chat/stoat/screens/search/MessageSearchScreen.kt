@@ -18,11 +18,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,19 +66,15 @@ import androidx.navigation.NavController
 import chat.stoat.R
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.ULID
+import chat.stoat.api.routes.channel.SearchResult
 import chat.stoat.api.routes.channel.searchMessages
 import chat.stoat.composables.chat.formatLongAsTime
 import chat.stoat.composables.generic.UserAvatar
 import chat.stoat.core.model.schemas.Message
 import chat.stoat.core.model.schemas.User
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -100,6 +98,7 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var hasSearched by mutableStateOf(false)
     var sort by mutableStateOf(SearchSort.Relevance)
     var pinnedOnly by mutableStateOf(false)
+    var errorMessage by mutableStateOf<String?>(null)
 
     // Discord-style content filters (applied client-side)
     var hasLink by mutableStateOf(false)
@@ -109,48 +108,36 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var fromUser by mutableStateOf("")
 
     val results = mutableStateListOf<Message>()
-    // Raw results before client-side filtering
     private val rawResults = mutableListOf<Message>()
     val userCache = mutableMapOf<String, User>()
 
     private var canLoadMore by mutableStateOf(true)
     private var searchJob: Job? = null
 
-    private val queryFlow = MutableStateFlow("")
-
-    @OptIn(FlowPreview::class)
-    fun startListening() {
-        viewModelScope.launch {
-            queryFlow
-                .debounce(400)
-                .distinctUntilChanged()
-                .filter { it.isNotBlank() }
-                .collectLatest { q ->
-                    performSearch(fresh = true)
-                }
+    /** Trigger search explicitly (submit button / keyboard action) */
+    fun submitSearch() {
+        // Allow search with just from:user filter (use wildcard query)
+        if (query.isBlank() && fromUser.isBlank() && !hasAttachment && !hasLink && !hasImage && !hasFile) {
+            return
         }
-    }
-
-    fun onQueryChanged(newQuery: String) {
-        query = newQuery
-        queryFlow.value = newQuery
+        performSearch(fresh = true)
     }
 
     fun onSortChanged(newSort: SearchSort) {
         sort = newSort
-        if (query.isNotBlank()) {
+        if (hasSearched) {
             performSearch(fresh = true)
         }
     }
 
     fun onPinnedToggled() {
         pinnedOnly = !pinnedOnly
-        if (query.isNotBlank()) {
+        if (hasSearched) {
             performSearch(fresh = true)
         }
     }
 
-    /** Toggle a client-side filter and reapply to current results */
+    /** Reapply client-side filters without refetching */
     fun onFilterChanged() {
         applyClientFilters()
     }
@@ -196,6 +183,7 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
         searchJob = viewModelScope.launch {
             isLoading = true
             hasSearched = true
+            errorMessage = null
 
             val beforeId = if (!fresh && rawResults.isNotEmpty()) {
                 rawResults.lastOrNull()?.id
@@ -209,33 +197,40 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                 canLoadMore = true
             }
 
-            try {
-                val response = searchMessages(
-                    channelId = channelId,
-                    query = query,
-                    limit = 25,
-                    before = beforeId,
-                    sort = sort.apiValue,
-                    includeUsers = true,
-                    pinned = if (pinnedOnly) true else null
-                )
+            // If no text query, use a single space as wildcard so the API accepts it.
+            // The from:user and has: filters are applied client-side afterward.
+            val apiQuery = query.ifBlank { " " }
 
-                response.users?.forEach { user ->
-                    user.id?.let { userCache[it] = user }
+            val result = searchMessages(
+                channelId = channelId,
+                query = apiQuery,
+                limit = 25,
+                before = beforeId,
+                sort = sort.apiValue,
+                includeUsers = true,
+                pinned = if (pinnedOnly) true else null
+            )
+
+            when (result) {
+                is SearchResult.Success -> {
+                    result.data.users?.forEach { user ->
+                        user.id?.let { userCache[it] = user }
+                    }
+
+                    val messages = result.data.messages ?: emptyList()
+                    if (messages.isEmpty()) {
+                        canLoadMore = false
+                    } else {
+                        rawResults.addAll(messages)
+                    }
+
+                    applyClientFilters()
                 }
-
-                val messages = response.messages ?: emptyList()
-                if (messages.isEmpty()) {
+                is SearchResult.Error -> {
+                    errorMessage = result.message
                     canLoadMore = false
-                } else {
-                    rawResults.addAll(messages)
+                    Log.e("MessageSearch", "Search error: ${result.message}")
                 }
-
-                // Apply client-side filters
-                applyClientFilters()
-            } catch (e: Exception) {
-                Log.e("MessageSearch", "Search failed: ${e.message}", e)
-                canLoadMore = false
             }
 
             isLoading = false
@@ -255,7 +250,6 @@ fun MessageSearchScreen(
 
     LaunchedEffect(channelId) {
         viewModel.channelId = channelId
-        viewModel.startListening()
     }
 
     LaunchedEffect(Unit) {
@@ -295,13 +289,17 @@ fun MessageSearchScreen(
                 title = {
                     BasicTextField(
                         value = viewModel.query,
-                        onValueChange = { viewModel.onQueryChanged(it) },
+                        onValueChange = { viewModel.query = it },
                         textStyle = LocalTextStyle.current.copy(
                             color = LocalContentColor.current,
                             fontSize = 16.sp
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { viewModel.submitSearch() }
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
@@ -323,20 +321,6 @@ fun MessageSearchScreen(
                                     )
                                 }
                                 innerTextField()
-
-                                if (viewModel.query.isNotEmpty()) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.icn_close_24dp),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .align(Alignment.CenterEnd)
-                                            .size(20.dp)
-                                            .clickable {
-                                                viewModel.onQueryChanged("")
-                                            }
-                                            .alpha(0.6f)
-                                    )
-                                }
                             }
                         }
                     )
@@ -346,9 +330,17 @@ fun MessageSearchScreen(
                         CircularProgressIndicator(
                             modifier = Modifier
                                 .size(24.dp)
-                                .padding(end = 8.dp),
+                                .padding(end = 4.dp),
                             strokeWidth = 2.dp
                         )
+                    } else {
+                        // Search/submit button
+                        IconButton(onClick = { viewModel.submitSearch() }) {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_search_24dp),
+                                contentDescription = stringResource(R.string.search_messages)
+                            )
+                        }
                     }
                 }
             )
@@ -451,6 +443,10 @@ fun MessageSearchScreen(
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { viewModel.submitSearch() }
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .clip(MaterialTheme.shapes.small)
@@ -475,7 +471,25 @@ fun MessageSearchScreen(
 
             HorizontalDivider()
 
-            if (viewModel.hasSearched && viewModel.results.isEmpty() && !viewModel.isLoading) {
+            // Error display
+            if (viewModel.errorMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = viewModel.errorMessage!!,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            if (viewModel.hasSearched && viewModel.results.isEmpty() && !viewModel.isLoading && viewModel.errorMessage == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -503,7 +517,7 @@ fun MessageSearchScreen(
                                 viewModel.userCache[it] ?: StoatAPI.userCache[it]
                             },
                             onClick = {
-                                // Navigate back to channel — future: scroll to message via nearby
+                                // TODO: navigate to message in channel via nearby fetch
                                 navController.popBackStack()
                             }
                         )
@@ -585,7 +599,7 @@ private fun SearchResultItem(
                 lineHeight = 18.sp
             )
 
-            // Show attachment indicator if message has attachments
+            // Show attachment indicator
             if (!message.attachments.isNullOrEmpty()) {
                 Text(
                     text = "${message.attachments!!.size} attachment(s)",

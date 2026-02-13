@@ -25,7 +25,9 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -37,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +60,8 @@ import chat.stoat.api.STOAT_FILES
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.routes.channel.patchChannel
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
+import chat.stoat.api.settings.NotificationSettingsProvider
+import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.core.model.schemas.Channel
 import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.composables.generic.ListHeader
@@ -438,6 +443,41 @@ fun ChannelSettingsOverview(
                         },
                         modifier = Modifier
                             .padding(vertical = 8.dp, horizontal = 16.dp),
+                    )
+
+                    // Notification mute toggle
+                    ListHeader {
+                        Text(stringResource(R.string.settings_notifications))
+                    }
+
+                    val muteScope = rememberCoroutineScope()
+                    val isMuted = NotificationSettingsProvider.isChannelMuted(
+                        channelId,
+                        currentChannel.server
+                    )
+
+                    ListItem(
+                        headlineContent = {
+                            Text(stringResource(R.string.channel_context_sheet_actions_mute))
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = isMuted,
+                                onCheckedChange = { shouldMute ->
+                                    muteScope.launch {
+                                        val channelMap = SyncedSettings.notifications.channel.toMutableMap()
+                                        if (shouldMute) {
+                                            channelMap[channelId] = "muted"
+                                        } else {
+                                            channelMap.remove(channelId)
+                                        }
+                                        SyncedSettings.updateNotifications(
+                                            SyncedSettings.notifications.copy(channel = channelMap)
+                                        )
+                                    }
+                                }
+                            )
+                        }
                     )
                 }
             } ?: run {

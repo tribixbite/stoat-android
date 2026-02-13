@@ -44,6 +44,7 @@ import chat.stoat.R
 import chat.stoat.api.STOAT_WEB_APP
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.routes.server.leaveOrDeleteServer
+import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.composables.generic.SheetButton
 import chat.stoat.composables.markdown.RichMarkdown
 import chat.stoat.composables.screens.settings.ServerOverview
@@ -252,6 +253,48 @@ fun ServerContextSheet(
                 coroutineScope.launch {
                     server.id?.let {
                         StoatAPI.unreads.markServerAsRead(it, sync = true)
+                    }
+                    onHideSheet()
+                }
+            }
+        )
+
+        // Mute/unmute server toggle
+        val isServerMuted = server.id?.let {
+            SyncedSettings.notifications.server[it] == "muted"
+        } ?: false
+
+        SheetButton(
+            leadingContent = {
+                Icon(
+                    painter = painterResource(
+                        id = if (isServerMuted) R.drawable.icn_volume_up_24dp
+                        else R.drawable.icn_notification_settings_24dp
+                    ),
+                    contentDescription = null
+                )
+            },
+            headlineContent = {
+                Text(
+                    text = if (isServerMuted) {
+                        stringResource(id = R.string.server_context_sheet_actions_unmute)
+                    } else {
+                        stringResource(id = R.string.server_context_sheet_actions_mute)
+                    }
+                )
+            },
+            onClick = {
+                coroutineScope.launch {
+                    server.id?.let { sid ->
+                        val currentServerMap = SyncedSettings.notifications.server.toMutableMap()
+                        if (isServerMuted) {
+                            currentServerMap.remove(sid)
+                        } else {
+                            currentServerMap[sid] = "muted"
+                        }
+                        SyncedSettings.updateNotifications(
+                            SyncedSettings.notifications.copy(server = currentServerMap)
+                        )
                     }
                     onHideSheet()
                 }

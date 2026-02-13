@@ -822,6 +822,38 @@
     <string name="keyboard_shortcut_messaging_new_line">New Line</string>
     <string name="keyboard_shortcut_messaging_send_message">Send Message</string>
 
+    <!-- Notification Settings -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_description">Manage notification permissions and mute settings</string>
+    <string name="settings_notifications_permission_status">Notification Permission</string>
+    <string name="settings_notifications_permission_granted">Granted</string>
+    <string name="settings_notifications_permission_denied">Denied</string>
+    <string name="settings_notifications_open_system_settings">Open System Settings</string>
+    <string name="settings_notifications_fcm_status">Push Registration</string>
+    <string name="settings_notifications_fcm_registered">Registered</string>
+    <string name="settings_notifications_fcm_not_registered">Not registered</string>
+    <string name="settings_notifications_fcm_retry">Re-register</string>
+    <string name="settings_notifications_muted_servers">Muted Servers</string>
+    <string name="settings_notifications_muted_channels">Muted Channels</string>
+    <string name="settings_notifications_no_muted">None</string>
+    <string name="settings_notifications_reset">Reset All Notification Settings</string>
+
+    <!-- Channel Mute -->
+    <string name="channel_context_sheet_actions_mute">Mute Channel</string>
+    <string name="channel_context_sheet_actions_unmute">Unmute Channel</string>
+    <string name="server_context_sheet_actions_mute">Mute Server</string>
+    <string name="server_context_sheet_actions_unmute">Unmute Server</string>
+
+    <!-- Message Search -->
+    <string name="search_messages">Search Messages</string>
+    <string name="search_messages_hint">Search in this channel…</string>
+    <string name="search_messages_no_results">No messages found</string>
+    <string name="search_messages_filter_pinned">Pinned</string>
+    <string name="search_messages_sort_relevance">Relevance</string>
+    <string name="search_messages_sort_latest">Latest</string>
+    <string name="search_messages_sort_oldest">Oldest</string>
+    <string name="search_messages_loading">Searching…</string>
+
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>
     <string name="geogate_description">Stoat may block content in certain jurisdictions in response to legislation or legal notices</string>

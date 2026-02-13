@@ -193,8 +193,9 @@ class ChatRouterViewModel @Inject constructor(
 
             val hasNotificationPermission =
                 NotificationManagerCompat.from(context).areNotificationsEnabled()
-            // right now we only show this in debug builds so Chucker can show its notification
-            if (!hasNotificationPermission && BuildConfig.DEBUG) {
+            val pushRejected = kvStorage.getBoolean("pushNotificationsRejected") == true
+            // Show notification rationale for all builds unless user previously declined
+            if (!hasNotificationPermission && !pushRejected) {
                 showNotificationRationale = true
             }
         }
@@ -228,10 +229,29 @@ class ChatRouterViewModel @Inject constructor(
                 val token = task.result
                 viewModelScope.launch {
                     kvStorage.set("fcmToken", token)
-                    subscribePush(auth = token)
+                    val success = subscribePush(auth = token)
+                    kvStorage.set("pushRegistrationFailed", !success)
                 }
             }
         )
+    }
+
+    /**
+     * Retry push registration if a previous attempt failed.
+     * Called on app resume to recover from transient failures.
+     */
+    fun retryPushRegistrationIfNeeded() {
+        viewModelScope.launch {
+            val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
+            if (!failed) return@launch
+
+            val token = kvStorage.get("fcmToken") ?: return@launch
+            val success = subscribePush(auth = token)
+            if (success) {
+                kvStorage.set("pushRegistrationFailed", false)
+                Log.d("FCM", "Push registration retry succeeded")
+            }
+        }
     }
 
     fun markNotificationsRejected() {
@@ -358,6 +378,8 @@ fun ChatRouterScreen(
             RealtimeSocket.updateDisconnectionState(DisconnectionState.Reconnecting)
             scope.launch { StoatAPI.connectWS() }
         }
+        // Retry push registration if a previous attempt failed
+        viewModel.retryPushRegistrationIfNeeded()
     }
 
     LaunchedEffect(drawerState) {

@@ -118,10 +118,12 @@ import chat.stoat.screens.settings.ExperimentsSettingsScreen
 import chat.stoat.screens.settings.LanguagePickerSettingsScreen
 import chat.stoat.screens.settings.ProfileSettingsScreen
 import chat.stoat.screens.settings.SessionSettingsScreen
+import chat.stoat.screens.settings.NotificationSettingsScreen
 import chat.stoat.screens.settings.SettingsScreen
 import chat.stoat.screens.settings.channel.ChannelSettingsHome
 import chat.stoat.screens.settings.channel.ChannelSettingsOverview
 import chat.stoat.screens.settings.channel.ChannelSettingsPermissions
+import chat.stoat.screens.search.MessageSearchScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.AndroidEntryPoint
@@ -719,6 +721,12 @@ fun AppEntrypoint(
                     composable("settings/experiments") { ExperimentsSettingsScreen(navController) }
                     composable("settings/changelogs") { ChangelogsSettingsScreen(navController) }
                     composable("settings/language") { LanguagePickerSettingsScreen(navController) }
+                    composable("settings/notifications") { NotificationSettingsScreen(navController) }
+
+                    composable("search/{channelId}") { backStackEntry ->
+                        val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
+                        MessageSearchScreen(channelId = channelId, navController = navController)
+                    }
 
                     composable("settings/channel/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""

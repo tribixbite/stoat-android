@@ -19,8 +19,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import chat.stoat.R
 import chat.stoat.api.StoatAPI
+import chat.stoat.api.settings.NotificationSettingsProvider
+import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.composables.generic.SheetButton
-
 import chat.stoat.internals.Platform
 import kotlinx.coroutines.launch
 
@@ -40,8 +41,45 @@ fun ChannelContextSheet(channelId: String, onHideSheet: suspend () -> Unit) {
 
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
-
     val coroutineScope = rememberCoroutineScope()
+
+    val isMuted = NotificationSettingsProvider.isChannelMuted(channelId, channel.server)
+
+    // Mute/unmute channel toggle
+    SheetButton(
+        headlineContent = {
+            Text(
+                text = if (isMuted) {
+                    stringResource(id = R.string.channel_context_sheet_actions_unmute)
+                } else {
+                    stringResource(id = R.string.channel_context_sheet_actions_mute)
+                },
+            )
+        },
+        leadingContent = {
+            Icon(
+                painter = painterResource(
+                    id = if (isMuted) R.drawable.icn_volume_up_24dp
+                    else R.drawable.icn_notification_settings_24dp
+                ),
+                contentDescription = null
+            )
+        },
+        onClick = {
+            coroutineScope.launch {
+                val currentChannelMap = SyncedSettings.notifications.channel.toMutableMap()
+                if (isMuted) {
+                    currentChannelMap.remove(channelId)
+                } else {
+                    currentChannelMap[channelId] = "muted"
+                }
+                SyncedSettings.updateNotifications(
+                    SyncedSettings.notifications.copy(channel = currentChannelMap)
+                )
+                onHideSheet()
+            }
+        }
+    )
 
     SheetButton(
         headlineContent = {
@@ -95,6 +133,4 @@ fun ChannelContextSheet(channelId: String, onHideSheet: suspend () -> Unit) {
             }
         }
     )
-
-
 }

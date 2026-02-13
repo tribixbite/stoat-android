@@ -72,12 +72,13 @@ android {
             useSupportLibrary = true
         }
 
-        externalNativeBuild {
-            cmake {
-                arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
-                cppFlags("")
-            }
-        }
+        // TODO: NDK native build disabled for Termux ARM64 (NDK host tools are x86_64)
+        // externalNativeBuild {
+        //     cmake {
+        //         arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+        //         cppFlags("")
+        //     }
+        // }
     }
 
     buildTypes {
@@ -144,12 +145,13 @@ android {
     androidResources {
         generateLocaleConfig = true
     }
-    externalNativeBuild {
-        cmake {
-            path(file("src/main/cpp/CMakeLists.txt"))
-            version = "3.22.1"
-        }
-    }
+    // TODO: NDK native build disabled for Termux ARM64 (NDK host tools are x86_64)
+    // externalNativeBuild {
+    //     cmake {
+    //         path(file("src/main/cpp/CMakeLists.txt"))
+    //         version = "3.22.1"
+    //     }
+    // }
     lint {
         abortOnError = false
         disable += "MissingTranslation"

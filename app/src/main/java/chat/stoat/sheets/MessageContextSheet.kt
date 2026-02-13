@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -15,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +43,7 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.PermissionBit
 import chat.stoat.api.internals.Roles
 import chat.stoat.api.internals.has
+import chat.stoat.api.routes.channel.bulkDeleteMessages
 import chat.stoat.api.routes.channel.deleteMessage
 import chat.stoat.api.routes.channel.pinMessage
 import chat.stoat.api.routes.channel.react
@@ -78,6 +82,7 @@ fun MessageContextSheet(
     var showShareSheet by remember { mutableStateOf(false) }
     var showReactSheet by remember { mutableStateOf(false) }
     var showDeleteMessageConfirmation by remember { mutableStateOf(false) }
+    var showBulkDeleteConfirmation by remember { mutableStateOf(false) }
     var showInspectASTSheet by remember { mutableStateOf(false) }
     val showInspectASTSheetButton =
         BuildConfig.DEBUG || (message.content != null && Experiments.useKotlinBasedMarkdownRenderer.isEnabled)
@@ -305,6 +310,90 @@ fun MessageContextSheet(
                     }
                 ) {
                     Text(stringResource(R.string.message_context_sheet_actions_delete_confirmation_no))
+                }
+            }
+        )
+    }
+
+    // Bulk delete dialog — find recent messages in cache and delete in batch
+    if (showBulkDeleteConfirmation) {
+        val channelId = message.channel
+        // Collect up to 100 recent message IDs from cache for this channel
+        val channelMessages = remember {
+            StoatAPI.messageCache.values
+                .filter { it.channel == channelId && it.id != null }
+                .sortedByDescending { it.id } // ULID sorts chronologically
+                .take(100)
+                .map { it.id!! }
+        }
+
+        var deleteCount by remember { mutableStateOf(10) }
+        var isDeleting by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isDeleting) showBulkDeleteConfirmation = false },
+            title = { Text(stringResource(R.string.bulk_delete_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.bulk_delete_description, deleteCount))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // Count selector: row of preset buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(5, 10, 25, 50, 100).forEach { count ->
+                            val available = minOf(count, channelMessages.size)
+                            TextButton(
+                                onClick = { deleteCount = available },
+                                enabled = channelMessages.size >= count
+                            ) {
+                                Text(
+                                    "$count",
+                                    color = if (deleteCount == available)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.bulk_delete_available, channelMessages.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isDeleting = true
+                        coroutineScope.launch {
+                            try {
+                                val idsToDelete = channelMessages.take(deleteCount)
+                                if (channelId != null && idsToDelete.isNotEmpty()) {
+                                    bulkDeleteMessages(channelId, idsToDelete)
+                                }
+                                showBulkDeleteConfirmation = false
+                                onHideSheet()
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.bulk_delete_success, idsToDelete.size),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                            isDeleting = false
+                        }
+                    },
+                    enabled = !isDeleting && channelMessages.isNotEmpty()
+                ) {
+                    Text(stringResource(R.string.bulk_delete_button))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBulkDeleteConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -560,6 +649,27 @@ fun MessageContextSheet(
                 dangerous = true,
                 onClick = {
                     showDeleteMessageConfirmation = true
+                }
+            )
+        }
+
+        // Bulk delete (moderator-only)
+        if (hasManageMessages) {
+            SheetButton(
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.icn_delete_24dp),
+                        contentDescription = null
+                    )
+                },
+                headlineContent = {
+                    Text(
+                        text = stringResource(R.string.bulk_delete_title),
+                    )
+                },
+                dangerous = true,
+                onClick = {
+                    showBulkDeleteConfirmation = true
                 }
             )
         }

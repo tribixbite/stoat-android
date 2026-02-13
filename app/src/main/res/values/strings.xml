@@ -1102,6 +1102,11 @@
 
     <!-- Message actions -->
     <string name="message_context_sheet_actions_remove_reactions">Remove All Reactions</string>
+    <string name="bulk_delete_title">Bulk Delete</string>
+    <string name="bulk_delete_description">Delete %d most recent messages in this channel.</string>
+    <string name="bulk_delete_available">%d messages available in cache</string>
+    <string name="bulk_delete_button">Delete Messages</string>
+    <string name="bulk_delete_success">Deleted %d messages</string>
 
     <!-- Member search -->
     <string name="member_search_hint">Search members…</string>

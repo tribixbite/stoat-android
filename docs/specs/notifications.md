@@ -40,12 +40,23 @@ Push notifications are delivered via Firebase Cloud Messaging (FCM). The app reg
 
 ## Error Handling
 
-- `subscribePush()` returns `Boolean` success/failure, logs errors
+- `subscribePush()` returns `String?` — null on success, error message on failure
+- Checks HTTP status code (4xx/5xx surfaced as error string)
+- `NotificationSettingsScreen` displays push registration errors inline
 - `HandlerService.onNewToken()` wrapped in try-catch
 - Glide avatar loading has 10-second timeout with fallback to default icon
 - Failed registration tracked via `pushRegistrationFailed` KV flag
 - Retry on app resume via `retryPushRegistrationIfNeeded()`
 - Payload parse failures logged with specific field names
+
+## Background Connection
+
+- WebSocket managed by `RealtimeSocket.connect()` in `StoatAPI.connectWS()`
+- Pings sent every 30 seconds via `mainHandler.postDelayed()`
+- When app is backgrounded, Android throttles the main looper → pings stop → server closes socket
+- `connectWS()` always marks `DisconnectionState.Disconnected` when the session ends
+- `ChatRouterScreen` reconnects on `Lifecycle.Event.ON_RESUME` if disconnected
+- FCM handles background notification delivery independently of WebSocket
 
 ## Permission Flow
 

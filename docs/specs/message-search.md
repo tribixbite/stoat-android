@@ -65,11 +65,13 @@ Returns `MessagesInChannel` schema:
 
 ### Search Behavior
 
-- 400ms debounce on query input
-- Minimum 1 character to trigger search
-- Fresh search on sort/filter change (server-side)
+- Explicit submit via search button or keyboard Search action (no auto-search)
+- Can search with just from:user or has: filters without text query (uses space as API wildcard)
+- Fresh search on sort/filter change (server-side) if a search was already performed
 - Client-side filters applied after API results — reapplied without refetching
 - Results include user data for avatar/name display
+- API errors displayed inline in error container (HTTP status + response body)
+- `SearchResult` sealed class surfaces errors to UI instead of swallowing them
 
 ## Navigation
 

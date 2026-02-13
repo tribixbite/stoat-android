@@ -1,6 +1,9 @@
 package chat.stoat.screens.search
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,6 +38,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -121,6 +125,26 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     /** Whether any client-side filter is active (requires include_users for from:user) */
     private val needsUserData: Boolean
         get() = fromUser.isNotBlank()
+
+    /** Count of active client-side content filters (shown in collapsed filter header) */
+    val activeFilterCount: Int
+        get() = listOf(hasLink, hasAttachment, hasImage, hasFile, hasEmbed,
+            hasReply, hasReaction, hasMention).count { it } +
+            (if (fromUser.isNotBlank()) 1 else 0)
+
+    /** Reset all client-side content filters */
+    fun clearAllFilters() {
+        hasLink = false
+        hasAttachment = false
+        hasImage = false
+        hasFile = false
+        hasEmbed = false
+        hasReply = false
+        hasReaction = false
+        hasMention = false
+        fromUser = ""
+        applyClientFilters()
+    }
 
     /** Trigger search explicitly (submit button / keyboard action) */
     fun submitSearch() {
@@ -378,12 +402,15 @@ fun MessageSearchScreen(
             )
         }
     ) { pv ->
+        // Filters collapse after first search to maximize result space
+        var filtersExpanded by remember { mutableStateOf(true) }
+
         Column(
             modifier = Modifier
                 .padding(pv)
                 .fillMaxSize()
         ) {
-            // Sort chips + pinned toggle
+            // Sort chips + pinned toggle (always visible)
             FlowRow(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -411,130 +438,183 @@ fun MessageSearchScreen(
                 }
             }
 
-            // Content filters (client-side has: and from: filters)
-            FlowRow(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                FilterChip(
-                    selected = viewModel.hasLink,
-                    onClick = {
-                        viewModel.hasLink = !viewModel.hasLink
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_link)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasAttachment,
-                    onClick = {
-                        viewModel.hasAttachment = !viewModel.hasAttachment
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_attachment)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasImage,
-                    onClick = {
-                        viewModel.hasImage = !viewModel.hasImage
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_image)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasFile,
-                    onClick = {
-                        viewModel.hasFile = !viewModel.hasFile
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_file)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasEmbed,
-                    onClick = {
-                        viewModel.hasEmbed = !viewModel.hasEmbed
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_embed)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasReply,
-                    onClick = {
-                        viewModel.hasReply = !viewModel.hasReply
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_reply)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasReaction,
-                    onClick = {
-                        viewModel.hasReaction = !viewModel.hasReaction
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_reaction)) }
-                )
-                FilterChip(
-                    selected = viewModel.hasMention,
-                    onClick = {
-                        viewModel.hasMention = !viewModel.hasMention
-                        viewModel.onFilterChanged()
-                    },
-                    label = { Text(stringResource(R.string.search_filter_has_mention)) }
-                )
-            }
-
-            // From user filter
+            // Collapsible filter header — shows active count when collapsed
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .clickable { filtersExpanded = !filtersExpanded }
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = stringResource(R.string.search_filter_from),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                BasicTextField(
-                    value = viewModel.fromUser,
-                    onValueChange = {
-                        viewModel.fromUser = it
-                        viewModel.onFilterChanged()
-                    },
-                    textStyle = LocalTextStyle.current.copy(
-                        color = LocalContentColor.current,
-                        fontSize = 14.sp
-                    ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(
-                        onSearch = { viewModel.submitSearch() }
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    decorationBox = { innerTextField ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (viewModel.fromUser.isEmpty()) {
-                                Text(
-                                    text = stringResource(R.string.search_filter_from_hint),
-                                    style = LocalTextStyle.current.copy(
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        fontSize = 14.sp
-                                    )
-                                )
-                            }
-                            innerTextField()
-                        }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (filtersExpanded) "Filters ▾" else "Filters ▸",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (!filtersExpanded && viewModel.activeFilterCount > 0) {
+                        Text(
+                            text = " (${viewModel.activeFilterCount} active)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                )
+                }
+                if (viewModel.activeFilterCount > 0) {
+                    TextButton(onClick = { viewModel.clearAllFilters() }) {
+                        Text(
+                            text = stringResource(R.string.search_filter_clear_all),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+
+            // Collapsible content filters
+            AnimatedVisibility(
+                visible = filtersExpanded,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column {
+                    // Content filter chips (client-side has: filters)
+                    FlowRow(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        FilterChip(
+                            selected = viewModel.hasLink,
+                            onClick = {
+                                viewModel.hasLink = !viewModel.hasLink
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_link)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasAttachment,
+                            onClick = {
+                                viewModel.hasAttachment = !viewModel.hasAttachment
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_attachment)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasImage,
+                            onClick = {
+                                viewModel.hasImage = !viewModel.hasImage
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_image)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasFile,
+                            onClick = {
+                                viewModel.hasFile = !viewModel.hasFile
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_file)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasEmbed,
+                            onClick = {
+                                viewModel.hasEmbed = !viewModel.hasEmbed
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_embed)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasReply,
+                            onClick = {
+                                viewModel.hasReply = !viewModel.hasReply
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_reply)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasReaction,
+                            onClick = {
+                                viewModel.hasReaction = !viewModel.hasReaction
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_reaction)) }
+                        )
+                        FilterChip(
+                            selected = viewModel.hasMention,
+                            onClick = {
+                                viewModel.hasMention = !viewModel.hasMention
+                                viewModel.onFilterChanged()
+                            },
+                            label = { Text(stringResource(R.string.search_filter_has_mention)) }
+                        )
+                    }
+
+                    // From user filter
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.search_filter_from),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        BasicTextField(
+                            value = viewModel.fromUser,
+                            onValueChange = {
+                                viewModel.fromUser = it
+                                viewModel.onFilterChanged()
+                            },
+                            textStyle = LocalTextStyle.current.copy(
+                                color = LocalContentColor.current,
+                                fontSize = 14.sp
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = { viewModel.submitSearch() }
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (viewModel.fromUser.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.search_filter_from_hint),
+                                            style = LocalTextStyle.current.copy(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                                fontSize = 14.sp
+                                            )
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+                }
             }
 
             HorizontalDivider()
+
+            // Result count when results are available
+            if (viewModel.hasSearched && viewModel.results.isNotEmpty()) {
+                Text(
+                    text = "${viewModel.results.size} result(s)" +
+                        if (viewModel.activeFilterCount > 0) " (filtered)" else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
 
             // Error display
             if (viewModel.errorMessage != null) {

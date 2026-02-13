@@ -864,6 +864,7 @@
     <string name="search_filter_has_mention">Has: Mention</string>
     <string name="search_filter_from">From:</string>
     <string name="search_filter_from_hint">Username…</string>
+    <string name="search_filter_clear_all">Clear all</string>
 
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>

@@ -86,17 +86,20 @@ Message search allows users to search for messages within a channel using the Re
 ### Search Screen
 
 - **Top bar**: Back button + search text field (auto-focused) + submit button / loading spinner
-- **Sort/pinned chips**: Pinned only, sort order (Relevance/Latest/Oldest)
-- **Content filter chips** (all client-side, applied after API results):
-  - Has: Link — matches URLs in message content via regex
-  - Has: Attachment — messages with any attachment
-  - Has: Image — messages with image/* content_type attachments
-  - Has: File — messages with non-image attachments
-  - Has: Embed — messages with URL embeds
-  - Has: Reply — messages that are replies to other messages
-  - Has: Reaction — messages with emoji reactions
-  - Has: Mention — messages that @mention users
-- **From user filter**: Text field for username/display_name substring match (case insensitive)
+- **Sort/pinned chips** (always visible): Pinned only, sort order (Relevance/Latest/Oldest)
+- **Collapsible filter section** with expand/collapse toggle + active filter count badge:
+  - **Content filter chips** (all client-side, applied after API results):
+    - Has: Link — matches URLs in message content via regex
+    - Has: Attachment — messages with any attachment
+    - Has: Image — messages with image/* content_type attachments
+    - Has: File — messages with non-image attachments
+    - Has: Embed — messages with URL embeds
+    - Has: Reply — messages that are replies to other messages
+    - Has: Reaction — messages with emoji reactions
+    - Has: Mention — messages that @mention users
+  - **From user filter**: Text field for username/display_name substring match (case insensitive)
+  - **Clear all** button: resets all content filters at once
+- **Result count**: Shows "N result(s)" with "(filtered)" suffix when filters active
 - **Results list**: Message previews with author avatar, name, timestamp, content (max 3 lines)
 - **Metadata indicators**: attachment count, embed count, reply, reaction count, mention count, pinned
 - **Pagination**: Infinite scroll using `before` parameter from last result
@@ -143,3 +146,4 @@ Triggered via `Action.TopNavigate("search/$channelId")` from the channel screen'
 - [x] Fix wildcard query (null instead of space)
 - [x] Per-request timeout overrides for slow search endpoint
 - [x] Smart include_users (skip when not needed)
+- [x] Collapsible filter section with active count + clear all

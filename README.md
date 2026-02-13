@@ -31,9 +31,8 @@ uses [Jetpack Compose](https://developer.android.com/jetpack/compose).
 ### Stoat for Android
 
 - [Roadmap](https://op.revolt.wtf/projects/revolt-for-android/work_packages)
-- [Stoat for Android Technical Documentation](https://revoltchat.github.io/android/)
-- [Android-specific Contribution Guide](https://revoltchat.github.io/android/contributing/guidelines/)
-  &mdash;**read carefully before contributing!**
+- [Fork Documentation & Changes](https://tribixbite.github.io/stoat-android/)
+- [Feature Gap Analysis](https://tribixbite.github.io/stoat-android/reference/fork-changes/)
 
 ### Stoat
 
@@ -48,5 +47,5 @@ uses [Jetpack Compose](https://developer.android.com/jetpack/compose).
 Open the project in Android Studio. You can then run the app on an emulator or a physical device by
 running the `app` module.
 
-In-depth setup instructions can be found
-at [Setting up your Development Environment](https://revoltchat.github.io/android/contributing/setup/)
+For Termux ARM64 builds, use `./build-and-install.sh` (see [CLAUDE.md](./CLAUDE.md) for details).
+For Android Studio, open the project and run the `app` module

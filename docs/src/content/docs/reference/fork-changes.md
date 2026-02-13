@@ -160,6 +160,27 @@ Advanced message management for moderators.
 - **Bulk delete messages** — dialog with preset counts (5/10/25/50/100), operates on cached messages
 - Both gated by ManageMessages permission
 
+### Collapsible Channel Categories (Upstream #51)
+Tap category headers in the channel side drawer to collapse/expand.
+
+- **Animated chevron indicator** — rotates 90° between collapsed/expanded states
+- **Client-side state** — collapse state tracked per-category in Compose state map
+- **Filtered channel list** — collapsed categories hide their channels from the flat list
+
+### Jump to Reply (Upstream #23)
+Tap a reply quote to scroll to the original message in the chat.
+
+- **ActionChannel.ScrollToMessage** action for cross-component communication
+- **Animated scroll** to target message in LazyColumn
+- Works for all loaded messages; messages not in view are scrolled to if in cache
+
+### Send Button Debounce (Upstream #33/#30)
+Prevents duplicate message sends from rapid tapping.
+
+- **`isSendingMessage` flag** in ChannelScreenViewModel
+- Guard at top of `sendPendingMessage()` rejects rapid taps
+- Flag cleared in `finally` block after send completes or fails
+
 ### Message Send Race Condition (Upstream #17)
 - **Fixed channel ID capture** — `sendPendingMessage()` captured `channel?.id` inside async `viewModelScope.launch{}` block, but channel could change if user switched channels during slow attachment upload
 - Channel ID now captured synchronously before the launch, preventing messages from being sent to the wrong channel
@@ -176,6 +197,7 @@ Advanced message management for moderators.
 - **Pin endpoint method fix**: corrected from `PUT` to `POST` per OpenAPI spec
 - **WebP upload support**: fixed content type detection for WebP image uploads
 - **Search submit button** properly triggers search on keyboard action
+- **Reduced HTTP retry** from 5 to 2 for server errors: 502 Bad Gateway caused ~62s exponential backoff hangs
 
 ## Documentation
 
@@ -296,3 +318,5 @@ All changes from upstream divergence point:
 | `856b45e` | docs | Update CLAUDE.md with real Firebase config |
 | `5374c5a` | feat | MFA TOTP setup, recovery codes management |
 | `f2ad4d0` | fix | Message send race condition (#17), DM mention autocomplete (#52) |
+| `a3d8969` | docs | Update fork-changes with MFA, upstream bug fixes |
+| `e7e8101` | feat | Collapsible categories, reply jump, send debounce, retry fix |

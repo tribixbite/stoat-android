@@ -6,6 +6,8 @@
 |------|--------|-------------|
 | [Build System](build-system.md) | Active | Termux ARM64 build process, AAPT2 setup, NDK |
 | [Antifeature Audit](audit-antifeatures.md) | Active | Telemetry, privacy, UX findings and recommendations |
+| [Notifications](notifications.md) | Active | Push notifications, mute controls, FCM registration |
+| [Message Search](message-search.md) | Active | Channel message search UI and API integration |
 
 ## Summary
 

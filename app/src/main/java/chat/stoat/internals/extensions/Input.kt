@@ -9,7 +9,9 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 
 fun Modifier.supportSwipeReply(
-    pass: PointerEventPass = PointerEventPass.Main,
+    // Use Final pass so children (e.g. horizontalScroll in code blocks)
+    // process events first and consume horizontal drags (upstream #14).
+    pass: PointerEventPass = PointerEventPass.Final,
     onDown: (pointer: PointerInputChange) -> Unit,
     onMove: (changes: List<PointerInputChange>) -> Unit,
     onUp: () -> Unit,
@@ -23,7 +25,11 @@ fun Modifier.supportSwipeReply(
                     pass = pass
                 )
 
-                onMove(event.changes)
+                // Skip changes already consumed by child scrollables (e.g. code blocks)
+                val unconsumed = event.changes.filter { !it.isConsumed }
+                if (unconsumed.isNotEmpty()) {
+                    onMove(unconsumed)
+                }
 
             } while (event.changes.any { it.pressed })
             onUp()

@@ -194,6 +194,16 @@ Prevents duplicate message sends from rapid tapping.
 - **Fixed DM/Group DM mentions** — autocomplete was blocked in DMs by an unnecessary `serverId != null` check; DM channels always have null serverId
 - `Autocomplete.userOrRole()` already handled null serverId correctly, so the guard was simply removed
 
+### Friends Screen Reactivity (Upstream #39)
+- **Fixed friends list not updating** — friends screen called `FriendRequests.getXxx()` multiple times per section, creating different list snapshots between header count and item access
+- Lists now computed once per recomposition above the LazyColumn, ensuring consistent data
+- Added stable `key` lambdas to LazyColumn items for proper item diffing and animation
+- Reads from `mutableStateMapOf` are automatically tracked by Compose — list updates reactively when `userCache` changes
+
+### Blocked User Swipe Reply (Upstream #11)
+- **Blocked swipe-to-reply** — `canReply` was hardcoded to `true` in `RegularMessage`
+- Now checks `StoatAPI.userCache[author]?.relationship != "Blocked"` before enabling swipe reply gesture
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -326,3 +336,4 @@ All changes from upstream divergence point:
 | `a3d8969` | docs | Update fork-changes with MFA, upstream bug fixes |
 | `e7e8101` | feat | Collapsible categories, reply jump, send debounce, retry fix |
 | `c51e360` | fix | Navigation restoration on app restart for DM/saved notes (#41/#21) |
+| `8768da8` | fix | Friends list reactivity (#39), blocked user swipe reply (#11) |

@@ -361,6 +361,14 @@ fun RoleManagementScreen(
                             },
                             trailingContent = {
                                 Row {
+                                    IconButton(onClick = {
+                                        navController.navigate("settings/server/$serverId/roles/$roleId/permissions")
+                                    }) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.icn_lock_24dp),
+                                            contentDescription = stringResource(R.string.perm_role_permissions_title)
+                                        )
+                                    }
                                     IconButton(onClick = { showEditDialog = roleId to role }) {
                                         Icon(
                                             painter = painterResource(R.drawable.icn_edit_24dp),
@@ -377,7 +385,7 @@ fun RoleManagementScreen(
                                 }
                             },
                             modifier = Modifier.clickable {
-                                showEditDialog = roleId to role
+                                navController.navigate("settings/server/$serverId/roles/$roleId/permissions")
                             }
                         )
                     }

@@ -126,7 +126,9 @@ import chat.stoat.screens.settings.channel.ChannelSettingsPermissions
 import chat.stoat.screens.search.MessageSearchScreen
 import chat.stoat.screens.settings.server.BanManagementScreen
 import chat.stoat.screens.settings.server.CreateChannelScreen
+import chat.stoat.screens.settings.server.DefaultPermissionsEditorScreen
 import chat.stoat.screens.settings.server.RoleManagementScreen
+import chat.stoat.screens.settings.server.RolePermissionsEditorScreen
 import chat.stoat.screens.settings.server.ServerSettingsScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
@@ -761,6 +763,15 @@ fun AppEntrypoint(
                     composable("settings/server/{serverId}/create-channel") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         CreateChannelScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/permissions/default") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        DefaultPermissionsEditorScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/roles/{roleId}/permissions") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        val roleId = backStackEntry.arguments?.getString("roleId") ?: ""
+                        RolePermissionsEditorScreen(navController, serverId, roleId)
                     }
 
                     composable("about") { AboutScreen(navController) }

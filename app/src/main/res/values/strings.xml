@@ -943,6 +943,93 @@
     <string name="member_roles_button">Assign Roles</string>
     <string name="member_roles_updated">Roles updated</string>
 
+    <!-- Permissions editor -->
+    <string name="server_settings_default_permissions">Default Permissions</string>
+    <string name="perm_default_title">Default Permissions</string>
+    <string name="perm_role_permissions_title">Role Permissions</string>
+    <string name="perm_saved">Permissions saved</string>
+
+    <!-- Permission categories -->
+    <string name="perm_category_admin">Admin</string>
+    <string name="perm_category_members">Members</string>
+    <string name="perm_category_channels">Channels</string>
+    <string name="perm_category_messaging">Messaging</string>
+    <string name="perm_category_voice">Voice</string>
+
+    <!-- Admin permissions -->
+    <string name="perm_manage_channel">Manage Channel</string>
+    <string name="perm_manage_channel_desc">Edit and delete channels</string>
+    <string name="perm_manage_server">Manage Server</string>
+    <string name="perm_manage_server_desc">Edit the server\'s information and settings</string>
+    <string name="perm_manage_permissions">Manage Permissions</string>
+    <string name="perm_manage_permissions_desc">Edit any permissions on the server</string>
+    <string name="perm_manage_role">Manage Roles</string>
+    <string name="perm_manage_role_desc">Create and edit server roles</string>
+    <string name="perm_manage_customisation">Manage Customisation</string>
+    <string name="perm_manage_customisation_desc">Create server emoji</string>
+
+    <!-- Member permissions -->
+    <string name="perm_kick_members">Kick Members</string>
+    <string name="perm_kick_members_desc">Kick lower-ranking members from the server</string>
+    <string name="perm_ban_members">Ban Members</string>
+    <string name="perm_ban_members_desc">Ban lower-ranking members from the server</string>
+    <string name="perm_timeout_members">Timeout Members</string>
+    <string name="perm_timeout_members_desc">Temporarily prevent lower-ranking members from interacting</string>
+    <string name="perm_assign_roles">Assign Roles</string>
+    <string name="perm_assign_roles_desc">Assign lower-ranked roles to lower-ranking members</string>
+    <string name="perm_change_nickname">Change Nickname</string>
+    <string name="perm_change_nickname_desc">Change own nickname</string>
+    <string name="perm_manage_nicknames">Manage Nicknames</string>
+    <string name="perm_manage_nicknames_desc">Change other members\' nicknames</string>
+    <string name="perm_change_avatar">Change Avatar</string>
+    <string name="perm_change_avatar_desc">Change own avatar</string>
+    <string name="perm_remove_avatars">Remove Avatars</string>
+    <string name="perm_remove_avatars_desc">Remove other members\' avatars</string>
+
+    <!-- Channel permissions -->
+    <string name="perm_view_channel">View Channel</string>
+    <string name="perm_view_channel_desc">Able to access channels on this server</string>
+    <string name="perm_read_message_history">Read Message History</string>
+    <string name="perm_read_message_history_desc">Read past messages sent in channels</string>
+    <string name="perm_send_message">Send Messages</string>
+    <string name="perm_send_message_desc">Send messages in channels</string>
+    <string name="perm_manage_messages">Manage Messages</string>
+    <string name="perm_manage_messages_desc">Delete and pin messages sent by other members</string>
+    <string name="perm_manage_webhooks">Manage Webhooks</string>
+    <string name="perm_manage_webhooks_desc">Create and edit webhooks</string>
+    <string name="perm_invite_others">Invite Others</string>
+    <string name="perm_invite_others_desc">Create invites for others to use</string>
+
+    <!-- Messaging permissions -->
+    <string name="perm_send_embeds">Send Embeds</string>
+    <string name="perm_send_embeds_desc">Send embedded content such as link embeds</string>
+    <string name="perm_upload_files">Upload Files</string>
+    <string name="perm_upload_files_desc">Send attachments to chat</string>
+    <string name="perm_masquerade">Masquerade</string>
+    <string name="perm_masquerade_desc">Change name and avatar when sending messages</string>
+    <string name="perm_react">React</string>
+    <string name="perm_react_desc">Add reactions to messages</string>
+    <string name="perm_mention_everyone">Mention Everyone</string>
+    <string name="perm_mention_everyone_desc">Use @everyone and @here mentions</string>
+    <string name="perm_mention_roles">Mention Roles</string>
+    <string name="perm_mention_roles_desc">Mention roles using @role</string>
+
+    <!-- Voice permissions -->
+    <string name="perm_connect">Connect</string>
+    <string name="perm_connect_desc">Join voice channels</string>
+    <string name="perm_speak">Speak</string>
+    <string name="perm_speak_desc">Speak in voice channels</string>
+    <string name="perm_video">Video</string>
+    <string name="perm_video_desc">Share video in voice channels</string>
+    <string name="perm_mute_members">Mute Members</string>
+    <string name="perm_mute_members_desc">Mute other members in voice channels</string>
+    <string name="perm_deafen_members">Deafen Members</string>
+    <string name="perm_deafen_members_desc">Deafen other members in voice channels</string>
+    <string name="perm_move_members">Move Members</string>
+    <string name="perm_move_members_desc">Move members between voice channels</string>
+    <string name="perm_listen">Listen</string>
+    <string name="perm_listen_desc">Listen in voice channels</string>
+
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>
     <string name="geogate_description">Stoat may block content in certain jurisdictions in response to legislation or legal notices</string>

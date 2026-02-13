@@ -336,6 +336,22 @@ fun ServerSettingsScreen(
                         Text(stringResource(R.string.server_settings_management))
                     }
 
+                    // Default permissions (owner or ManagePermissions)
+                    if (canManage || permissions has PermissionBit.ManagePermissions) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_default_permissions)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_lock_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/permissions/default")
+                            }
+                        )
+                    }
+
                     if (canManage || permissions has PermissionBit.ManageRole) {
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.server_settings_roles)) },

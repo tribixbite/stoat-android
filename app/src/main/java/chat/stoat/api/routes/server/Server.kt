@@ -394,6 +394,24 @@ suspend fun deleteRole(serverId: String, roleId: String) {
 }
 
 /**
+ * Set default role permissions for a server.
+ * PUT /servers/{serverId}/permissions/default
+ * Body: { "permissions": Long }
+ */
+suspend fun setDefaultPermissions(
+    serverId: String,
+    permissions: Long
+) {
+    @Serializable
+    data class Body(val permissions: Long)
+
+    StoatHttp.put("/servers/$serverId/permissions/default".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(permissions)))
+    }
+}
+
+/**
  * Set permission overrides for a role on a server.
  * Requires ManagePermissions permission.
  */

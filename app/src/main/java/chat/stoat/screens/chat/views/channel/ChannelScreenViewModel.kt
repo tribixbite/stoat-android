@@ -338,6 +338,9 @@ class ChannelScreenViewModel @Inject constructor(
         //    the original content
         val content = MessageProcessor.processOutgoing(draftContent, channel?.server)
         val replyTo = draftReplyTo.toList()
+        // Capture channel ID now to prevent race condition if user switches
+        // channels during upload (upstream issue #17)
+        val sendChannelId = channel?.id ?: return
 
         // First we upload (the next 5) attachments...
         viewModelScope.launch {
@@ -370,7 +373,7 @@ class ChannelScreenViewModel @Inject constructor(
             val nonce = ULID.makeNext()
             val prospectiveMessage = Message(
                 id = nonce,
-                channel = channel?.id,
+                channel = sendChannelId,
                 author = StoatAPI.selfId,
                 content = content,
                 nonce = nonce,
@@ -389,7 +392,7 @@ class ChannelScreenViewModel @Inject constructor(
 
             updateItems(listOf(ChannelScreenItem.ProspectiveMessage(prospectiveMessage)) + items)
 
-            kvStorage.remove("draftContent/${channel?.id}")
+            kvStorage.remove("draftContent/${sendChannelId}")
             putDraftContent("", true)
             draftReplyTo.clear()
             attachmentUploadProgress = 0f
@@ -398,7 +401,7 @@ class ChannelScreenViewModel @Inject constructor(
 
             try {
                 sendMessage(
-                    channelId = channel?.id ?: return@launch,
+                    channelId = sendChannelId,
                     content = content,
                     nonce = nonce,
                     replies = replyTo,

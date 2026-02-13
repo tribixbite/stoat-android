@@ -225,7 +225,7 @@ fun MessageField(
                     }
 
                     lastWord.startsWith('@') -> {
-                        if (channelId != null && serverId != null) {
+                        if (channelId != null) {
                             autocompleteSuggestions.addAll(
                                 Autocomplete.userOrRole(
                                     channelId,

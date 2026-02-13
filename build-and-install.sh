@@ -68,18 +68,18 @@ fi
 echo "  Platform 36: OK"
 
 # Determine aapt2 binary to use
-# Prefer the x86_64 aapt2 via qemu (supports SDK 35+) over native Termux aapt2 (only SDK 34)
-AAPT2_X86_64="$PROJECT_DIR/tools/aapt2-arm64/aapt2"
-if [ -x "$AAPT2_X86_64" ] && "$AAPT2_X86_64" version &>/dev/null; then
-    AAPT2_BIN="$AAPT2_X86_64"
-    echo "  AAPT2: $AAPT2_BIN (x86_64 via qemu, supports SDK 36)"
+# Prefer bundled static ARM64 aapt2 (supports SDK 36) over Termux pkg aapt2 (SDK 34 only)
+AAPT2_BUNDLED="$PROJECT_DIR/tools/aapt2-arm64/aapt2"
+if [ -x "$AAPT2_BUNDLED" ] && "$AAPT2_BUNDLED" version &>/dev/null; then
+    AAPT2_BIN="$AAPT2_BUNDLED"
+    echo "  AAPT2: $AAPT2_BIN (native ARM64, supports SDK 36)"
 elif command -v aapt2 &>/dev/null; then
     AAPT2_BIN="$(which aapt2)"
-    echo "  AAPT2: $AAPT2_BIN (native ARM64, SDK 34 max)"
-    echo "  Warning: Native aapt2 may not support SDK 35+. Run tools/x86_64-rootfs/setup-x86_64-rootfs.sh"
+    echo "  AAPT2: $AAPT2_BIN (Termux pkg, SDK 34 max)"
+    echo "  Warning: Termux aapt2 may not support SDK 35+. Place a static ARM64 aapt2 at tools/aapt2-arm64/aapt2"
 else
-    echo "Error: No aapt2 found. Run: tools/x86_64-rootfs/setup-x86_64-rootfs.sh"
-    echo "  or install native (SDK 34 only): pkg install aapt2"
+    echo "Error: No aapt2 found. Place a static ARM64 aapt2 at tools/aapt2-arm64/aapt2"
+    echo "  or install (SDK 34 only): pkg install aapt2"
     exit 1
 fi
 

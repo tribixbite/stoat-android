@@ -6,13 +6,15 @@ import androidx.compose.ui.Modifier
 import chat.stoat.api.settings.Experiments
 import chat.stoat.markdown.jbm.JBM
 import chat.stoat.markdown.jbm.JBMRenderer
+import chat.stoat.ndk.NativeLibraries
 import chat.stoat.ndk.Stendal
 
 @OptIn(JBM::class)
 @Composable
 fun RichMarkdown(input: String, modifier: Modifier = Modifier) {
     Column(modifier) {
-        if (Experiments.useKotlinBasedMarkdownRenderer.isEnabled) {
+        if (!NativeLibraries.stendalAvailable || Experiments.useKotlinBasedMarkdownRenderer.isEnabled) {
+            // Fall back to Kotlin-based renderer when stendal native lib is unavailable
             JBMRenderer(input)
         } else {
             MarkdownTree(node = Stendal.render(input))

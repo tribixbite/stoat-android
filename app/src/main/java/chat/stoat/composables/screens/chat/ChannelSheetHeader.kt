@@ -33,7 +33,9 @@ import chat.stoat.core.model.schemas.User
 import chat.stoat.composables.generic.RemoteImage
 import chat.stoat.composables.generic.UserAvatar
 import chat.stoat.composables.markdown.MarkdownTree
+import chat.stoat.composables.markdown.RichMarkdown
 import chat.stoat.ndk.AstNode
+import chat.stoat.ndk.NativeLibraries
 import chat.stoat.ndk.Stendal
 
 @Composable
@@ -47,7 +49,7 @@ fun ChannelSheetHeader(
     var renderedChannelDescription by remember { mutableStateOf<AstNode?>(null) }
 
     LaunchedEffect(channelDescription) {
-        if (channelDescription != null) {
+        if (channelDescription != null && NativeLibraries.stendalAvailable) {
             renderedChannelDescription = Stendal.render(channelDescription)
         }
     }
@@ -102,9 +104,14 @@ fun ChannelSheetHeader(
                 overflow = TextOverflow.Ellipsis
             )
 
-            if (renderedChannelDescription != null && channelDescription?.isNotBlank() == true) {
+            if (channelDescription?.isNotBlank() == true) {
                 Spacer(modifier = Modifier.height(8.dp))
-                MarkdownTree(node = renderedChannelDescription!!)
+                if (renderedChannelDescription != null) {
+                    MarkdownTree(node = renderedChannelDescription!!)
+                } else if (!NativeLibraries.stendalAvailable) {
+                    // Fall back to Kotlin renderer when stendal unavailable
+                    RichMarkdown(input = channelDescription)
+                }
             }
         }
     }

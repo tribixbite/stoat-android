@@ -9,17 +9,25 @@ that works around the lack of x86_64 host tools normally provided by Android SDK
 ### build-and-install.sh
 Entry point for all builds. Handles:
 - Environment setup (JAVA_HOME, ANDROID_HOME, PATH)
-- AAPT2 selection (x86_64 via qemu preferred, native ARM64 fallback)
-- Gradle invocation with ARM64-specific flags
+- AAPT2 selection (bundled static ARM64 preferred, Termux pkg fallback)
+- Gradle invocation with ARM64-specific flags (`-Pandroid.aapt2FromMavenOverride`)
 - APK installation via ADB wireless or termux-open
 
-### AAPT2 (x86_64 via proot+qemu)
-- Google's AAPT2 8.11.1-12782657 (x86_64 ELF) at `tools/aapt2-x86_64/aapt2`
-- Minimal x86_64 glibc rootfs at `tools/x86_64-libs/` (~5.5MB)
-  - Debian bookworm amd64: libc6, libstdc++6, zlib1g, libgcc-s1
-- Wrapper at `tools/aapt2-arm64/aapt2` delegates to `tools/aapt2-x86_64/aapt2-wrapper`
-- Wrapper runs: `proot -q qemu-x86_64 -r x86_64-libs ... aapt2 "$@"`
-- Setup script: `tools/x86_64-rootfs/setup-x86_64-rootfs.sh`
+### AAPT2 (native ARM64)
+- Static ARM64 binary from lzhiyong/android-sdk-tools (v35.0.2, supports SDK 36)
+- Located at `tools/aapt2-arm64/aapt2` (~6.5MB, statically linked ELF)
+- Used via Gradle flag: `-Pandroid.aapt2FromMavenOverride=<path>`
+- Fallback: Termux `pkg install aapt2` (only supports SDK ≤34)
+
+### Native Libraries
+- **stendal**: cmark JNI wrapper for markdown rendering
+  - Source: `app/src/main/cpp/stendal/stendal.cpp`
+  - Depends on cmark (source expected at `app/src/main/cpp/external/cmark/`)
+- **finalmarkdown**: experimental renderer — no C++ source exists yet
+  - Kotlin interface only (`chat.stoat.ndk.FinalMarkdown`)
+  - Loading is optional; guarded by try/catch in `NativeLibraries.init()`
+- Both libraries load gracefully: app falls back to JBM (Kotlin markdown renderer)
+  when native libs are unavailable
 
 ### NDK / Native Code
 - NDK 27.0.12077973 installed but host tools are x86_64 (can't run on ARM64)
@@ -71,6 +79,8 @@ clang look in `<NDK>/lib/clang/18/lib/linux/aarch64/` for runtime libraries.
 1. **Native libs not yet integrated**: cross-compilation approach verified but not yet
    wired into build-and-install.sh; cmark source not yet in external/cmark/
    - Pre-build step needed: cmake + make before Gradle, copy .so to jniLibs/arm64-v8a/
-2. **AAPT2 slower via qemu**: ~2-5x slower than native, adds ~30s to resource processing
+   - App runs without native libs using JBM Kotlin fallback renderer
+2. **finalmarkdown has no source**: only a Kotlin JNI interface exists; library loads
+   optionally and is gated behind the `useFinalMarkdownRenderer` experiment flag
 3. **google-services.json placeholder**: Push notifications won't work without real Firebase config
 4. **Sentry DSN empty**: Error tracking disabled in local builds

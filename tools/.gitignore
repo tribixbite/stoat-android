@@ -1,10 +1,6 @@
-# x86_64 aapt2 binary (6.5MB, downloaded from Google Maven)
-aapt2-x86_64/aapt2
-aapt2-x86_64/NOTICE
-aapt2-x86_64/META-INF/
-# x86_64 glibc rootfs libs (downloaded by setup script)
-x86_64-libs/lib/
-x86_64-libs/lib64/
-x86_64-libs/usr/
-# Temp download dir
-x86_64-rootfs/tmp-debs/
+# Native ARM64 aapt2 binary (6.5MB, from lzhiyong/android-sdk-tools)
+aapt2-arm64/aapt2
+# Legacy x86_64 qemu approach (no longer used)
+aapt2-x86_64/
+x86_64-libs/
+x86_64-rootfs/

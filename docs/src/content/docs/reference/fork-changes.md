@@ -217,6 +217,10 @@ Prevents duplicate message sends from rapid tapping.
 - Generates synthetic ULID just before the selected message, acks channel to that ID
 - Channel appears unread from the selected message onwards in the channel list
 
+### User Info Sheet Cache Miss
+- **Fixed "user not found"** for users not yet in local cache when opening their profile
+- Now fetches from `GET /users/{id}` on cache miss, populating the cache for subsequent access
+
 ### README Dead Links (Upstream #42)
 - Replaced broken `revoltchat.github.io` links with fork documentation
 - Updated development setup instructions with Termux ARM64 build info
@@ -354,3 +358,4 @@ All changes from upstream divergence point:
 | `a444479` | fix | Swipe-to-reply no longer hijacks code block scroll (#14) |
 | `4a29c1d` | fix | README dead links, add fork docs URLs (#42) |
 | `1f7a26f` | feat | Mark-as-unread in message context menu |
+| `65d18d3` | fix | Fetch user from API when not in cache for info sheet |

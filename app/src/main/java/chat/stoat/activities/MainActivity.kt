@@ -119,6 +119,7 @@ import chat.stoat.screens.settings.LanguagePickerSettingsScreen
 import chat.stoat.screens.settings.ProfileSettingsScreen
 import chat.stoat.screens.settings.SessionSettingsScreen
 import chat.stoat.screens.settings.AccountSettingsScreen
+import chat.stoat.screens.settings.SessionManagementScreen
 import chat.stoat.screens.settings.NotificationSettingsScreen
 import chat.stoat.screens.settings.SettingsScreen
 import chat.stoat.screens.settings.channel.ChannelSettingsHome
@@ -732,6 +733,7 @@ fun AppEntrypoint(
                     composable("settings/language") { LanguagePickerSettingsScreen(navController) }
                     composable("settings/notifications") { NotificationSettingsScreen(navController) }
                     composable("settings/account") { AccountSettingsScreen(navController) }
+                    composable("settings/sessions") { SessionManagementScreen(navController) }
 
                     composable("search/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""

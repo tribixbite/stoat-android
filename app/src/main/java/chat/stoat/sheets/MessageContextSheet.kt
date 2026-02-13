@@ -43,6 +43,7 @@ import chat.stoat.api.internals.has
 import chat.stoat.api.routes.channel.deleteMessage
 import chat.stoat.api.routes.channel.pinMessage
 import chat.stoat.api.routes.channel.react
+import chat.stoat.api.routes.channel.removeAllReactions
 import chat.stoat.api.routes.channel.unpinMessage
 import chat.stoat.api.settings.Experiments
 import chat.stoat.callbacks.UiCallbacks
@@ -377,16 +378,16 @@ fun MessageContextSheet(
             }
         )
 
-        // Pin/unpin message (requires ManageMessages permission)
-        if (
-            (message.channel?.let {
-                val channel = StoatAPI.channelCache[it] ?: return@let null
-                Roles.permissionFor(
-                    channel,
-                    StoatAPI.userCache[StoatAPI.selfId]
-                )
-            } ?: 0) has PermissionBit.ManageMessages
-        ) {
+        // Pin/unpin message and remove reactions (requires ManageMessages permission)
+        val hasManageMessages = (message.channel?.let {
+            val channel = StoatAPI.channelCache[it] ?: return@let null
+            Roles.permissionFor(
+                channel,
+                StoatAPI.userCache[StoatAPI.selfId]
+            )
+        } ?: 0) has PermissionBit.ManageMessages
+
+        if (hasManageMessages) {
             val isPinned = message.pinned == true
             SheetButton(
                 leadingContent = {
@@ -424,6 +425,39 @@ fun MessageContextSheet(
                     }
                 }
             )
+
+            // Remove all reactions (only show if message has reactions)
+            if (!message.reactions.isNullOrEmpty()) {
+                SheetButton(
+                    leadingContent = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.icn_close_24dp),
+                            contentDescription = null
+                        )
+                    },
+                    headlineContent = {
+                        Text(
+                            text = stringResource(R.string.message_context_sheet_actions_remove_reactions),
+                        )
+                    },
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                message.channel?.let { channelId ->
+                                    removeAllReactions(channelId, messageId)
+                                }
+                                onHideSheet()
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "Failed: ${e.message}",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    }
+                )
+            }
         }
 
         if (message.author == StoatAPI.selfId) {
@@ -510,15 +544,7 @@ fun MessageContextSheet(
             }
         )
 
-        if (
-            (message.channel?.let {
-                val channel = StoatAPI.channelCache[it] ?: return@let null
-                Roles.permissionFor(
-                    channel,
-                    StoatAPI.userCache[StoatAPI.selfId]
-                )
-            } ?: 0) has PermissionBit.ManageMessages || message.author == StoatAPI.selfId
-        ) {
+        if (hasManageMessages || message.author == StoatAPI.selfId) {
             SheetButton(
                 leadingContent = {
                     Icon(

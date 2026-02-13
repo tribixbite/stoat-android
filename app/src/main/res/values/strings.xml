@@ -1099,4 +1099,25 @@
     <!-- Mutual friends/servers -->
     <string name="mutual_friends_count">%d Mutual Friends</string>
     <string name="mutual_servers_count">%d Mutual Servers</string>
+
+    <!-- Message actions -->
+    <string name="message_context_sheet_actions_remove_reactions">Remove All Reactions</string>
+
+    <!-- Session management -->
+    <string name="session_management_title">Sessions</string>
+    <string name="session_list_header">%d Active Sessions</string>
+    <string name="session_unnamed">Unnamed Session</string>
+    <string name="session_revoke_title">Revoke Session</string>
+    <string name="session_revoke_confirm">Revoke session \"%s\"? This will log out that device.</string>
+    <string name="session_revoke_button">Revoke</string>
+    <string name="session_revoked">Session revoked</string>
+    <string name="session_revoke_all_title">Revoke All Sessions</string>
+    <string name="session_revoke_all_confirm">Revoke all other sessions? This will log out all other devices.</string>
+    <string name="session_revoke_all_button">Revoke All Others</string>
+    <string name="session_revoke_all_hint">Log out from all other devices</string>
+    <string name="session_revoked_all">All other sessions revoked</string>
+    <string name="session_rename_title">Rename Session</string>
+    <string name="session_rename_label">Session name</string>
+    <string name="session_renamed">Session renamed</string>
+    <string name="session_danger_zone">Danger Zone</string>
 </resources>

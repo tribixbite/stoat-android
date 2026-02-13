@@ -3,6 +3,7 @@ package chat.stoat.api.routes.account
 import chat.stoat.api.StoatHttp
 import chat.stoat.api.StoatJson
 import chat.stoat.api.api
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
@@ -13,6 +14,7 @@ import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 
 @Serializable
 data class AccountInfo(
@@ -88,6 +90,48 @@ suspend fun resendVerification(email: String, captcha: String? = null): String? 
     val response = StoatHttp.post("/auth/account/reverify".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), Body(email, captcha)))
+    }
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+// --- Session Management ---
+
+@Serializable
+data class SessionInfo(
+    @SerialName("_id")
+    val id: String,
+    val name: String? = null
+)
+
+/** Fetch all active sessions. */
+suspend fun fetchSessions(): List<SessionInfo> {
+    val response = StoatHttp.get("/auth/session/all".api()).bodyAsText()
+    return StoatJson.decodeFromString(ListSerializer(SessionInfo.serializer()), response)
+}
+
+/** Revoke (delete) a specific session. */
+suspend fun revokeSession(sessionId: String): String? {
+    val response = StoatHttp.delete("/auth/session/$sessionId".api())
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Revoke all other sessions (except current). */
+suspend fun revokeAllSessions(): String? {
+    val response = StoatHttp.delete("/auth/session/all".api())
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Rename a session. */
+suspend fun renameSession(sessionId: String, name: String): String? {
+    @Serializable
+    data class Body(val friendly_name: String)
+
+    val response = StoatHttp.patch("/auth/session/$sessionId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(name)))
     }
     return if (response.status.isSuccess()) null
     else "HTTP ${response.status.value}: ${response.bodyAsText()}"

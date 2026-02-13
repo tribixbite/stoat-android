@@ -368,6 +368,16 @@ fun AccountSettingsScreen(
                 modifier = Modifier.clickable { showChangePassword = true }
             )
 
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.session_management_title)) },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(painterResource(R.drawable.icn_devices_24dp), contentDescription = null)
+                    }
+                },
+                modifier = Modifier.clickable { navController.navigate("settings/sessions") }
+            )
+
             // Danger zone
             ListHeader { Text(stringResource(R.string.account_danger_zone)) }
 

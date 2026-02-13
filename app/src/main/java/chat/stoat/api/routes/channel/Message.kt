@@ -24,6 +24,18 @@ suspend fun unreact(channelId: String, messageId: String, emoji: String) {
 }
 
 /**
+ * Remove all reactions from a message.
+ * Requires ManageMessages permission.
+ */
+suspend fun removeAllReactions(channelId: String, messageId: String) {
+    StoatHttp.delete("/channels/$channelId/messages/$messageId/reactions".api())
+    // Update local cache: clear reactions on cached message
+    StoatAPI.messageCache[messageId]?.let { msg ->
+        StoatAPI.messageCache[messageId] = msg.copy(reactions = null)
+    }
+}
+
+/**
  * Pin a message in a channel.
  * Requires ManageMessages permission.
  * Pinned status is mutually exclusive with query in search.

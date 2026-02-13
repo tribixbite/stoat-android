@@ -1,0 +1,26 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# aapt2 shim for ARM64 Termux builds
+#
+# This delegates to the x86_64 aapt2 wrapper which runs the actual
+# x86_64 aapt2 binary via proot + qemu-x86_64 emulation.
+#
+# The build script (build-and-install.sh) references this location:
+#   tools/aapt2-arm64/aapt2
+#
+# If a native ARM64 aapt2 is available via Termux (pkg install aapt2),
+# prefer using that directly for better performance. This shim exists
+# as a fallback when the native package is unavailable or broken.
+#
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+WRAPPER="$TOOLS_DIR/aapt2-x86_64/aapt2-wrapper"
+
+if [ ! -x "$WRAPPER" ]; then
+    echo "Error: x86_64 aapt2 wrapper not found at: $WRAPPER" >&2
+    echo "Ensure the wrapper is installed and executable." >&2
+    exit 1
+fi
+
+exec "$WRAPPER" "$@"

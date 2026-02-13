@@ -1,0 +1,99 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# aapt2-wrapper: Runs x86_64 aapt2 on ARM64 Termux via proot + qemu-x86_64
+#
+# This wrapper uses proot to set up a minimal x86_64 rootfs with glibc,
+# then executes the x86_64 aapt2 binary under QEMU user-mode emulation.
+#
+# Requirements:
+#   - proot (pkg install proot)
+#   - qemu-x86_64 or qemu-x86_64-static (pkg install qemu-x86_64-static)
+#   - x86_64 glibc rootfs at ../x86_64-libs/ (run setup-x86_64-rootfs.sh)
+#   - x86_64 aapt2 binary at ./aapt2 (this directory)
+#
+
+# Resolve paths relative to this script
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TOOLS_DIR="$(dirname "$SCRIPT_DIR")"
+ROOTFS_DIR="$TOOLS_DIR/x86_64-libs"
+AAPT2_BIN="$SCRIPT_DIR/aapt2"
+
+# ---- Validate setup ----
+
+if [ ! -f "$AAPT2_BIN" ]; then
+    echo "Error: x86_64 aapt2 binary not found at: $AAPT2_BIN" >&2
+    exit 1
+fi
+
+if [ ! -d "$ROOTFS_DIR/lib64" ]; then
+    echo "Error: x86_64 rootfs not found at: $ROOTFS_DIR" >&2
+    echo "Run: bash $TOOLS_DIR/x86_64-rootfs/setup-x86_64-rootfs.sh" >&2
+    exit 1
+fi
+
+if [ ! -f "$ROOTFS_DIR/lib64/ld-linux-x86-64.so.2" ]; then
+    echo "Error: Dynamic linker not found: $ROOTFS_DIR/lib64/ld-linux-x86-64.so.2" >&2
+    echo "Run: bash $TOOLS_DIR/x86_64-rootfs/setup-x86_64-rootfs.sh" >&2
+    exit 1
+fi
+
+# ---- Find qemu ----
+
+QEMU_BIN=""
+if command -v qemu-x86_64 &>/dev/null; then
+    QEMU_BIN="$(command -v qemu-x86_64)"
+elif command -v qemu-x86_64-static &>/dev/null; then
+    QEMU_BIN="$(command -v qemu-x86_64-static)"
+else
+    echo "Error: qemu-x86_64 not found. Install with: pkg install qemu-x86_64-static" >&2
+    exit 1
+fi
+
+# ---- Find proot ----
+
+if ! command -v proot &>/dev/null; then
+    echo "Error: proot not found. Install with: pkg install proot" >&2
+    exit 1
+fi
+
+# ---- Execute aapt2 via proot + qemu ----
+#
+# proot options:
+#   -q <qemu>       : Use QEMU for CPU emulation
+#   -r <rootfs>     : Use this directory as the virtual root filesystem
+#   -b <path>       : Bind-mount host paths into the virtual root
+#   -w <dir>        : Set working directory inside proot
+#
+# We bind-mount:
+#   /data/data       : Android app data (Termux lives here)
+#   /proc            : Process filesystem (needed by some tools)
+#   /sys             : Sysfs (needed by some tools)
+#   /dev             : Device nodes
+#   /tmp             : Temp files
+#   /sdcard          : Shared storage (if present)
+#   /storage         : Storage access (if present)
+#
+# The aapt2 binary path is passed as-is since /data/data is bind-mounted.
+
+# Build bind mount arguments dynamically
+BIND_ARGS=()
+BIND_ARGS+=(-b /data/data)
+BIND_ARGS+=(-b /proc)
+BIND_ARGS+=(-b /sys)
+BIND_ARGS+=(-b /dev)
+
+# Optional bind mounts (only if they exist)
+[ -d /tmp ] && BIND_ARGS+=(-b /tmp)
+[ -d /sdcard ] && BIND_ARGS+=(-b /sdcard)
+[ -d /storage ] && BIND_ARGS+=(-b /storage)
+
+# Termux prefix - ensure tools and libs are visible
+BIND_ARGS+=(-b /data/data/com.termux/files/usr)
+BIND_ARGS+=(-b /data/data/com.termux/files/home)
+
+exec proot \
+    -q "$QEMU_BIN" \
+    -r "$ROOTFS_DIR" \
+    "${BIND_ARGS[@]}" \
+    -w "$(pwd)" \
+    "$AAPT2_BIN" "$@"

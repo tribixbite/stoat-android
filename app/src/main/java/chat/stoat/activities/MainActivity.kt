@@ -124,6 +124,10 @@ import chat.stoat.screens.settings.channel.ChannelSettingsHome
 import chat.stoat.screens.settings.channel.ChannelSettingsOverview
 import chat.stoat.screens.settings.channel.ChannelSettingsPermissions
 import chat.stoat.screens.search.MessageSearchScreen
+import chat.stoat.screens.settings.server.BanManagementScreen
+import chat.stoat.screens.settings.server.CreateChannelScreen
+import chat.stoat.screens.settings.server.RoleManagementScreen
+import chat.stoat.screens.settings.server.ServerSettingsScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.AndroidEntryPoint
@@ -739,6 +743,24 @@ fun AppEntrypoint(
                     composable("settings/channel/{channelId}/permissions") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
                         ChannelSettingsPermissions(navController, channelId)
+                    }
+
+                    // Server settings screens
+                    composable("settings/server/{serverId}") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        ServerSettingsScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/roles") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        RoleManagementScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/bans") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        BanManagementScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/create-channel") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        CreateChannelScreen(navController, serverId)
                     }
 
                     composable("about") { AboutScreen(navController) }

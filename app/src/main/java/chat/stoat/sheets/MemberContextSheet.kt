@@ -37,8 +37,10 @@ import chat.stoat.api.internals.Roles
 import chat.stoat.api.internals.has
 import chat.stoat.api.routes.channel.removeMember
 import chat.stoat.api.routes.server.banMember
+import chat.stoat.api.routes.server.editMember
 import chat.stoat.api.routes.server.kickMember
 import chat.stoat.composables.generic.SheetButton
+import chat.stoat.core.model.schemas.Role
 import chat.stoat.internals.Platform
 import kotlinx.coroutines.launch
 
@@ -138,6 +140,8 @@ fun ColumnScope.ServerMemberContextSheet(
     var showKickConfirmation by remember { mutableStateOf(false) }
     var showBanConfirmation by remember { mutableStateOf(false) }
     var banReason by remember { mutableStateOf("") }
+    var showNicknameDialog by remember { mutableStateOf(false) }
+    var showRolesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(server) {
         if (server == null || channel == null) {
@@ -235,6 +239,150 @@ fun ColumnScope.ServerMemberContextSheet(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    // Nickname edit dialog
+    if (showNicknameDialog) {
+        val targetMember = StoatAPI.members.getMember(serverId, userId)
+        var nickname by remember { mutableStateOf(targetMember?.nickname ?: "") }
+        var isSaving by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isSaving) showNicknameDialog = false },
+            title = { Text(stringResource(R.string.member_nickname_title)) },
+            text = {
+                OutlinedTextField(
+                    value = nickname,
+                    onValueChange = { nickname = it },
+                    label = { Text(stringResource(R.string.member_nickname_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                if (nickname.isBlank()) {
+                                    editMember(serverId, userId, remove = listOf("Nickname"))
+                                } else {
+                                    editMember(serverId, userId, nickname = nickname)
+                                }
+                                showNicknameDialog = false
+                                Toast.makeText(context, context.getString(R.string.member_nickname_updated), Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+                            }
+                            isSaving = false
+                        }
+                    },
+                    enabled = !isSaving
+                ) {
+                    Text(stringResource(R.string.server_settings_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNicknameDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Role assignment dialog
+    if (showRolesDialog) {
+        val targetMember = StoatAPI.members.getMember(serverId, userId)
+        val currentRoles = remember { mutableStateOf(targetMember?.roles?.toMutableSet() ?: mutableSetOf()) }
+        val serverRoles = server.roles ?: emptyMap()
+        var isSaving by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isSaving) showRolesDialog = false },
+            title = { Text(stringResource(R.string.member_roles_title)) },
+            text = {
+                Column {
+                    serverRoles.entries.sortedBy { it.value.rank }.forEach { (roleId, role) ->
+                        val isAssigned = roleId in currentRoles.value
+                        SheetButton(
+                            headlineContent = {
+                                Text(role.name ?: roleId)
+                            },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(
+                                        if (isAssigned) R.drawable.icn_check_24dp
+                                        else R.drawable.icn_badge_24dp
+                                    ),
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                val updated = currentRoles.value.toMutableSet()
+                                if (isAssigned) updated.remove(roleId) else updated.add(roleId)
+                                currentRoles.value = updated
+                            },
+                            special = isAssigned
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isSaving = true
+                        scope.launch {
+                            try {
+                                editMember(serverId, userId, roles = currentRoles.value.toList())
+                                showRolesDialog = false
+                                Toast.makeText(context, context.getString(R.string.member_roles_updated), Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, e.message, Toast.LENGTH_SHORT).show()
+                            }
+                            isSaving = false
+                        }
+                    },
+                    enabled = !isSaving
+                ) {
+                    Text(stringResource(R.string.server_settings_save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRolesDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Edit nickname (requires ManageNicknames permission or self ChangeNickname)
+    if ((isSelf && permissions has PermissionBit.ChangeNickname) ||
+        (!isSelf && (isOwner || permissions has PermissionBit.ManageNicknames))) {
+        SheetButton(
+            headlineContent = { Text(stringResource(R.string.member_nickname_button)) },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(R.drawable.icn_edit_24dp),
+                    contentDescription = null
+                )
+            },
+            onClick = { showNicknameDialog = true }
+        )
+    }
+
+    // Assign roles (requires AssignRoles permission)
+    if (!isSelf && (isOwner || permissions has PermissionBit.AssignRoles)) {
+        SheetButton(
+            headlineContent = { Text(stringResource(R.string.member_roles_button)) },
+            leadingContent = {
+                Icon(
+                    painter = painterResource(R.drawable.icn_badge_24dp),
+                    contentDescription = null
+                )
+            },
+            onClick = { showRolesDialog = true }
         )
     }
 

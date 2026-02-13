@@ -599,6 +599,9 @@ fun ChatRouterScreen(
                 onReportServer = {
                     reportServerTarget = currentServer ?: ""
                     showReportServer = true
+                },
+                onOpenServerSettings = {
+                    topNav.navigate("settings/server/$serverContextSheetTarget")
                 }
             )
         }

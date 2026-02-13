@@ -890,6 +890,59 @@
     <string name="server_create_channel_type_text">Text</string>
     <string name="server_create_channel_type_voice">Voice</string>
 
+    <!-- Server settings -->
+    <string name="server_settings_title">Server Settings</string>
+    <string name="server_settings_save">Save</string>
+    <string name="server_settings_info">Server Info</string>
+    <string name="server_settings_management">Management</string>
+    <string name="server_settings_name">Server name</string>
+    <string name="server_settings_description">Server description</string>
+    <string name="server_settings_roles">Roles</string>
+    <string name="server_settings_bans">Bans</string>
+    <string name="server_settings_create_channel">Create Channel</string>
+
+    <!-- Role management -->
+    <string name="role_create_title">Create Role</string>
+    <string name="role_create_button">Create Role</string>
+    <string name="role_name_label">Role name</string>
+    <string name="role_colour_label">Colour (hex)</string>
+    <string name="role_edit_title">Edit Role</string>
+    <string name="role_delete_title">Delete Role</string>
+    <string name="role_delete_confirm">Are you sure you want to delete the role \"%1$s\"? This cannot be undone.</string>
+    <string name="role_delete_button">Delete</string>
+    <string name="role_created">Role created</string>
+    <string name="role_updated">Role updated</string>
+    <string name="role_deleted">Role deleted</string>
+    <string name="role_empty">No roles configured</string>
+    <string name="role_list_header">%1$d roles</string>
+
+    <!-- Ban management -->
+    <string name="ban_unban_title">Unban Member</string>
+    <string name="ban_unban_confirm">Are you sure you want to unban %1$s?</string>
+    <string name="ban_unban_button">Unban</string>
+    <string name="ban_unban_success">Member unbanned</string>
+    <string name="ban_empty">No bans</string>
+    <string name="ban_list_header">%1$d bans</string>
+
+    <!-- Channel creation -->
+    <string name="channel_create_type">Channel Type</string>
+    <string name="channel_create_type_text">Text</string>
+    <string name="channel_create_type_voice">Voice</string>
+    <string name="channel_create_details">Details</string>
+    <string name="channel_create_name">Channel name</string>
+    <string name="channel_create_description">Description (optional)</string>
+    <string name="channel_create_button">Create Channel</string>
+    <string name="channel_created">Channel \"%1$s\" created</string>
+
+    <!-- Member management -->
+    <string name="member_nickname_title">Edit Nickname</string>
+    <string name="member_nickname_label">Nickname</string>
+    <string name="member_nickname_button">Edit Nickname</string>
+    <string name="member_nickname_updated">Nickname updated</string>
+    <string name="member_roles_title">Assign Roles</string>
+    <string name="member_roles_button">Assign Roles</string>
+    <string name="member_roles_updated">Roles updated</string>
+
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>
     <string name="geogate_description">Stoat may block content in certain jurisdictions in response to legislation or legal notices</string>

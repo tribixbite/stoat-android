@@ -31,7 +31,10 @@ import chat.stoat.persistence.SqlStorage
 import com.bumptech.glide.Glide
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -42,17 +45,23 @@ object NotificationID {
 }
 
 class HandlerService : FirebaseMessagingService() {
+    // Service-scoped coroutine context to avoid runBlocking ANR on main thread
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        try {
-            runBlocking {
+        Log.d("HandlerService", "FCM token refreshed, subscribing to push")
+        serviceScope.launch {
+            try {
                 val error = subscribePush(auth = token)
                 if (error != null) {
                     Log.w("HandlerService", "Push subscription failed during onNewToken: $error")
+                } else {
+                    Log.d("HandlerService", "Push subscription registered via onNewToken")
                 }
+            } catch (e: Exception) {
+                Log.e("HandlerService", "Error in onNewToken push subscription", e)
             }
-        } catch (e: Exception) {
-            Log.e("HandlerService", "Error in onNewToken push subscription", e)
         }
     }
 

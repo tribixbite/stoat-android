@@ -7,6 +7,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -15,6 +16,7 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 
 @Serializable
 data class AccountInfo(
@@ -135,4 +137,92 @@ suspend fun renameSession(sessionId: String, name: String): String? {
     }
     return if (response.status.isSuccess()) null
     else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+// --- MFA/TOTP Management ---
+
+/** Response from POST /auth/mfa/totp — contains the TOTP secret for setup. */
+@Serializable
+data class TotpSecret(
+    val secret: String
+)
+
+/** Response from POST/PATCH /auth/mfa/recovery — list of recovery codes. */
+@Serializable
+data class RecoveryCodes(
+    val codes: List<String>? = null
+)
+
+/** Create an MFA ticket for re-authentication. Required for some MFA operations. */
+suspend fun createMfaTicket(password: String): String? {
+    @Serializable
+    data class Body(val password: String)
+
+    @Serializable
+    data class TicketResponse(
+        @SerialName("_id") val id: String,
+        val token: String
+    )
+
+    val response = StoatHttp.put("/auth/mfa/ticket".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(password)))
+    }
+    return if (response.status.isSuccess()) {
+        val ticket = StoatJson.decodeFromString(TicketResponse.serializer(), response.bodyAsText())
+        ticket.token
+    } else null
+}
+
+/** Generate a new TOTP secret for setup. Returns the base32 secret string.
+ *  Requires x-mfa-ticket header. */
+suspend fun generateTotpSecret(mfaTicket: String): TotpSecret? {
+    val response = StoatHttp.post("/auth/mfa/totp".api()) {
+        headers.append("x-mfa-ticket", mfaTicket)
+    }
+    return if (response.status.isSuccess()) {
+        StoatJson.decodeFromString(TotpSecret.serializer(), response.bodyAsText())
+    } else null
+}
+
+/** Enable TOTP by confirming with a valid code from the authenticator app. */
+suspend fun enableTotp(totpCode: String): String? {
+    @Serializable
+    data class Body(val totp_code: String)
+
+    val response = StoatHttp.put("/auth/mfa/totp".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(totpCode)))
+    }
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Disable TOTP. Requires x-mfa-ticket header. */
+suspend fun disableTotp(mfaTicket: String): String? {
+    val response = StoatHttp.delete("/auth/mfa/totp".api()) {
+        headers.append("x-mfa-ticket", mfaTicket)
+    }
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Fetch existing recovery codes. Requires x-mfa-ticket header. */
+suspend fun fetchRecoveryCodes(mfaTicket: String): List<String> {
+    val response = StoatHttp.post("/auth/mfa/recovery".api()) {
+        headers.append("x-mfa-ticket", mfaTicket)
+    }
+    return if (response.status.isSuccess()) {
+        StoatJson.decodeFromString(ListSerializer(String.serializer()), response.bodyAsText())
+    } else emptyList()
+}
+
+/** Generate new recovery codes. Requires x-mfa-ticket header. */
+suspend fun generateRecoveryCodes(mfaTicket: String): List<String> {
+    val response = StoatHttp.patch("/auth/mfa/recovery".api()) {
+        headers.append("x-mfa-ticket", mfaTicket)
+    }
+    return if (response.status.isSuccess()) {
+        StoatJson.decodeFromString(ListSerializer(String.serializer()), response.bodyAsText())
+    } else emptyList()
 }

@@ -117,8 +117,8 @@ import chat.stoat.screens.settings.DebugSettingsScreen
 import chat.stoat.screens.settings.ExperimentsSettingsScreen
 import chat.stoat.screens.settings.LanguagePickerSettingsScreen
 import chat.stoat.screens.settings.ProfileSettingsScreen
-import chat.stoat.screens.settings.SessionSettingsScreen
 import chat.stoat.screens.settings.AccountSettingsScreen
+import chat.stoat.screens.settings.MfaSetupScreen
 import chat.stoat.screens.settings.SessionManagementScreen
 import chat.stoat.screens.settings.NotificationSettingsScreen
 import chat.stoat.screens.settings.SettingsScreen
@@ -724,7 +724,7 @@ fun AppEntrypoint(
 
                     composable("settings") { SettingsScreen(navController) }
                     composable("settings/profile") { ProfileSettingsScreen(navController) }
-                    composable("settings/sessions") { SessionSettingsScreen(navController) }
+                    composable("settings/sessions") { SessionManagementScreen(navController) }
                     composable("settings/appearance") { AppearanceSettingsScreen(navController) }
                     composable("settings/chat") { ChatSettingsScreen(navController) }
                     composable("settings/debug") { DebugSettingsScreen(navController) }
@@ -733,7 +733,7 @@ fun AppEntrypoint(
                     composable("settings/language") { LanguagePickerSettingsScreen(navController) }
                     composable("settings/notifications") { NotificationSettingsScreen(navController) }
                     composable("settings/account") { AccountSettingsScreen(navController) }
-                    composable("settings/sessions") { SessionManagementScreen(navController) }
+                    composable("settings/mfa") { MfaSetupScreen(navController) }
 
                     composable("search/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""

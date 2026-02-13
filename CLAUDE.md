@@ -85,6 +85,13 @@ When starting a new session, if told `go`:
 4. Build, test via ADB (screenshot key screens), commit, update docs
 5. Repeat until all phases complete and all screens verified
 
+## NEVER TOUCH UPSTREAM
+- NEVER post comments, replies, or questions on upstream GitHub issues (stoatchat/for-android)
+- NEVER open pull requests against upstream
+- NEVER interact with upstream repositories in any way
+- DO read upstream issues (e.g. https://github.com/stoatchat/for-android/issues) to identify bugs and feature requests to address in this fork
+- All work stays in this fork (tribixbite/stoat-android) only
+
 ## Notes
 - LiveKit voice/video is temporarily disabled (commented out in build.gradle.kts)
 - Debug builds use `.debug` applicationId suffix and custom app name

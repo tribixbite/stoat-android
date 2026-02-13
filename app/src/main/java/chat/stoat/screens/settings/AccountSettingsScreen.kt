@@ -326,24 +326,23 @@ fun AccountSettingsScreen(
                 }
             )
 
-            // MFA status
-            val mfa = accountInfo?.mfa
-            if (mfa != null) {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.account_mfa_status)) },
-                    supportingContent = {
-                        Text(
-                            if (mfa.totpEnabled == true) stringResource(R.string.account_mfa_enabled)
-                            else stringResource(R.string.account_mfa_disabled)
-                        )
-                    },
-                    leadingContent = {
-                        SettingsIcon {
-                            Icon(painterResource(R.drawable.icn_lock_24dp), contentDescription = null)
-                        }
+            // MFA status — tap to manage
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.account_mfa_status)) },
+                supportingContent = {
+                    val mfa = accountInfo?.mfa
+                    Text(
+                        if (mfa?.totpEnabled == true) stringResource(R.string.account_mfa_enabled)
+                        else stringResource(R.string.account_mfa_disabled)
+                    )
+                },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(painterResource(R.drawable.icn_key_24dp), contentDescription = null)
                     }
-                )
-            }
+                },
+                modifier = Modifier.clickable { navController.navigate("settings/mfa") }
+            )
 
             // Actions
             ListHeader { Text(stringResource(R.string.account_actions_header)) }

@@ -1128,4 +1128,39 @@
     <string name="session_rename_label">Session name</string>
     <string name="session_renamed">Session renamed</string>
     <string name="session_danger_zone">Danger Zone</string>
+
+    <!-- MFA/TOTP Setup -->
+    <string name="mfa_setup_title">Two-Factor Authentication</string>
+    <string name="mfa_status_header">Status</string>
+    <string name="mfa_totp_label">TOTP Authenticator</string>
+    <string name="mfa_recovery_label">Recovery Codes</string>
+    <string name="mfa_recovery_active">Active</string>
+    <string name="mfa_enable_totp">Enable TOTP</string>
+    <string name="mfa_disable_totp">Disable TOTP</string>
+    <string name="mfa_view_recovery_codes">View Recovery Codes</string>
+    <string name="mfa_regenerate_recovery_codes">Regenerate Recovery Codes</string>
+    <string name="mfa_step_password_title">Verify Identity</string>
+    <string name="mfa_step_password_description">Enter your account password to continue.</string>
+    <string name="mfa_step_secret_title">Add to Authenticator</string>
+    <string name="mfa_step_secret_description">Add this secret key to your authenticator app (Google Authenticator, Authy, etc.).</string>
+    <string name="mfa_secret_label">Secret Key</string>
+    <string name="mfa_copy_secret">Copy Secret</string>
+    <string name="mfa_secret_copied">Secret copied to clipboard</string>
+    <string name="mfa_step_verify_title">Verify Code</string>
+    <string name="mfa_step_verify_description">Enter the 6-digit code from your authenticator app to confirm setup.</string>
+    <string name="mfa_verify_code_label">6-digit code</string>
+    <string name="mfa_enable_button">Enable</string>
+    <string name="mfa_next">Next</string>
+    <string name="mfa_done">Done</string>
+    <string name="mfa_totp_enabled_success">TOTP enabled successfully</string>
+    <string name="mfa_totp_disabled_success">TOTP disabled</string>
+    <string name="mfa_setup_complete_description">Two-factor authentication is now enabled. Save your recovery codes in a safe place.</string>
+    <string name="mfa_disable_totp_title">Disable TOTP</string>
+    <string name="mfa_disable_totp_description">This will remove two-factor authentication from your account. You will need your password to confirm.</string>
+    <string name="mfa_error_wrong_password">Incorrect password</string>
+    <string name="mfa_error_generate_secret">Failed to generate TOTP secret</string>
+    <string name="mfa_recovery_codes_description">Save these codes somewhere safe. Each code can only be used once.</string>
+    <string name="mfa_recovery_codes_regenerated">Previous recovery codes have been invalidated.</string>
+    <string name="mfa_recovery_codes_copied">Recovery codes copied to clipboard</string>
+    <string name="mfa_copy_all">Copy All</string>
 </resources>

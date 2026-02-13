@@ -16,7 +16,6 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -41,6 +40,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import chat.stoat.R
+import chat.stoat.api.StoatAPI
 import chat.stoat.api.routes.push.subscribePush
 import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.composables.generic.ListHeader
@@ -277,8 +277,12 @@ fun NotificationSettingsScreen(
                 )
             } else {
                 mutedServers.keys.forEach { serverId ->
+                    val serverName = StoatAPI.serverCache[serverId]?.name ?: serverId
                     ListItem(
-                        headlineContent = { Text(serverId) },
+                        headlineContent = { Text(serverName) },
+                        supportingContent = if (serverName != serverId) {
+                            { Text(serverId, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        } else null,
                         trailingContent = {
                             TextButton(onClick = {
                                 scope.launch {
@@ -311,8 +315,24 @@ fun NotificationSettingsScreen(
                 )
             } else {
                 mutedChannels.keys.forEach { channelId ->
+                    val channel = StoatAPI.channelCache[channelId]
+                    val channelName = channel?.name ?: channelId
+                    // Show parent server name if available
+                    val parentServer = channel?.server?.let { StoatAPI.serverCache[it] }
                     ListItem(
-                        headlineContent = { Text(channelId) },
+                        headlineContent = { Text(channelName) },
+                        supportingContent = {
+                            val subtitle = buildString {
+                                parentServer?.name?.let { append(it) }
+                                if (channelName != channelId) {
+                                    if (isNotEmpty()) append(" · ")
+                                    append(channelId)
+                                }
+                            }
+                            if (subtitle.isNotEmpty()) {
+                                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         trailingContent = {
                             TextButton(onClick = {
                                 scope.launch {

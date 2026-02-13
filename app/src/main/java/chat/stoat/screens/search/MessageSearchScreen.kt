@@ -201,39 +201,47 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
             // The from:user and has: filters are applied client-side afterward.
             val apiQuery = query.ifBlank { " " }
 
-            val result = searchMessages(
-                channelId = channelId,
-                query = apiQuery,
-                limit = 25,
-                before = beforeId,
-                sort = sort.apiValue,
-                includeUsers = true,
-                pinned = if (pinnedOnly) true else null
-            )
+            try {
+                val result = searchMessages(
+                    channelId = channelId,
+                    query = apiQuery,
+                    limit = 25,
+                    before = beforeId,
+                    sort = sort.apiValue,
+                    includeUsers = true,
+                    pinned = if (pinnedOnly) true else null
+                )
 
-            when (result) {
-                is SearchResult.Success -> {
-                    result.data.users?.forEach { user ->
-                        user.id?.let { userCache[it] = user }
+                when (result) {
+                    is SearchResult.Success -> {
+                        result.data.users?.forEach { user ->
+                            user.id?.let { userCache[it] = user }
+                        }
+
+                        val messages = result.data.messages ?: emptyList()
+                        if (messages.isEmpty()) {
+                            canLoadMore = false
+                        } else {
+                            rawResults.addAll(messages)
+                        }
+
+                        applyClientFilters()
                     }
-
-                    val messages = result.data.messages ?: emptyList()
-                    if (messages.isEmpty()) {
+                    is SearchResult.Error -> {
+                        errorMessage = result.message
                         canLoadMore = false
-                    } else {
-                        rawResults.addAll(messages)
                     }
-
-                    applyClientFilters()
                 }
-                is SearchResult.Error -> {
-                    errorMessage = result.message
-                    canLoadMore = false
-                    Log.e("MessageSearch", "Search error: ${result.message}")
-                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Coroutine was cancelled (user submitted another search or navigated away)
+                throw e
+            } catch (e: Exception) {
+                errorMessage = "${e.javaClass.simpleName}: ${e.message}"
+                canLoadMore = false
+                Log.e("MessageSearch", "Search failed", e)
+            } finally {
+                isLoading = false
             }
-
-            isLoading = false
         }
     }
 }

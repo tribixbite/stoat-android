@@ -196,7 +196,15 @@ fun ChannelInfoSheet(channelId: String, onHideSheet: suspend () -> Unit) {
                 contentDescription = null
             )
         },
-        onClick = {}
+        onClick = {
+            scope.launch {
+                onHideSheet()
+            }
+            scope.launch {
+                delay(100)
+                ActionChannel.send(Action.TopNavigate("settings/notifications"))
+            }
+        }
     )
 
     if (

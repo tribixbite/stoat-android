@@ -73,11 +73,19 @@ class NotificationSettingsViewModel @Inject constructor(
     fun retryFcmRegistration() {
         isRetrying = true
         lastError = null
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+        try {
+            FirebaseMessaging.getInstance().token
+        } catch (e: Exception) {
+            // Firebase not initialized — likely placeholder google-services.json
+            lastError = "Firebase not configured: ${e.message}\nReplace google-services.json with real Firebase config"
+            isRetrying = false
+            return
+        }.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w("NotificationSettings", "FCM token fetch failed", task.exception)
                 task.exception?.let { Sentry.captureException(it) }
-                lastError = "FCM token fetch failed: ${task.exception?.message}"
+                val cause = task.exception?.message ?: "unknown"
+                lastError = "FCM token failed: $cause\nCheck google-services.json is valid"
                 isRetrying = false
                 return@addOnCompleteListener
             }

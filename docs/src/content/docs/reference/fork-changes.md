@@ -128,6 +128,29 @@ Shows shared connections in member context sheets.
 - **Mutual servers** — shows shared server names
 - **Non-intrusive** — displays between moderation actions and copy ID, only for other users
 
+### Session Management
+Active session management with full API integration.
+
+- **List sessions** — `GET /auth/session/all`
+- **Rename session** — `PATCH /auth/session/{id}` with friendly name
+- **Revoke session** — `DELETE /auth/session/{id}` with confirmation
+- **Revoke all others** — `DELETE /auth/session/all` danger zone action
+
+### Member Search
+Client-side member search in member list sheet.
+
+- **Search field** at top of member list sheet
+- Filters by **username, display name, and server nickname**
+- Clear button to reset search
+- Works for both server members and group DM participants
+
+### Content Moderation
+Advanced message management for moderators.
+
+- **Remove all reactions** — `DELETE /channels/{id}/messages/{msg}/reactions`
+- **Bulk delete messages** — dialog with preset counts (5/10/25/50/100), operates on cached messages
+- Both gated by ManageMessages permission
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -157,7 +180,7 @@ Comprehensive technical documentation added (not present in upstream):
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
 | Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 84 (69%) |
+| Implemented | ~55 | 89 (74%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
 | Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
@@ -187,7 +210,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 | Role permissions editor | `PUT /servers/{id}/permissions/{roleId}` | **Done** |
 | Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | **Done** |
 | Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | **Done** |
-| Member search | `GET /servers/{id}/members` with query | Planned |
+| Member search | `GET /servers/{id}/members` with query | **Done** (client-side) |
 
 ### Phase 3: Social Features (Medium Priority)
 | Feature | Endpoints | Status |
@@ -200,7 +223,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | **Done** |
-| Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | API done, UI planned |
+| Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | **Done** |
 | Server emoji listing | `GET /servers/{id}/emojis` | **Done** (via cache) |
 
 ### Phase 5: Bots & Webhooks (Low Priority)
@@ -250,3 +273,5 @@ All changes from upstream divergence point:
 | `44699c7` | feat | Emoji management, mutual friends/servers display |
 | `e54433f` | docs | Update specs for emoji, invites, mutual, account |
 | `c0bfb6b` | feat | Session management, remove all reactions |
+| `9216ff4` | feat | Member search, session management, remove all reactions |
+| `ee92622` | feat | Bulk delete messages UI with count selector |

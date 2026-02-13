@@ -52,6 +52,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -118,8 +120,10 @@ fun ChannelSideDrawer(
     modifier: Modifier = Modifier
 ) {
     val server = StoatAPI.serverCache[currentServer]
+    // Track collapsed categories per server (upstream #51)
+    val collapsedCategoryIds = remember { mutableStateMapOf<String, Boolean>() }
     val categorisedChannels = server?.let {
-        ChannelUtils.categoriseServerFlat(it)
+        ChannelUtils.categoriseServerFlat(it, collapsedCategoryIds.keys)
     }
     val channelListState = rememberLazyListState()
 
@@ -589,7 +593,15 @@ fun ChannelSideDrawer(
                     drawerState,
                     channelListState,
                     onOpenChannelContextSheet = { channelContextSheetTarget = it },
-                    serverId = currentServer
+                    serverId = currentServer,
+                    collapsedCategoryIds = collapsedCategoryIds.keys,
+                    onToggleCategoryCollapse = { catId ->
+                        if (catId in collapsedCategoryIds) {
+                            collapsedCategoryIds.remove(catId)
+                        } else {
+                            collapsedCategoryIds[catId] = true
+                        }
+                    }
                 )
             }
         }
@@ -759,7 +771,9 @@ fun ColumnScope.ServerChannelListRenderer(
     drawerState: DrawerState?,
     channelListState: LazyListState,
     onOpenChannelContextSheet: (String) -> Unit,
-    serverId: String
+    serverId: String,
+    collapsedCategoryIds: Set<String> = emptySet(),
+    onToggleCategoryCollapse: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
 
@@ -828,7 +842,12 @@ fun ColumnScope.ServerChannelListRenderer(
                 }
 
                 is CategorisedChannelList.Category -> {
-                    CategoryItem(category = channelOrCat.category)
+                    val catId = channelOrCat.category.id ?: ""
+                    CategoryItem(
+                        category = channelOrCat.category,
+                        isCollapsed = catId in collapsedCategoryIds,
+                        onToggleCollapse = { onToggleCategoryCollapse(catId) }
+                    )
                 }
 
                 else -> {}
@@ -958,16 +977,39 @@ fun ChannelItem(
 
 @Composable
 fun CategoryItem(
-    category: Category
+    category: Category,
+    isCollapsed: Boolean = false,
+    onToggleCollapse: (() -> Unit)? = null
 ) {
-    Text(
-        text = category.title ?: stringResource(R.string.unknown),
-        style = MaterialTheme.typography.labelLarge,
-        fontSize = 16.sp,
-        modifier = Modifier.padding(
-            start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp
-        )
+    // Animate chevron rotation: 0° = pointing down (expanded), -90° = pointing right (collapsed)
+    val rotation by animateFloatAsState(
+        targetValue = if (isCollapsed) -90f else 0f,
+        label = "categoryChevron"
     )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = onToggleCollapse != null) { onToggleCollapse?.invoke() }
+            .padding(start = 12.dp, end = 24.dp, top = 24.dp, bottom = 16.dp)
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.icn_keyboard_arrow_right_24dp),
+            contentDescription = if (isCollapsed) "Expand" else "Collapse",
+            modifier = Modifier
+                .size(20.dp)
+                .graphicsLayer { rotationZ = rotation },
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = category.title ?: stringResource(R.string.unknown),
+            style = MaterialTheme.typography.labelLarge,
+            fontSize = 16.sp,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

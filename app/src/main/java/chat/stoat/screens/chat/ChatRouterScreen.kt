@@ -159,6 +159,9 @@ class ChatRouterViewModel @Inject constructor(
     var showEarlyAccessSpark by mutableStateOf(false)
     var showSwipeToReplySpark by mutableStateOf(false)
 
+    // Target message ID for scroll-to-reply (upstream #23)
+    var scrollToMessageId by mutableStateOf<String?>(null)
+
     private val changelogs = Changelogs(context, kvStorage)
 
     init {
@@ -499,6 +502,11 @@ fun ChatRouterScreen(
 
                     is Action.OpenWebhookSheet -> {
                         showWebhookInfoSheet = true
+                    }
+
+                    is Action.ScrollToMessage -> {
+                        // Forward to ChannelScreen via ViewModel (upstream #23)
+                        viewModel.scrollToMessageId = action.messageId
                     }
                 }
             }
@@ -896,6 +904,8 @@ fun ChatRouterScreen(
                             toggleDrawerLambda()
                         },
                         onEnterVoiceUI = onEnterVoiceUI,
+                        scrollToMessageId = viewModel.scrollToMessageId,
+                        onScrollToMessageConsumed = { viewModel.scrollToMessageId = null },
                     )
                 }
             } else {
@@ -949,6 +959,8 @@ fun ChatRouterScreen(
                                     useSidebarGesture = it
                                 },
                                 onEnterVoiceUI = onEnterVoiceUI,
+                                scrollToMessageId = viewModel.scrollToMessageId,
+                                onScrollToMessageConsumed = { viewModel.scrollToMessageId = null },
                             )
 
                             // This is the overlay on the main content when the drawer is open
@@ -1025,6 +1037,8 @@ fun ChannelNavigator(
     disableBackHandler: Boolean = false,
     onEnterVoiceUI: (String) -> Unit = {},
     setDrawerGestureEnabled: (Boolean) -> Unit = {},
+    scrollToMessageId: String? = null,
+    onScrollToMessageConsumed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
 
@@ -1066,6 +1080,8 @@ fun ChannelNavigator(
                     drawerGestureEnabled = drawerGestureEnabled,
                     setDrawerGestureEnabled = setDrawerGestureEnabled,
                     drawerIsOpen = drawerState?.isOpen == true,
+                    scrollToMessageId = scrollToMessageId,
+                    onScrollToMessageConsumed = onScrollToMessageConsumed
                 )
             }
 

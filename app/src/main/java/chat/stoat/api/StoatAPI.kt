@@ -107,8 +107,10 @@ val StoatHttp = HttpClient(OkHttp) {
     }
 
     install(HttpRequestRetry) {
-        retryOnServerErrors(maxRetries = 5)
-        retryOnException(maxRetries = 5)
+        // Reduced from 5 retries: 502 Bad Gateway from events.stoat.chat causes
+        // exponential backoff hangs (~62s total). 2 retries = ~6s max, fails fast.
+        retryOnServerErrors(maxRetries = 2)
+        retryOnException(maxRetries = 2)
 
         modifyRequest { request ->
             request.headers.append("x-retry-count", retryCount.toString())

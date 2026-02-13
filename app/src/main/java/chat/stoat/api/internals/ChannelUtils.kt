@@ -33,7 +33,10 @@ object ChannelUtils {
         return channel.recipients?.firstOrNull { u -> u != StoatAPI.selfId }
     }
 
-    fun categoriseServerFlat(server: Server): List<CategorisedChannelList> {
+    fun categoriseServerFlat(
+        server: Server,
+        collapsedCategoryIds: Set<String> = emptySet()
+    ): List<CategorisedChannelList> {
         val output = mutableListOf<CategorisedChannelList>()
 
         val uncategorised =
@@ -55,12 +58,15 @@ object ChannelUtils {
             server.categories?.map { CategorisedChannelList.Category(it) } ?: emptyList()
         categories.forEach {
             output.add(it)
-            val channels = it.category.channels?.mapNotNull { c ->
-                StoatAPI.channelCache[c]?.let { it1 ->
-                    CategorisedChannelList.Channel(it1)
-                }
-            } ?: emptyList()
-            output.addAll(channels)
+            // Skip channels if category is collapsed (upstream #51)
+            if (it.category.id !in collapsedCategoryIds) {
+                val channels = it.category.channels?.mapNotNull { c ->
+                    StoatAPI.channelCache[c]?.let { it1 ->
+                        CategorisedChannelList.Channel(it1)
+                    }
+                } ?: emptyList()
+                output.addAll(channels)
+            }
         }
 
         return output

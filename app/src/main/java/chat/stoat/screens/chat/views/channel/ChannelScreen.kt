@@ -198,6 +198,8 @@ fun ChannelScreen(
     drawerIsOpen: Boolean = false,
     backButtonAction: (() -> Unit)? = null,
     useChatUI: Boolean = false,
+    scrollToMessageId: String? = null,
+    onScrollToMessageConsumed: () -> Unit = {},
     viewModel: ChannelScreenViewModel = hiltViewModel()
 ) {
     // <editor-fold desc="State and effects">
@@ -414,6 +416,23 @@ fun ChannelScreen(
         animationSpec = StoatTweenDp,
         label = "ScrollDownFABPadding"
     )
+
+    // Scroll to a specific message when requested (upstream #23 — jump to reply)
+    LaunchedEffect(scrollToMessageId) {
+        val targetId = scrollToMessageId ?: return@LaunchedEffect
+        onScrollToMessageConsumed()
+        val index = viewModel.items.indexOfFirst { item ->
+            when (item) {
+                is ChannelScreenItem.RegularMessage -> item.message.id == targetId
+                is ChannelScreenItem.ProspectiveMessage -> item.message.id == targetId
+                is ChannelScreenItem.SystemMessage -> item.message.id == targetId
+                else -> false
+            }
+        }
+        if (index >= 0) {
+            lazyListState.animateScrollToItem(index)
+        }
+    }
 
     // Load more messages when we reach the top of the list
     // TODO: Temp - use LoadTrigger instead

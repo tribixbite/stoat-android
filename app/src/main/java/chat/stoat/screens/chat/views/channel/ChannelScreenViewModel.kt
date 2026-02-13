@@ -102,6 +102,11 @@ class ChannelScreenViewModel @Inject constructor(
 
     var editingMessage by mutableStateOf<String?>(null)
 
+    // Prevents duplicate sends from rapid tapping (upstream #33/#30)
+    var isSendingMessage by mutableStateOf(false)
+        private set
+
+
     var ageGateUnlocked by mutableStateOf<Boolean?>(null)
     var showGeoGate by mutableStateOf(false)
 
@@ -332,6 +337,10 @@ class ChannelScreenViewModel @Inject constructor(
             return
         }
 
+        // Prevent duplicate sends from rapid tapping (upstream #33/#30)
+        if (isSendingMessage) return
+        isSendingMessage = true
+
         // Immediately, make copies of the draft content and replyTo list, as
         // 1. they will be cleared
         // 2. if the user changes the content while the message is being sent we want to persist
@@ -340,77 +349,84 @@ class ChannelScreenViewModel @Inject constructor(
         val replyTo = draftReplyTo.toList()
         // Capture channel ID now to prevent race condition if user switches
         // channels during upload (upstream issue #17)
-        val sendChannelId = channel?.id ?: return
+        val sendChannelId = channel?.id ?: run {
+            isSendingMessage = false
+            return
+        }
 
         // First we upload (the next 5) attachments...
         viewModelScope.launch {
-            val attachmentIds = arrayListOf<String>()
-            val takenAttachments =
-                this@ChannelScreenViewModel.draftAttachments.take(MAX_ATTACHMENTS_PER_MESSAGE)
-            val totalTaken = takenAttachments.size
-
-            takenAttachments.forEachIndexed { index, it ->
-                try {
-                    val id = uploadToAutumn(
-                        it.file,
-                        if (it.spoiler) "SPOILER_${it.filename}" else it.filename,
-                        "attachments",
-                        ContentType.parse(it.contentType),
-                        onProgress = { current, total ->
-                            attachmentUploadProgress =
-                                ((current.toFloat() / total.toFloat()) / totalTaken.toFloat()) + (index.toFloat() / totalTaken.toFloat())
-                        }
-                    )
-                    attachmentIds.add(id)
-                } catch (e: Exception) {
-                    Log.e("ChannelScreenViewModel", "Failed to upload attachment", e)
-                    attachmentUploadProgress = 0f
-                    // TODO show error message
-                    return@launch
-                }
-            }
-
-            val nonce = ULID.makeNext()
-            val prospectiveMessage = Message(
-                id = nonce,
-                channel = sendChannelId,
-                author = StoatAPI.selfId,
-                content = content,
-                nonce = nonce,
-                attachments = listOf(),
-                replies = listOf(),
-                tail = items.firstOrNull()?.let {
-                    if (it is ChannelScreenItem.RegularMessage) {
-                        it.message.author == StoatAPI.selfId
-                    } else if (it is ChannelScreenItem.ProspectiveMessage) {
-                        it.message.author == StoatAPI.selfId
-                    } else {
-                        false
-                    }
-                } ?: false
-            )
-
-            updateItems(listOf(ChannelScreenItem.ProspectiveMessage(prospectiveMessage)) + items)
-
-            kvStorage.remove("draftContent/${sendChannelId}")
-            putDraftContent("", true)
-            draftReplyTo.clear()
-            attachmentUploadProgress = 0f
-
-            this@ChannelScreenViewModel.draftAttachments.removeAll(takenAttachments)
-
             try {
-                sendMessage(
-                    channelId = sendChannelId,
+                val attachmentIds = arrayListOf<String>()
+                val takenAttachments =
+                    this@ChannelScreenViewModel.draftAttachments.take(MAX_ATTACHMENTS_PER_MESSAGE)
+                val totalTaken = takenAttachments.size
+
+                takenAttachments.forEachIndexed { index, it ->
+                    try {
+                        val id = uploadToAutumn(
+                            it.file,
+                            if (it.spoiler) "SPOILER_${it.filename}" else it.filename,
+                            "attachments",
+                            ContentType.parse(it.contentType),
+                            onProgress = { current, total ->
+                                attachmentUploadProgress =
+                                    ((current.toFloat() / total.toFloat()) / totalTaken.toFloat()) + (index.toFloat() / totalTaken.toFloat())
+                            }
+                        )
+                        attachmentIds.add(id)
+                    } catch (e: Exception) {
+                        Log.e("ChannelScreenViewModel", "Failed to upload attachment", e)
+                        attachmentUploadProgress = 0f
+                        // TODO show error message
+                        return@launch
+                    }
+                }
+
+                val nonce = ULID.makeNext()
+                val prospectiveMessage = Message(
+                    id = nonce,
+                    channel = sendChannelId,
+                    author = StoatAPI.selfId,
                     content = content,
                     nonce = nonce,
-                    replies = replyTo,
-                    attachments = attachmentIds,
-                    idempotencyKey = ULID.makeNext()
+                    attachments = listOf(),
+                    replies = listOf(),
+                    tail = items.firstOrNull()?.let {
+                        if (it is ChannelScreenItem.RegularMessage) {
+                            it.message.author == StoatAPI.selfId
+                        } else if (it is ChannelScreenItem.ProspectiveMessage) {
+                            it.message.author == StoatAPI.selfId
+                        } else {
+                            false
+                        }
+                    } ?: false
                 )
-            } catch (e: Exception) {
-                Log.e("ChannelScreenViewModel", "Failed to send message", e)
-                updateItems(listOf(ChannelScreenItem.FailedMessage(prospectiveMessage)) + items.filter { it !is ChannelScreenItem.ProspectiveMessage })
+
+                updateItems(listOf(ChannelScreenItem.ProspectiveMessage(prospectiveMessage)) + items)
+
+                kvStorage.remove("draftContent/${sendChannelId}")
+                putDraftContent("", true)
+                draftReplyTo.clear()
+                attachmentUploadProgress = 0f
+
+                this@ChannelScreenViewModel.draftAttachments.removeAll(takenAttachments)
+
+                try {
+                    sendMessage(
+                        channelId = sendChannelId,
+                        content = content,
+                        nonce = nonce,
+                        replies = replyTo,
+                        attachments = attachmentIds,
+                        idempotencyKey = ULID.makeNext()
+                    )
+                } catch (e: Exception) {
+                    Log.e("ChannelScreenViewModel", "Failed to send message", e)
+                    updateItems(listOf(ChannelScreenItem.FailedMessage(prospectiveMessage)) + items.filter { it !is ChannelScreenItem.ProspectiveMessage })
+                }
+            } finally {
+                isSendingMessage = false
             }
         }
     }

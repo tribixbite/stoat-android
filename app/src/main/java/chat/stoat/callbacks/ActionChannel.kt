@@ -15,6 +15,7 @@ sealed class Action {
     data class ReportMessage(val messageId: String) : Action()
     data class OpenVoiceChannelOverlay(val channelId: String) : Action()
     data object OpenWebhookSheet : Action()
+    data class ScrollToMessage(val messageId: String) : Action()
 }
 
 val ActionChannel = Channel<Action>(

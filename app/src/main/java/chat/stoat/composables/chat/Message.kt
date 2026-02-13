@@ -320,10 +320,10 @@ fun Message(
                                     replyMessage.author
                                 )
                             } == true),
-                        ) {
-                            // TODO Add jump to message
-                            if (replyMessage == null) {
-                                Toast.makeText(context, "lmao prankd", Toast.LENGTH_SHORT).show()
+                        ) { clickedMsgId ->
+                            // Jump to replied message in chat (upstream #23)
+                            scope.launch {
+                                ActionChannel.send(Action.ScrollToMessage(clickedMsgId))
                             }
                         }
                     }

@@ -547,17 +547,25 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                 .padding(pv)
                 .fillMaxHeight()
         ) {
+            // Compute lists once per recomposition so headers and items use the same
+            // snapshot. Reads from mutableStateMapOf are tracked — the LazyColumn
+            // recomposes automatically when userCache changes (upstream #39).
+            val incomingRequests = FriendRequests.getIncoming()
+            val outgoingRequests = FriendRequests.getOutgoing()
+            val onlineFriends = FriendRequests.getOnlineFriends()
+            val offlineFriends = FriendRequests.getFriends(excludeOnline = true)
+            val blockedUsers = FriendRequests.getBlocked()
+
             LazyColumn {
                 stickyHeader(key = "incoming") {
                     CountableListHeader(
                         text = stringResource(id = R.string.friends_incoming_requests),
-                        count = FriendRequests.getIncoming().size
+                        count = incomingRequests.size
                     )
                 }
 
-                items(FriendRequests.getIncoming().size) {
-                    val item = FriendRequests.getIncoming().getOrNull(it)
-                    if (item == null) return@items
+                items(incomingRequests.size, key = { incomingRequests[it].id ?: it }) {
+                    val item = incomingRequests[it]
 
                     MemberListItem(
                         member = null,
@@ -577,13 +585,12 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                 stickyHeader(key = "outgoing") {
                     CountableListHeader(
                         text = stringResource(id = R.string.friends_outgoing_requests),
-                        count = FriendRequests.getOutgoing().size
+                        count = outgoingRequests.size
                     )
                 }
 
-                items(FriendRequests.getOutgoing().size) {
-                    val item = FriendRequests.getOutgoing().getOrNull(it)
-                    if (item == null) return@items
+                items(outgoingRequests.size, key = { outgoingRequests[it].id ?: it }) {
+                    val item = outgoingRequests[it]
 
                     MemberListItem(
                         member = null,
@@ -603,13 +610,12 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                 stickyHeader(key = "online") {
                     CountableListHeader(
                         text = stringResource(id = R.string.status_online),
-                        count = FriendRequests.getOnlineFriends().size
+                        count = onlineFriends.size
                     )
                 }
 
-                items(FriendRequests.getOnlineFriends().size) {
-                    val item = FriendRequests.getOnlineFriends().getOrNull(it)
-                    if (item == null) return@items
+                items(onlineFriends.size, key = { onlineFriends[it].id ?: it }) {
+                    val item = onlineFriends[it]
 
                     MemberListItem(
                         member = null,
@@ -629,13 +635,12 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                 stickyHeader(key = "not_online") {
                     CountableListHeader(
                         text = stringResource(id = R.string.friends_all),
-                        count = FriendRequests.getFriends(true).size
+                        count = offlineFriends.size
                     )
                 }
 
-                items(FriendRequests.getFriends(true).size) {
-                    val item = FriendRequests.getFriends(true).getOrNull(it)
-                    if (item == null) return@items
+                items(offlineFriends.size, key = { offlineFriends[it].id ?: it }) {
+                    val item = offlineFriends[it]
 
                     MemberListItem(
                         member = null,
@@ -655,14 +660,12 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
                 stickyHeader(key = "blocked") {
                     CountableListHeader(
                         text = stringResource(id = R.string.friends_blocked),
-                        count = FriendRequests.getBlocked().size
+                        count = blockedUsers.size
                     )
                 }
 
-
-                items(FriendRequests.getBlocked().size) {
-                    val item = FriendRequests.getBlocked().getOrNull(it)
-                    if (item == null) return@items
+                items(blockedUsers.size, key = { blockedUsers[it].id ?: it }) {
+                    val item = blockedUsers[it]
 
                     MemberListItem(
                         member = null,

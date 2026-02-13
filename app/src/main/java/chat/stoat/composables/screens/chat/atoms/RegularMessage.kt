@@ -167,7 +167,10 @@ fun RegularMessage(
                 val author = message.author?.let { StoatAPI.userCache[it] } ?: return@Message
                 putTextAtCursorPosition("@${author.username}#${author.discriminator}")
             },
-            canReply = true,
+            // Don't allow reply to blocked users (upstream #11)
+            canReply = message.author?.let {
+                StoatAPI.userCache[it]?.relationship != "Blocked"
+            } ?: true,
             onReply = {
                 message.id?.let { messageId ->
                     scope.launch {

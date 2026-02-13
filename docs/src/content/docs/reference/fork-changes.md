@@ -204,6 +204,11 @@ Prevents duplicate message sends from rapid tapping.
 - **Blocked swipe-to-reply** — `canReply` was hardcoded to `true` in `RegularMessage`
 - Now checks `StoatAPI.userCache[author]?.relationship != "Blocked"` before enabling swipe reply gesture
 
+### Swipe-to-Reply vs Code Block Scroll (Upstream #14)
+- **Fixed gesture conflict** — swiping horizontally on a code block triggered swipe-to-reply instead of scrolling the code content
+- Changed `supportSwipeReply` from `PointerEventPass.Main` to `PointerEventPass.Final` so child scrollable elements process events first
+- Filters out consumed pointer changes before passing to swipe handler
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -337,3 +342,4 @@ All changes from upstream divergence point:
 | `e7e8101` | feat | Collapsible categories, reply jump, send debounce, retry fix |
 | `c51e360` | fix | Navigation restoration on app restart for DM/saved notes (#41/#21) |
 | `8768da8` | fix | Friends list reactivity (#39), blocked user swipe reply (#11) |
+| `a444479` | fix | Swipe-to-reply no longer hijacks code block scroll (#14) |

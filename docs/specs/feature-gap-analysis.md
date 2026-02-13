@@ -1,8 +1,8 @@
-# Feature Gap Analysis — Android vs Web/Desktop
+# Feature Gap Analysis — Android vs Web/Desktop vs API
 
 ## Overview
 
-Comprehensive comparison of Stoat Android client features against the web client (SolidJS), desktop client (Electron), legacy Revite client, and Revolt backend API. Goal: identify missing features and implement them so the Android app exceeds web app functionality.
+Comprehensive comparison of Stoat Android client features against the web client (SolidJS), desktop client (Electron), Revolt backend API (121 endpoints from OpenAPI v0.11.0), and microservices (Autumn, January, GifBox).
 
 ## Sources Analyzed
 
@@ -11,200 +11,233 @@ Comprehensive comparison of Stoat Android client features against the web client
 | `stoatchat/for-web` | Stoat web client (SolidJS + TypeScript) |
 | `stoatchat/for-desktop` | Stoat desktop client (Electron wrapper) |
 | `revoltchat/frontend` | Upstream Revolt web frontend |
-| `revoltchat/backend` | Revolt backend API (Rust) |
+| `revoltchat/backend` | Revolt backend API (Rust/Rocket) |
 | `revoltchat/revite` | Legacy Revolt web client (React) |
+| OpenAPI spec `/openapi.json` | 121 endpoints, v0.11.0 |
+| Autumn CDN service | File upload/download (6 tags: attachments, avatars, backgrounds, icons, banners, emojis) |
+| January proxy service | Media proxy (`/proxy?url=`) and embed generation (`/embed?url=`) |
+| GifBox service | GIF search (`/search`, `/trending`, `/categories`) |
+| Geo service | `geo.revolt.chat` — age restriction check |
+| Health service | `health.revolt.chat/api/health` — service status |
 
-## Android API Routes: 59 implemented
+## Infrastructure
 
-## Gap Summary
+| Domain | Purpose | Status |
+|--------|---------|--------|
+| `api.stoat.chat` | Main API (v0.11.0) | Active, identical to api.revolt.chat |
+| `events.stoat.chat` | WebSocket events | Active |
+| `cdn.stoatusercontent.com` | Autumn file CDN | Active |
+| `proxy.stoatusercontent.com` | January media proxy | Active |
+| `beta.stoat.chat` | Web app | Active |
+| `01.hel-fi.voip.stoat.chat` | LiveKit voice/video | Active |
+| `admin.stoatinternal.com` | Admin panel (SSO) | Active, not public API |
+| `old-admin.stoatinternal.com` | Legacy admin panel | Active |
+| `geo.revolt.chat` | Geo/age restriction | Active |
+| `health.revolt.chat` | Service health | Active |
 
-### Priority 1 — Core Messaging (all users)
+## Android Implementation Status
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Pin/unpin message | Yes | **MISSING** | **MISSING** | TODO |
-| Mark as unread | Yes | Partial (ack) | Toast "coming soon" | TODO |
-| Bulk message delete | Yes | **MISSING** | **MISSING** | TODO |
+**Total OpenAPI endpoints: 121**
+**Implemented in Android: 65** (54%)
+**Missing from Android: 56** (46%)
 
-### Priority 2 — Server Administration (admins/owners)
+### Implemented Endpoints (65)
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Kick member | Yes | **MISSING** | Placeholder TODO | TODO |
-| Ban member | Yes | **MISSING** | **MISSING** | TODO |
-| Unban member | Yes | **MISSING** | **MISSING** | TODO |
-| List server bans | Yes | **MISSING** | **MISSING** | TODO |
-| Create channel in server | Yes | **MISSING** | **MISSING** | TODO |
-| Edit server settings | Yes | **MISSING** | **MISSING** | TODO |
-| Timeout member | Yes | **MISSING** | **MISSING** | TODO |
+| Category | Count | Endpoints |
+|----------|-------|-----------|
+| Auth/Session | 5 | login, create account, list sessions, delete session, delete all sessions |
+| Channel | 14 | fetch, edit, delete, messages CRUD, ack, members, invites, search |
+| Channel Messages | 8 | send, edit, delete, fetch, pin, unpin, bulk delete, reactions |
+| Group DM | 3 | create, add member, remove member |
+| Server | 17 | create, fetch, edit, delete, ack, members, kick, ban, unban, bans, edit member, create channel, roles CRUD, permissions |
+| User | 9 | fetch self, edit self, fetch user, profile, DM, block/unblock, friend/unfriend |
+| Sync | 3 | fetch settings, set settings, unreads |
+| Other | 6 | onboard, push subscribe, report, invites, emoji fetch, root, voice join |
 
-### Priority 3 — Role & Permission Management
+### Missing Endpoints (56) — Implementable Client-Side
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Create role | Yes | **MISSING** | **MISSING** | TODO |
-| Edit role (name, color, permissions) | Yes | **MISSING** | **MISSING** | TODO |
-| Delete role | Yes | **MISSING** | **MISSING** | TODO |
-| Set server permissions for role | Yes | **MISSING** | **MISSING** | TODO |
-| Set channel permission overrides | Yes | **MISSING** | Partial UI | TODO |
-| Assign roles to member | Yes | **MISSING** | **MISSING** | TODO |
+#### Account Management (11 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /auth/account/` | High | Fetch account info (email) |
+| `PATCH /auth/account/change/email` | High | Change email |
+| `PATCH /auth/account/change/password` | High | Change password |
+| `POST /auth/account/delete` | Medium | Delete account |
+| `PUT /auth/account/delete` | Medium | Confirm deletion |
+| `POST /auth/account/disable` | Low | Disable account |
+| `PATCH /auth/account/reset_password` | Low | Used in flow |
+| `POST /auth/account/reset_password` | Low | Send reset email |
+| `POST /auth/account/reverify` | Low | Resend verification |
+| `POST /auth/account/verify/{code}` | Low | Verify email |
+| `PATCH /users/@me/username` | High | Change username |
 
-### Priority 4 — Member Management
+#### MFA Management (7 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /auth/mfa/` | Medium | Check MFA status |
+| `GET /auth/mfa/methods` | Medium | Get available MFA methods |
+| `PUT /auth/mfa/ticket` | Medium | Create MFA ticket |
+| `POST /auth/mfa/totp` | Medium | Generate TOTP secret |
+| `PUT /auth/mfa/totp` | Medium | Enable TOTP |
+| `DELETE /auth/mfa/totp` | Medium | Disable TOTP |
+| `PATCH /auth/mfa/recovery` | Medium | Generate recovery codes |
+| `POST /auth/mfa/recovery` | Medium | Fetch recovery codes |
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Edit member nickname | Yes | **MISSING** | **MISSING** | TODO |
-| Edit member avatar (server identity) | Yes | **MISSING** | **MISSING** | TODO |
-| Edit member roles | Yes | **MISSING** | **MISSING** | TODO |
-| Server identity (own nick/avatar) | Yes | **MISSING** | **MISSING** | TODO |
+#### Session Management (2 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `PATCH /auth/session/{id}` | Medium | Edit/rename session |
+| `POST /auth/session/logout` | Low | Explicit logout (vs delete) |
 
-### Priority 5 — Custom Emoji
+#### Bot Management (7 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /bots/@me` | Low | List owned bots |
+| `POST /bots/create` | Low | Create bot |
+| `GET /bots/{bot}` | Low | Fetch bot |
+| `PATCH /bots/{target}` | Low | Edit bot |
+| `DELETE /bots/{target}` | Low | Delete bot |
+| `GET /bots/{target}/invite` | Low | Fetch public bot |
+| `POST /bots/{target}/invite` | Low | Invite bot to server |
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Create custom emoji | Yes | **MISSING** | **MISSING** | TODO |
-| Delete custom emoji | Yes | **MISSING** | **MISSING** | TODO |
-| Emoji management UI | Yes | N/A | **MISSING** | TODO |
+#### Webhook Management (9 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /channels/{id}/webhooks` | Low | List channel webhooks |
+| `POST /channels/{id}/webhooks` | Low | Create webhook |
+| `GET /webhooks/{id}` | Low | Get webhook |
+| `PATCH /webhooks/{id}` | Low | Edit webhook |
+| `DELETE /webhooks/{id}` | Low | Delete webhook |
+| `GET /webhooks/{id}/{token}` | Low | Get webhook (token auth) |
+| `PATCH /webhooks/{id}/{token}` | Low | Edit webhook (token auth) |
+| `DELETE /webhooks/{id}/{token}` | Low | Delete webhook (token auth) |
+| `POST /webhooks/{id}/{token}` | Low | Execute webhook |
 
-### Priority 6 — Account Management
+#### Emoji Management (3 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `PUT /custom/emoji/{id}` | Medium | Create emoji |
+| `DELETE /custom/emoji/{id}` | Medium | Delete emoji |
+| `GET /servers/{target}/emojis` | Medium | Fetch server emojis |
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Change email | Yes | **MISSING** | **MISSING** | TODO |
-| Change password | Yes | **MISSING** | **MISSING** | TODO |
-| Change username | Yes | **MISSING** | **MISSING** | TODO |
-| Delete account | Yes | **MISSING** | **MISSING** | TODO |
-| Rename session | Yes | **MISSING** | **MISSING** | TODO |
+#### Server Management (5 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /servers/{target}/invites` | Medium | List server invites |
+| `GET /servers/{target}/members_experimental_query` | High | Search members by name |
+| `GET /servers/{target}/roles/{role_id}` | Low | Fetch single role |
+| `PATCH /servers/{target}/roles/ranks` | Low | Reorder role ranks |
+| `PUT /servers/{target}/permissions/default` | High | Set default perms |
 
-### Priority 7 — Webhooks & Bots
+#### Channel Management (2 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `PUT /channels/{target}/permissions/default` | High | Set default channel perms |
+| `DELETE /channels/{target}/messages/{msg}/reactions` | Medium | Remove all reactions |
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Create webhook | Yes | **MISSING** | **MISSING** | TODO |
-| Edit webhook | Yes | **MISSING** | **MISSING** | TODO |
-| Delete webhook | Yes | **MISSING** | **MISSING** | TODO |
-| Create bot | Yes | **MISSING** | **MISSING** | TODO |
-| Edit/delete bot | Yes | **MISSING** | **MISSING** | TODO |
-| List own bots | Yes | **MISSING** | **MISSING** | TODO |
+#### User Features (5 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `GET /users/dms` | Medium | List all DM channels |
+| `GET /users/{target}/default_avatar` | Low | Fetch default avatar |
+| `GET /users/{target}/flags` | Low | User flags (staff, etc.) |
+| `GET /users/{target}/mutual` | Medium | Mutual friends/servers |
+| `DELETE /invites/{target}` | Medium | Delete invite |
 
-### Priority 8 — Category Management
+#### Misc (3 endpoints)
+| Endpoint | Priority | Notes |
+|----------|----------|-------|
+| `POST /policy/acknowledge` | Low | Acknowledge policy |
+| `POST /push/unsubscribe` | Medium | Unsubscribe push |
+| `PUT /channels/{target}/end_ring/{user}` | Low | Stop voice ring |
 
-| Feature | Web | Android API | Android UI | Status |
-|---------|-----|-------------|------------|--------|
-| Create category | Yes | **MISSING** | **MISSING** | TODO |
-| Delete category | Yes | **MISSING** | **MISSING** | TODO |
+### Microservice Endpoints (not in main OpenAPI)
 
-### Already Implemented (Android matches/exceeds web)
+#### Autumn (CDN) — `cdn.stoatusercontent.com`
+| Endpoint | Android Status | Notes |
+|----------|---------------|-------|
+| `GET /` | Not needed | Root info |
+| `POST /:tag` | [x] Implemented | Upload file (6 tags, multipart) |
+| `GET /:tag/:file_id` | [x] Via URL | Fetch preview/thumbnail |
+| `GET /:tag/:file_id/:filename` | [x] Via URL | Fetch original file |
 
-| Feature | Notes |
-|---------|-------|
-| Message send/edit/delete | API + UI complete |
-| Message reactions (add/remove) | API + UI complete |
-| Message reply | API + UI complete |
-| Message search with filters | API + UI with 8 client-side filters |
-| User relationships (friend/block) | API + UI complete |
-| DMs and group DMs | API + UI complete |
-| Server create/leave/delete | API + UI complete |
-| Channel settings (name, desc, icon) | API + UI complete |
-| Push notifications (FCM) | API + handler complete |
-| Invites (create/join) | API + UI complete |
-| Content reporting | API + UI complete |
-| Media viewing (image/video) | Dedicated activities |
-| Authentication + MFA | API + UI complete |
-| Session management | API + UI (view/logout) |
-| WebSocket real-time events | 30+ event types handled |
-| Settings sync | API complete |
+Upload tags and limits:
+- `attachments`: 20 MB, any type
+- `avatars`: 4 MB, image only, 128px preview
+- `backgrounds`: 6 MB, image only, 1280x720 preview
+- `icons`: 2.5 MB, image only, 128px preview
+- `banners`: 6 MB, image only, 480px preview
+- `emojis`: 500 KB, image only, 128px preview
 
-## Backend API Endpoints NOT in Android
+#### January (Proxy) — `proxy.stoatusercontent.com`
+| Endpoint | Android Status | Notes |
+|----------|---------------|-------|
+| `GET /` | Not needed | Root info |
+| `GET /proxy?url=` | [x] Via URL helper | Proxy media files |
+| `GET /embed?url=` | Not implemented | Generate embed for URL |
 
-### Channels
-```
-PUT  /channels/{id}/messages/{msgId}/pin       # Pin message
-DELETE /channels/{id}/messages/{msgId}/pin      # Unpin message
-DELETE /channels/{id}/messages/bulk             # Bulk delete messages
-PUT  /channels/{id}/permissions/{roleId}       # Set channel permission override
-DELETE /channels/{id}/permissions/{roleId}     # Remove channel permission override
-```
+#### GifBox — GIF picker service
+| Endpoint | Android Status | Notes |
+|----------|---------------|-------|
+| `GET /` | Not needed | Root info |
+| `GET /categories` | **MISSING** | GIF categories |
+| `GET /search?q=` | **MISSING** | Search GIFs |
+| `GET /trending` | **MISSING** | Trending GIFs |
 
-### Servers
-```
-PATCH /servers/{id}                             # Edit server
-POST  /servers/{id}/channels                    # Create channel
-DELETE /servers/{id}/members/{userId}            # Kick member
-PATCH /servers/{id}/members/{userId}            # Edit member (nick, avatar, roles, timeout)
-GET   /servers/{id}/bans                        # List bans
-PUT   /servers/{id}/bans/{userId}               # Ban member
-DELETE /servers/{id}/bans/{userId}              # Unban member
-POST  /servers/{id}/roles                       # Create role
-PATCH /servers/{id}/roles/{roleId}             # Edit role
-DELETE /servers/{id}/roles/{roleId}            # Delete role
-PUT   /servers/{id}/permissions/{roleId}       # Set server permission for role
-```
+### Recently Completed (this session)
 
-### Account
-```
-PATCH /auth/account/change/email               # Change email
-PATCH /auth/account/change/password            # Change password
-POST  /auth/account/delete                     # Delete account
-PATCH /auth/session/{id}                       # Rename session
-```
+| Feature | Commit | Status |
+|---------|--------|--------|
+| Pin/unpin message API + UI | `40e859e` | [x] Done (fixed POST method) |
+| Bulk delete messages API | `40e859e` | [x] Done (API only, no UI yet) |
+| Kick member API + UI | `40e859e` | [x] Done with confirmation dialog |
+| Ban/unban member API + UI | `40e859e` | [x] Done with reason field |
+| Fetch bans API | `40e859e` | [x] Done (API only) |
+| Edit server API | `40e859e` | [x] Done (API only) |
+| Edit member API | `40e859e` | [x] Done (API only, no UI yet) |
+| Create channel in server API | `40e859e` | [x] Done (API only) |
+| Role CRUD API | `40e859e` | [x] Done (API only) |
+| Server/channel permissions API | `40e859e` | [x] Done (API only) |
+| Message search with filters | Earlier commits | [x] Done (API + full UI) |
 
-### Custom Emoji
-```
-PUT   /custom/emoji/{id}                       # Create emoji
-DELETE /custom/emoji/{id}                      # Delete emoji
-```
+### Priority Implementation Order
 
-### Bots
-```
-POST  /bots/create                             # Create bot
-GET   /bots/{id}                               # Fetch bot
-PATCH /bots/{id}                               # Edit bot
-DELETE /bots/{id}                              # Delete bot
-GET   /bots/@me                                # List own bots
-POST  /bots/{id}/invite                        # Invite bot to server
-```
+#### Phase 1: High-priority user-facing (next)
+1. Account settings UI (change email, password, username)
+2. Default permissions (server + channel)
+3. Member search (experimental query)
+4. Mutual friends/servers
+5. GIF picker (GifBox integration)
+6. Push unsubscribe on logout
 
-### Webhooks
-```
-GET   /servers/{id}/webhooks                   # List webhooks
-POST  /channels/{id}/webhooks                  # Create webhook
-PATCH /webhooks/{id}                           # Edit webhook
-DELETE /webhooks/{id}                          # Delete webhook
-```
+#### Phase 2: Admin UI
+7. Bulk delete UI (message selection)
+8. Server invite list UI
+9. Role management UI (create/edit/delete/reorder)
+10. Channel creation UI
+11. Member editing UI (nickname, avatar, roles)
+12. Ban list management UI
 
-## Implementation Plan
+#### Phase 3: Security features
+13. MFA management (enable/disable TOTP, recovery codes)
+14. Session renaming
+15. Account deletion flow
+16. Email verification flow
 
-### Phase 1: Server Moderation (highest admin impact)
-1. Add kick member API route + UI in ServerMemberContextSheet
-2. Add ban/unban member API routes + UI
-3. Add timeout member via edit member API route
-
-### Phase 2: Pin Messages + Mark Unread
-4. Add pin/unpin API routes
-5. Add pin/unpin to MessageContextSheet
-6. Implement mark-as-unread (ack to previous message)
-
-### Phase 3: Server Management
-7. Add create channel in server API route + UI
-8. Add edit server API route + server settings UI
-9. Add role management (create/edit/delete) API routes + UI
-
-### Phase 4: Member Management
-10. Add edit member API (nickname, avatar, roles)
-11. Add server identity (own nick/avatar) UI
-
-### Phase 5: Account & Content Management
-12. Add change email/password routes
-13. Add custom emoji management
-14. Add webhook/bot management
+#### Phase 4: Power features
+17. Emoji management (create/delete server emojis)
+18. Webhook management
+19. Bot management
+20. Remove all reactions from message
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `api/routes/server/Server.kt` | Server API routes — needs kick, ban, role, channel creation |
-| `api/routes/channel/Channel.kt` | Channel API routes — needs pin/unpin, bulk delete |
-| `api/routes/auth/Sessions.kt` | Auth routes — needs rename session |
-| `sheets/MemberContextSheet.kt` | Member context menu — needs moderation actions |
-| `sheets/MessageContextSheet.kt` | Message context menu — needs pin/unpin |
+| `api/routes/server/Server.kt` | Server API — 17 routes implemented |
+| `api/routes/channel/Channel.kt` | Channel API — message, invite, settings |
+| `api/routes/channel/Message.kt` | Pin, unpin, reactions, bulk delete |
+| `api/routes/channel/Search.kt` | Message search with 8 filters |
+| `api/routes/auth/Sessions.kt` | Session management — needs edit |
+| `sheets/MemberContextSheet.kt` | Member context — kick/ban implemented |
+| `sheets/MessageContextSheet.kt` | Message context — pin/unpin implemented |

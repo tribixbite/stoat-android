@@ -8,7 +8,9 @@
 | [Antifeature Audit](audit-antifeatures.md) | Active | Telemetry, privacy, UX findings and recommendations |
 | [Notifications](notifications.md) | Active | Push notifications, mute controls, FCM registration |
 | [Message Search](message-search.md) | Active | Channel message search UI and API integration |
-| [Feature Gap Analysis](feature-gap-analysis.md) | Active | Android vs web/desktop feature comparison and implementation plan |
+| [Feature Gap Analysis](feature-gap-analysis.md) | Active | Android vs web/desktop/API feature comparison (121 endpoints tracked) |
+| [Backend Required Features](backend-required-features.md) | Active | 39 Discord features that need backend API changes to implement |
+| [Discord Parity Plan](discord-parity-plan.md) | Active | 6-phase plan to implement all 56 remaining API endpoints |
 
 ## Summary
 

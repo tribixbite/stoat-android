@@ -5,6 +5,7 @@
 | Spec | Status | Description |
 |------|--------|-------------|
 | [Build System](build-system.md) | Active | Termux ARM64 build process, AAPT2 setup, NDK |
+| [Antifeature Audit](audit-antifeatures.md) | Active | Telemetry, privacy, UX findings and recommendations |
 
 ## Summary
 

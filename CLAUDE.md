@@ -64,6 +64,12 @@ docs/                   # Astro documentation site
 - **Push**: Firebase Cloud Messaging
 - **Error Tracking**: Sentry 8.13.2
 
+## Commands
+- **`go`**: Continue adding missing features toward Discord parity (excluding documented backend restrictions in `docs/specs/backend-required-features.md`). Update `docs/src/content/docs/reference/fork-changes.md` roadmap and `docs/specs/` after each round. Build, test via ADB if available. Maintain conventional commits.
+
+## Feature Roadmap
+See `docs/specs/discord-parity-plan.md` for the 6-phase plan. Progress tracked in `docs/src/content/docs/reference/fork-changes.md` under the Roadmap section. Currently at ~54% API coverage (65/121 endpoints). Target: 97% (117/121).
+
 ## Notes
 - LiveKit voice/video is temporarily disabled (commented out in build.gradle.kts)
 - Debug builds use `.debug` applicationId suffix and custom app name

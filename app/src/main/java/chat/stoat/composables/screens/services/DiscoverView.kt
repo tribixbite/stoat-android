@@ -102,23 +102,28 @@ fun ColumnScope.DiscoverView() {
                             view: WebView?,
                             request: WebResourceRequest?
                         ): Boolean {
-                            if (request?.url?.host.equals(Uri.parse(STOAT_WEB_APP).host)) {
+                            val host = request?.url?.host ?: return true
+                            // All known Revolt/Stoat invite and app domains
+                            val inviteHosts = setOf(
+                                Uri.parse(STOAT_WEB_APP).host,  // stoat.chat
+                                Uri.parse(STOAT_INVITES).host,  // stt.gg
+                                "rvlt.gg",
+                                "app.revolt.chat"               // discover page links here
+                            )
+
+                            if (host in inviteHosts) {
+                                // Route invite/server URLs to InviteActivity
                                 val intent = Intent(
                                     context,
                                     InviteActivity::class.java
                                 ).setAction(Intent.ACTION_VIEW)
-
-                                intent.data = request?.url
+                                intent.data = request.url
                                 context.startActivity(intent)
-
                                 return true
                             }
 
-                            if (!request?.url?.host.equals("rvlt.gg")) {
-                                return true
-                            }
-
-                            return false
+                            // Block all other external URLs
+                            return true
                         }
                     }
                 }

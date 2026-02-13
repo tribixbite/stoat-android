@@ -832,6 +832,8 @@
     <string name="settings_notifications_fcm_status">Push Registration</string>
     <string name="settings_notifications_fcm_registered">Registered</string>
     <string name="settings_notifications_fcm_not_registered">Not registered</string>
+    <string name="settings_notifications_fcm_unconfigured">Not available</string>
+    <string name="settings_notifications_fcm_unconfigured_hint">Replace app/google-services.json with real Firebase config</string>
     <string name="settings_notifications_fcm_retry">Re-register</string>
     <string name="settings_notifications_grant_first">Grant notification permission first</string>
     <string name="settings_notifications_muted_servers">Muted Servers</string>

@@ -61,9 +61,26 @@ class NotificationSettingsViewModel @Inject constructor(
         private set
     var lastError by mutableStateOf<String?>(null)
         private set
+    /** True when google-services.json is placeholder (Firebase unusable) */
+    var firebaseUnconfigured by mutableStateOf(false)
+        private set
 
     init {
         viewModelScope.launch {
+            // Detect placeholder google-services.json
+            try {
+                val options = com.google.firebase.FirebaseApp.getInstance().options
+                firebaseUnconfigured = options.projectId == "stoat-local-dev"
+                        || options.gcmSenderId == "000000000000"
+            } catch (_: Exception) {
+                firebaseUnconfigured = true
+            }
+
+            if (firebaseUnconfigured) {
+                lastError = "Replace app/google-services.json with real Firebase config"
+                return@launch
+            }
+
             val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
             val hasToken = kvStorage.get("fcmToken") != null
             fcmRegistered = hasToken && !failed
@@ -71,13 +88,17 @@ class NotificationSettingsViewModel @Inject constructor(
     }
 
     fun retryFcmRegistration() {
+        if (firebaseUnconfigured) {
+            lastError = "Replace app/google-services.json with real Firebase config"
+            return
+        }
+
         isRetrying = true
         lastError = null
         try {
             FirebaseMessaging.getInstance().token
         } catch (e: Exception) {
-            // Firebase not initialized — likely placeholder google-services.json
-            lastError = "Firebase not configured: ${e.message}\nReplace google-services.json with real Firebase config"
+            lastError = "Firebase not configured: ${e.message}"
             isRetrying = false
             return
         }.addOnCompleteListener { task ->
@@ -85,7 +106,7 @@ class NotificationSettingsViewModel @Inject constructor(
                 Log.w("NotificationSettings", "FCM token fetch failed", task.exception)
                 task.exception?.let { Sentry.captureException(it) }
                 val cause = task.exception?.message ?: "unknown"
-                lastError = "FCM token failed: $cause\nCheck google-services.json is valid"
+                lastError = "FCM token failed: $cause"
                 isRetrying = false
                 return@addOnCompleteListener
             }
@@ -218,7 +239,9 @@ fun NotificationSettingsScreen(
             ListItem(
                 headlineContent = {
                     Text(
-                        if (!notificationsEnabled) {
+                        if (viewModel.firebaseUnconfigured) {
+                            stringResource(R.string.settings_notifications_fcm_unconfigured)
+                        } else if (!notificationsEnabled) {
                             stringResource(R.string.settings_notifications_permission_denied)
                         } else if (viewModel.fcmRegistered) {
                             stringResource(R.string.settings_notifications_fcm_registered)
@@ -228,7 +251,12 @@ fun NotificationSettingsScreen(
                     )
                 },
                 supportingContent = {
-                    if (!notificationsEnabled) {
+                    if (viewModel.firebaseUnconfigured) {
+                        Text(
+                            text = viewModel.lastError ?: stringResource(R.string.settings_notifications_fcm_unconfigured_hint),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else if (!notificationsEnabled) {
                         Text(stringResource(R.string.settings_notifications_grant_first))
                     } else if (viewModel.lastError != null) {
                         Text(
@@ -238,17 +266,19 @@ fun NotificationSettingsScreen(
                     }
                 },
                 trailingContent = {
-                    TextButton(
-                        onClick = { viewModel.retryFcmRegistration() },
-                        enabled = !viewModel.isRetrying && notificationsEnabled
-                    ) {
-                        Text(
-                            if (viewModel.isRetrying) {
-                                stringResource(R.string.search_messages_loading)
-                            } else {
-                                stringResource(R.string.settings_notifications_fcm_retry)
-                            }
-                        )
+                    if (!viewModel.firebaseUnconfigured) {
+                        TextButton(
+                            onClick = { viewModel.retryFcmRegistration() },
+                            enabled = !viewModel.isRetrying && notificationsEnabled
+                        ) {
+                            Text(
+                                if (viewModel.isRetrying) {
+                                    stringResource(R.string.search_messages_loading)
+                                } else {
+                                    stringResource(R.string.settings_notifications_fcm_retry)
+                                }
+                            )
+                        }
                     }
                 },
                 leadingContent = {

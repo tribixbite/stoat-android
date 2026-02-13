@@ -245,6 +245,16 @@ class ChatRouterViewModel @Inject constructor(
      */
     fun retryPushRegistrationIfNeeded() {
         viewModelScope.launch {
+            // Skip retry if Firebase is placeholder/unconfigured
+            try {
+                val options = com.google.firebase.FirebaseApp.getInstance().options
+                if (options.projectId == "stoat-local-dev" || options.gcmSenderId == "000000000000") {
+                    return@launch
+                }
+            } catch (_: Exception) {
+                return@launch
+            }
+
             val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
             if (!failed) return@launch
 

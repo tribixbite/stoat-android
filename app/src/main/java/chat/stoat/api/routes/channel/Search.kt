@@ -94,12 +94,13 @@ suspend fun searchMessages(
         val httpResponse = StoatHttp.post("/channels/$channelId/search".api()) {
             contentType(ContentType.Application.Json)
             setBody(body)
-            // Search endpoint is slow (~3-10s) — override global timeouts.
-            // requestTimeoutMillis caps total time including Ktor's HttpRequestRetry,
-            // preventing 5x exponential backoff on SocketTimeoutException.
+            // Search endpoint is slow (~3-30s+ for large channels).
+            // socketTimeoutMillis: max time waiting for server response data.
+            // requestTimeoutMillis: total cap including Ktor's 5x retry with exponential backoff.
+            // Without the request cap, a 60s socket timeout retried 5x = 5+ min hang.
             timeout {
-                socketTimeoutMillis = 30_000
-                requestTimeoutMillis = 45_000
+                socketTimeoutMillis = 60_000
+                requestTimeoutMillis = 75_000
             }
         }
         statusCode = httpResponse.status.value

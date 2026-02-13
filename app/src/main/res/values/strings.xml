@@ -1037,4 +1037,46 @@
     <string name="geogate_description">Stoat may block content in certain jurisdictions in response to legislation or legal notices</string>
     <string name="geogate_description_variant_osa_uk_25" translatable="false">This channel is not available in your region while we review options on legal compliance.</string>
     <string name="geogate_acknowledge">Acknowledge</string>
+
+    <!-- Account Settings -->
+    <string name="account_settings_title">Account</string>
+    <string name="account_info_header">Account Info</string>
+    <string name="account_email_label">Email</string>
+    <string name="account_mfa_status">Two-Factor Authentication</string>
+    <string name="account_mfa_enabled">Enabled</string>
+    <string name="account_mfa_disabled">Disabled</string>
+    <string name="account_actions_header">Actions</string>
+    <string name="account_change_email_title">Change Email</string>
+    <string name="account_new_email">New email</string>
+    <string name="account_current_password">Current password</string>
+    <string name="account_email_changed">Email changed</string>
+    <string name="account_change_password_title">Change Password</string>
+    <string name="account_new_password">New password</string>
+    <string name="account_confirm_password">Confirm new password</string>
+    <string name="account_passwords_mismatch">Passwords do not match</string>
+    <string name="account_password_changed">Password changed</string>
+    <string name="account_danger_zone">Danger Zone</string>
+    <string name="account_disable_title">Disable Account</string>
+    <string name="account_disable_description">Your account will be disabled but can be re-enabled by logging in</string>
+    <string name="account_disable_confirm">Are you sure you want to disable your account? You can re-enable it by logging in again.</string>
+    <string name="account_disable_button">Disable</string>
+    <string name="account_disabled">Account disabled</string>
+    <string name="account_delete_title">Delete Account</string>
+    <string name="account_delete_description">Permanently delete your account and all associated data</string>
+    <string name="account_delete_confirm">Are you sure you want to permanently delete your account? This action cannot be undone.</string>
+    <string name="account_delete_button">Delete Account</string>
+
+    <!-- Invite Management -->
+    <string name="invite_management_title">Invites</string>
+    <string name="invite_list_header">%d Invites</string>
+    <string name="invite_empty">No invites</string>
+    <string name="invite_created_by">Created by %s</string>
+    <string name="invite_delete_title">Delete Invite</string>
+    <string name="invite_delete_confirm">Delete invite %s? This link will stop working.</string>
+    <string name="invite_delete_button">Delete</string>
+    <string name="invite_deleted">Invite deleted</string>
+    <string name="invite_create_title">Create Invite</string>
+    <string name="invite_created">Invite created</string>
+    <string name="invite_copy_link">Copy Link</string>
+    <string name="invite_link_copied">Invite link copied</string>
 </resources>

@@ -444,3 +444,36 @@ suspend fun setChannelPermissions(
         setBody(StoatJson.encodeToString(PermissionDescription.serializer(), body))
     }
 }
+
+// --- Invite Management ---
+
+@Serializable
+data class ServerInvite(
+    @SerialName("_id")
+    val id: String,
+    val server: String? = null,
+    val creator: String? = null,
+    val channel: String? = null
+)
+
+/** Fetch all invites for a server. Requires ManageServer permission. */
+suspend fun fetchServerInvites(serverId: String): List<ServerInvite> {
+    val response = StoatHttp.get("/servers/$serverId/invites".api()).bodyAsText()
+    return StoatJson.decodeFromString(
+        ListSerializer(ServerInvite.serializer()),
+        response
+    )
+}
+
+/** Delete an invite by code. */
+suspend fun deleteInvite(inviteCode: String): String? {
+    val response = StoatHttp.delete("/invites/$inviteCode".api())
+    return if (response.status.value in 200..299) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Create a channel invite. Returns the invite object. */
+suspend fun createChannelInvite(channelId: String): ServerInvite {
+    val response = StoatHttp.post("/channels/$channelId/invites".api()).bodyAsText()
+    return StoatJson.decodeFromString(ServerInvite.serializer(), response)
+}

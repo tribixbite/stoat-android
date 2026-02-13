@@ -396,6 +396,22 @@ fun ServerSettingsScreen(
                             }
                         )
                     }
+
+                    // Invite management — requires ManageServer
+                    if (canManage) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.invite_management_title)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/invites")
+                            }
+                        )
+                    }
                 }
             } ?: run {
                 Box(modifier = Modifier.fillMaxSize()) {

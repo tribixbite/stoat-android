@@ -118,6 +118,7 @@ import chat.stoat.screens.settings.ExperimentsSettingsScreen
 import chat.stoat.screens.settings.LanguagePickerSettingsScreen
 import chat.stoat.screens.settings.ProfileSettingsScreen
 import chat.stoat.screens.settings.SessionSettingsScreen
+import chat.stoat.screens.settings.AccountSettingsScreen
 import chat.stoat.screens.settings.NotificationSettingsScreen
 import chat.stoat.screens.settings.SettingsScreen
 import chat.stoat.screens.settings.channel.ChannelSettingsHome
@@ -126,6 +127,7 @@ import chat.stoat.screens.settings.channel.ChannelSettingsPermissions
 import chat.stoat.screens.search.MessageSearchScreen
 import chat.stoat.screens.settings.server.BanManagementScreen
 import chat.stoat.screens.settings.server.CreateChannelScreen
+import chat.stoat.screens.settings.server.InviteManagementScreen
 import chat.stoat.screens.settings.server.DefaultPermissionsEditorScreen
 import chat.stoat.screens.settings.server.RoleManagementScreen
 import chat.stoat.screens.settings.server.RolePermissionsEditorScreen
@@ -728,6 +730,7 @@ fun AppEntrypoint(
                     composable("settings/changelogs") { ChangelogsSettingsScreen(navController) }
                     composable("settings/language") { LanguagePickerSettingsScreen(navController) }
                     composable("settings/notifications") { NotificationSettingsScreen(navController) }
+                    composable("settings/account") { AccountSettingsScreen(navController) }
 
                     composable("search/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
@@ -763,6 +766,10 @@ fun AppEntrypoint(
                     composable("settings/server/{serverId}/create-channel") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         CreateChannelScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/invites") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        InviteManagementScreen(navController, serverId)
                     }
                     composable("settings/server/{serverId}/permissions/default") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""

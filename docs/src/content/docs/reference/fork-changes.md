@@ -41,6 +41,23 @@ Complete server administration screens with permission-gated access.
 - **Server Settings entry point** — accessible from server context sheet (long-press server)
 - **11 API routes**: `PATCH /servers/{id}`, `POST/PATCH/DELETE roles`, `GET/DELETE bans`, `PATCH members`, `POST channels`, plus `uploadToAutumn()` for icons
 
+### Permissions Editor
+Full default and per-role permission editor matching the web client UI.
+
+- **Default Permissions screen** — checkbox toggles for all 32 permission bits on the default role
+- **Role Permissions screen** — tri-state segmented buttons (Allow / Neutral / Deny) per permission
+- **5 categories**: Admin (5), Members (8), Channels (6), Messaging (6), Voice (7)
+- **API routes**: `PUT /servers/{id}/permissions/default`, `PUT /servers/{id}/permissions/{roleId}`
+
+### Notification Controls
+Granular notification management beyond upstream.
+
+- **Mute/Unmute server** — toggle from server context sheet, synced to backend
+- **Mute/Unmute channel** — toggle from channel context sheet, synced to backend
+- **Notification filtering** — HandlerService checks mute state before displaying
+- **Notification Settings screen** — permission status, FCM registration status with retry, muted server/channel lists (showing names from cache), unmute buttons, reset
+- **Placeholder detection** — detects placeholder `google-services.json` at runtime and shows "Not available" instead of misleading retry loop
+
 ### Termux ARM64 Build System
 Complete native Android build toolchain for ARM64 devices — enables building the app directly on Android phones.
 
@@ -77,6 +94,9 @@ Automated build and release system.
 - **Error message display**: push notification errors now surface to the user instead of silent failure
 - **Manage Notifications button** added to settings for direct access to system notification settings
 
+### Discover Tab
+- **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
+
 ### API Robustness
 - **HTTP status code checks** on all API responses (previously some routes ignored error status)
 - **Pin endpoint method fix**: corrected from `PUT` to `POST` per OpenAPI spec
@@ -103,12 +123,65 @@ Comprehensive technical documentation added (not present in upstream):
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
 | Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 65 (54%) |
+| Implemented | ~55 | 67 (55%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
-| Server admin UI | None | Settings, roles, bans, channels, member edit (full UI) |
-| Server admin API | Partial | Roles, permissions, channels, members |
+| Server admin UI | None | Settings, roles, bans, channels, permissions, member edit |
+| Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
 | Documentation | Minimal | 10 spec documents, API reference |
+
+## Roadmap to Discord Parity
+
+Target: 117/121 endpoints (97%). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+
+### Phase 1: Account & Security (High Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Account info display | `GET /auth/account` | Planned |
+| Change email | `PATCH /auth/account` | Planned |
+| Change password | `PATCH /auth/account` | Planned |
+| Delete/disable account | `POST /auth/account/delete`, `disable` | Planned |
+| Email verification | `POST /auth/account/reverify` | Planned |
+| MFA setup (TOTP) | 7 endpoints | Planned |
+
+### Phase 2: Server Admin Polish (High Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Default permissions editor | `PUT /servers/{id}/permissions/default` | Done |
+| Role permissions editor | `PUT /servers/{id}/permissions/{roleId}` | Done |
+| Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | Planned |
+| Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | Planned |
+| Member search | `GET /servers/{id}/members` with query | Planned |
+
+### Phase 3: Social Features (Medium Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Mutual friends/servers | `GET /users/{id}/mutual` | Planned |
+| DM channel listing | `GET /users/dms` | Existing |
+| User profile display | `GET /users/{id}/profile` | Existing (partial) |
+
+### Phase 4: Content Management (Medium Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | Planned |
+| Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | API done, UI planned |
+| Server emoji listing | `GET /servers/{id}/emojis` | Planned |
+
+### Phase 5: Bots & Webhooks (Low Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Bot management | 7 endpoints | Planned |
+| Webhook management | 4 endpoints | Planned |
+
+### Phase 6: Polish & Edge Cases (Low Priority)
+| Feature | Endpoints | Status |
+|---------|-----------|--------|
+| Session rename | `PATCH /auth/session/{id}` | Planned |
+| User flags | `GET /users/{id}/flags` | Planned |
+| Default avatar | `GET /users/{id}/default_avatar` | Planned |
+
+### Not Achievable (Backend Limitations)
+39 features require backend API changes: threads/forums, scheduled events, stage channels, AutoMod, audit log, slash commands, interactive components, polls, stickers, screen sharing, rich presence, server templates, vanity URLs, per-user permission overrides, slow mode. Full list in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md).
 
 ## Commit History
 
@@ -132,3 +205,8 @@ All changes from upstream divergence point:
 | `465b458` | fix | Search socket timeout increased to 60s with 75s total cap |
 | `f48c580` | docs | Enable GitHub Pages, update URLs to fork, add fork changes reference |
 | `4ec7457` | feat | Server management UI, member moderation, FCM fix |
+| `7b23120` | docs | Server management spec, fork changes reference |
+| `32f89d9` | feat | Permissions editor (default + per-role allow/deny/neutral) |
+| `01c82b9` | fix | Show server/channel names in notification settings |
+| `ca3025a` | docs | Permissions editor and notification improvement specs |
+| `dc66ccf` | fix | Discover tab clicks, FCM placeholder detection, project memory |

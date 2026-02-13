@@ -10,15 +10,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -284,6 +290,39 @@ fun MemberListSheet(
         }
     }
 
+    var searchQuery by remember { mutableStateOf("") }
+
+    // Filter items based on search query
+    val filteredItems by remember(searchQuery) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) {
+                viewModel.fullItemList.toList()
+            } else {
+                val query = searchQuery.lowercase()
+                viewModel.fullItemList.filter { item ->
+                    when (item) {
+                        is MemberListSheetItem.MemberItem -> {
+                            val user = StoatAPI.userCache[item.member.id!!.user]
+                            val nickname = item.member.nickname?.lowercase()
+                            val username = user?.username?.lowercase()
+                            val displayName = user?.displayName?.lowercase()
+                            nickname?.contains(query) == true ||
+                                    username?.contains(query) == true ||
+                                    displayName?.contains(query) == true
+                        }
+                        is MemberListSheetItem.UserItem -> {
+                            val username = item.user.username?.lowercase()
+                            val displayName = item.user.displayName?.lowercase()
+                            username?.contains(query) == true ||
+                                    displayName?.contains(query) == true
+                        }
+                        is MemberListSheetItem.CategoryItem -> true // keep category headers
+                    }
+                }
+            }
+        }
+    }
+
     Column(Modifier.animateContentSize()) {
         if (viewModel.fullItemList.isEmpty()) {
             Box(
@@ -304,8 +343,29 @@ fun MemberListSheet(
             )
         }
 
+        // Search field
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text(stringResource(R.string.member_search_hint)) },
+            singleLine = true,
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_close_24dp),
+                            contentDescription = null
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         LazyColumn {
-            viewModel.fullItemList.forEachIndexed { index, item ->
+            filteredItems.forEachIndexed { index, item ->
                 when (item) {
                     is MemberListSheetItem.CategoryItem -> stickyHeader(
                         key = "${item.category}-$index"

@@ -1103,6 +1103,9 @@
     <!-- Message actions -->
     <string name="message_context_sheet_actions_remove_reactions">Remove All Reactions</string>
 
+    <!-- Member search -->
+    <string name="member_search_hint">Search members…</string>
+
     <!-- Session management -->
     <string name="session_management_title">Sessions</string>
     <string name="session_list_header">%d Active Sessions</string>

@@ -103,6 +103,7 @@ Full account settings screen with API integration.
 - **Disable account** — `POST /auth/account/disable` with confirmation dialog
 - **Delete account** — `POST /auth/account/delete` with danger confirmation
 - **Resend verification** — `POST /auth/account/reverify`
+- **Session management** — list, rename, revoke sessions via `GET/PATCH/DELETE /auth/session`
 
 ### Custom Emoji Management
 Server emoji administration with upload and delete support.
@@ -156,7 +157,7 @@ Comprehensive technical documentation added (not present in upstream):
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
 | Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 78 (64%) |
+| Implemented | ~55 | 84 (69%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
 | Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
@@ -198,7 +199,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 ### Phase 4: Content Management (Medium Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | Planned |
+| Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | **Done** |
 | Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | API done, UI planned |
 | Server emoji listing | `GET /servers/{id}/emojis` | **Done** (via cache) |
 
@@ -211,7 +212,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 ### Phase 6: Polish & Edge Cases (Low Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Session rename | `PATCH /auth/session/{id}` | Planned |
+| Session rename | `PATCH /auth/session/{id}` | **Done** |
 | User flags | `GET /users/{id}/flags` | Planned |
 | Default avatar | `GET /users/{id}/default_avatar` | Planned |
 
@@ -247,3 +248,5 @@ All changes from upstream divergence point:
 | `dc66ccf` | fix | Discover tab clicks, FCM placeholder detection, project memory |
 | `6dd4cc0` | feat | Account management, invite management screens |
 | `44699c7` | feat | Emoji management, mutual friends/servers display |
+| `e54433f` | docs | Update specs for emoji, invites, mutual, account |
+| `c0bfb6b` | feat | Session management, remove all reactions |

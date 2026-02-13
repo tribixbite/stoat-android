@@ -833,6 +833,7 @@
     <string name="settings_notifications_fcm_registered">Registered</string>
     <string name="settings_notifications_fcm_not_registered">Not registered</string>
     <string name="settings_notifications_fcm_retry">Re-register</string>
+    <string name="settings_notifications_grant_first">Grant notification permission first</string>
     <string name="settings_notifications_muted_servers">Muted Servers</string>
     <string name="settings_notifications_muted_channels">Muted Channels</string>
     <string name="settings_notifications_no_muted">None</string>
@@ -853,6 +854,12 @@
     <string name="search_messages_sort_latest">Latest</string>
     <string name="search_messages_sort_oldest">Oldest</string>
     <string name="search_messages_loading">Searching…</string>
+    <string name="search_filter_has_link">Has: Link</string>
+    <string name="search_filter_has_attachment">Has: Attachment</string>
+    <string name="search_filter_has_image">Has: Image</string>
+    <string name="search_filter_has_file">Has: File</string>
+    <string name="search_filter_from">From:</string>
+    <string name="search_filter_from_hint">Username…</string>
 
     <string name="geogate_header">Not available in your region</string>
     <string name="geogate_channel_icon_alt">Unavailable channel</string>

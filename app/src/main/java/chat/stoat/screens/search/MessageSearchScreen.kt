@@ -86,6 +86,12 @@ enum class SearchSort(val apiValue: String) {
     Oldest("Oldest")
 }
 
+/** URL regex for detecting links in message content */
+private val URL_REGEX = Regex(
+    """https?://[^\s<>"{}|\\^`\[\]]+""",
+    RegexOption.IGNORE_CASE
+)
+
 @HiltViewModel
 class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var channelId by mutableStateOf("")
@@ -95,7 +101,16 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var sort by mutableStateOf(SearchSort.Relevance)
     var pinnedOnly by mutableStateOf(false)
 
+    // Discord-style content filters (applied client-side)
+    var hasLink by mutableStateOf(false)
+    var hasAttachment by mutableStateOf(false)
+    var hasImage by mutableStateOf(false)
+    var hasFile by mutableStateOf(false)
+    var fromUser by mutableStateOf("")
+
     val results = mutableStateListOf<Message>()
+    // Raw results before client-side filtering
+    private val rawResults = mutableListOf<Message>()
     val userCache = mutableMapOf<String, User>()
 
     private var canLoadMore by mutableStateOf(true)
@@ -135,9 +150,45 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
         }
     }
 
+    /** Toggle a client-side filter and reapply to current results */
+    fun onFilterChanged() {
+        applyClientFilters()
+    }
+
     fun loadMore() {
         if (!canLoadMore || isLoading) return
         performSearch(fresh = false)
+    }
+
+    /**
+     * Apply client-side filters (has:link, has:attachment, has:image, has:file, from:user)
+     * to the raw results from the API.
+     */
+    private fun applyClientFilters() {
+        val filtered = rawResults.filter { msg ->
+            val passLink = !hasLink || (msg.content?.contains(URL_REGEX) == true)
+            val passAttachment = !hasAttachment || !msg.attachments.isNullOrEmpty()
+            val passImage = !hasImage || msg.attachments?.any {
+                it.contentType?.startsWith("image/", ignoreCase = true) == true
+            } == true
+            val passFile = !hasFile || msg.attachments?.any {
+                it.contentType?.startsWith("image/", ignoreCase = true) != true
+            } == true
+
+            val passFrom = if (fromUser.isBlank()) {
+                true
+            } else {
+                val authorId = msg.author
+                val user = authorId?.let { userCache[it] ?: StoatAPI.userCache[it] }
+                val name = user?.displayName ?: user?.username ?: ""
+                name.contains(fromUser, ignoreCase = true)
+            }
+
+            passLink && passAttachment && passImage && passFile && passFrom
+        }
+
+        results.clear()
+        results.addAll(filtered)
     }
 
     private fun performSearch(fresh: Boolean) {
@@ -146,13 +197,14 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
             isLoading = true
             hasSearched = true
 
-            val beforeId = if (!fresh && results.isNotEmpty()) {
-                results.lastOrNull()?.id
+            val beforeId = if (!fresh && rawResults.isNotEmpty()) {
+                rawResults.lastOrNull()?.id
             } else {
                 null
             }
 
             if (fresh) {
+                rawResults.clear()
                 results.clear()
                 canLoadMore = true
             }
@@ -176,10 +228,13 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                 if (messages.isEmpty()) {
                     canLoadMore = false
                 } else {
-                    results.addAll(messages)
+                    rawResults.addAll(messages)
                 }
+
+                // Apply client-side filters
+                applyClientFilters()
             } catch (e: Exception) {
-                Log.e("MessageSearch", "Search failed: ${e.message}")
+                Log.e("MessageSearch", "Search failed: ${e.message}", e)
                 canLoadMore = false
             }
 
@@ -304,7 +359,7 @@ fun MessageSearchScreen(
                 .padding(pv)
                 .fillMaxSize()
         ) {
-            // Filter chips
+            // Sort + pinned filter row
             FlowRow(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -330,6 +385,92 @@ fun MessageSearchScreen(
                         }
                     )
                 }
+            }
+
+            // Content filters row (Discord-style has: filters)
+            FlowRow(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = viewModel.hasLink,
+                    onClick = {
+                        viewModel.hasLink = !viewModel.hasLink
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_link)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasAttachment,
+                    onClick = {
+                        viewModel.hasAttachment = !viewModel.hasAttachment
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_attachment)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasImage,
+                    onClick = {
+                        viewModel.hasImage = !viewModel.hasImage
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_image)) }
+                )
+                FilterChip(
+                    selected = viewModel.hasFile,
+                    onClick = {
+                        viewModel.hasFile = !viewModel.hasFile
+                        viewModel.onFilterChanged()
+                    },
+                    label = { Text(stringResource(R.string.search_filter_has_file)) }
+                )
+            }
+
+            // From user filter
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.search_filter_from),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                BasicTextField(
+                    value = viewModel.fromUser,
+                    onValueChange = {
+                        viewModel.fromUser = it
+                        viewModel.onFilterChanged()
+                    },
+                    textStyle = LocalTextStyle.current.copy(
+                        color = LocalContentColor.current,
+                        fontSize = 14.sp
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    singleLine = true,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (viewModel.fromUser.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.search_filter_from_hint),
+                                    style = LocalTextStyle.current.copy(
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        fontSize = 14.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
             }
 
             HorizontalDivider()
@@ -362,9 +503,7 @@ fun MessageSearchScreen(
                                 viewModel.userCache[it] ?: StoatAPI.userCache[it]
                             },
                             onClick = {
-                                // Navigate to the message in its channel context
-                                // Uses Action.SwitchChannel to navigate and then
-                                // the message could be scrolled to via nearby fetch
+                                // Navigate back to channel — future: scroll to message via nearby
                                 navController.popBackStack()
                             }
                         )
@@ -445,6 +584,17 @@ private fun SearchResultItem(
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 18.sp
             )
+
+            // Show attachment indicator if message has attachments
+            if (!message.attachments.isNullOrEmpty()) {
+                Text(
+                    text = "${message.attachments!!.size} attachment(s)",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
 }

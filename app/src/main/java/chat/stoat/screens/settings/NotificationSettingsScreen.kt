@@ -23,18 +23,20 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
@@ -103,9 +105,22 @@ fun NotificationSettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    val notificationsEnabled = remember {
+    // Refresh permission status when returning from system settings
+    var notificationsEnabled by mutableStateOf(
         NotificationManagerCompat.from(context).areNotificationsEnabled()
+    )
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsEnabled =
+                    NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val mutedServers = SyncedSettings.notifications.server.filter { it.value == "muted" }
@@ -187,21 +202,32 @@ fun NotificationSettingsScreen(
             ListItem(
                 headlineContent = {
                     Text(
-                        if (viewModel.fcmRegistered) {
+                        if (!notificationsEnabled) {
+                            stringResource(R.string.settings_notifications_permission_denied)
+                        } else if (viewModel.fcmRegistered) {
                             stringResource(R.string.settings_notifications_fcm_registered)
                         } else {
                             stringResource(R.string.settings_notifications_fcm_not_registered)
                         }
                     )
                 },
+                supportingContent = {
+                    if (!notificationsEnabled) {
+                        Text(stringResource(R.string.settings_notifications_grant_first))
+                    }
+                },
                 trailingContent = {
-                    if (!viewModel.fcmRegistered || viewModel.isRetrying) {
-                        TextButton(
-                            onClick = { viewModel.retryFcmRegistration() },
-                            enabled = !viewModel.isRetrying
-                        ) {
-                            Text(stringResource(R.string.settings_notifications_fcm_retry))
-                        }
+                    TextButton(
+                        onClick = { viewModel.retryFcmRegistration() },
+                        enabled = !viewModel.isRetrying && notificationsEnabled
+                    ) {
+                        Text(
+                            if (viewModel.isRetrying) {
+                                stringResource(R.string.search_messages_loading)
+                            } else {
+                                stringResource(R.string.settings_notifications_fcm_retry)
+                            }
+                        )
                     }
                 },
                 leadingContent = {

@@ -128,6 +128,15 @@ Shows shared connections in member context sheets.
 - **Mutual servers** — shows shared server names
 - **Non-intrusive** — displays between moderation actions and copy ID, only for other users
 
+### MFA / TOTP Management
+Full MFA setup and recovery code management, not available in upstream.
+
+- **MFA Setup screen** — accessible from Account Settings, shows TOTP + recovery status
+- **Enable TOTP** — multi-step dialog: password → secret display (copyable) → 6-digit verification → done
+- **Disable TOTP** — password confirmation → MFA ticket → disable
+- **Recovery codes** — view existing codes or regenerate new ones, copy-all button
+- **7 API endpoints**: `PUT /auth/mfa/ticket`, `POST/PUT/DELETE /auth/mfa/totp`, `POST/PATCH /auth/mfa/recovery`
+
 ### Session Management
 Active session management with full API integration.
 
@@ -150,6 +159,14 @@ Advanced message management for moderators.
 - **Remove all reactions** — `DELETE /channels/{id}/messages/{msg}/reactions`
 - **Bulk delete messages** — dialog with preset counts (5/10/25/50/100), operates on cached messages
 - Both gated by ManageMessages permission
+
+### Message Send Race Condition (Upstream #17)
+- **Fixed channel ID capture** — `sendPendingMessage()` captured `channel?.id` inside async `viewModelScope.launch{}` block, but channel could change if user switched channels during slow attachment upload
+- Channel ID now captured synchronously before the launch, preventing messages from being sent to the wrong channel
+
+### DM Mention Autocomplete (Upstream #52)
+- **Fixed DM/Group DM mentions** — autocomplete was blocked in DMs by an unnecessary `serverId != null` check; DM channels always have null serverId
+- `Autocomplete.userOrRole()` already handled null serverId correctly, so the guard was simply removed
 
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
@@ -180,7 +197,7 @@ Comprehensive technical documentation added (not present in upstream):
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
 | Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 89 (74%) |
+| Implemented | ~55 | 96 (79%) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
 | Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
@@ -201,7 +218,7 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 | Change password | `PATCH /auth/account/change/password` | **Done** |
 | Delete/disable account | `POST /auth/account/delete`, `disable` | **Done** |
 | Email verification | `POST /auth/account/reverify` | **Done** |
-| MFA setup (TOTP) | 7 endpoints | Planned |
+| MFA setup (TOTP) | 7 endpoints | **Done** |
 
 ### Phase 2: Server Admin Polish (High Priority)
 | Feature | Endpoints | Status |
@@ -275,3 +292,7 @@ All changes from upstream divergence point:
 | `c0bfb6b` | feat | Session management, remove all reactions |
 | `9216ff4` | feat | Member search, session management, remove all reactions |
 | `ee92622` | feat | Bulk delete messages UI with count selector |
+| `bb8740d` | docs | Update fork-changes with session, member search, bulk delete |
+| `856b45e` | docs | Update CLAUDE.md with real Firebase config |
+| `5374c5a` | feat | MFA TOTP setup, recovery codes management |
+| `f2ad4d0` | fix | Message send race condition (#17), DM mention autocomplete (#52) |

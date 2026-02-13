@@ -57,7 +57,10 @@ import io.ktor.http.ContentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -118,9 +121,15 @@ class ChannelScreenViewModel @Inject constructor(
 
     private var loadMessagesJob: Job? = null
 
+    // Channel ID we're waiting for in cache (upstream #41/#21)
+    private var pendingChannelId: String? = null
+    private var cacheWatchJob: Job? = null
+
     fun switchChannel(id: String) {
         // Reset state
         this.loadMessagesJob?.cancel()
+        this.cacheWatchJob?.cancel()
+        this.pendingChannelId = null
         this.channel = StoatAPI.channelCache[id]
         this.items = mutableStateListOf(ChannelScreenItem.Loading)
         this.activePane = ChannelScreenActivePane.None
@@ -149,12 +158,33 @@ class ChannelScreenViewModel @Inject constructor(
         this.draftReplyTo = mutableStateListOf()
         this.attachmentUploadProgress = 0f
 
-        viewModelScope.launch {
-            ensureSelfHasMember()
-            denyMessageFieldIfNeeded()
+        if (channel != null) {
+            // Channel is in cache — proceed normally
+            viewModelScope.launch {
+                ensureSelfHasMember()
+                denyMessageFieldIfNeeded()
+            }
+            this.loadMessages(50, markLastAsRead = true)
+        } else {
+            // Channel not in cache yet (app restart before WebSocket Ready).
+            // Watch the cache and retry when it appears (upstream #41/#21).
+            pendingChannelId = id
+            cacheWatchJob = viewModelScope.launch {
+                snapshotFlow { StoatAPI.channelCache[id] }
+                    .filterNotNull()
+                    .first()
+                    .let { cachedChannel ->
+                        channel = cachedChannel
+                        pendingChannelId = null
+                        ageGateUnlocked = cachedChannel.nsfw != true
+                        showGeoGate = cachedChannel.nsfw == true &&
+                                GeoStateProvider.geoState?.isAgeRestrictedGeo == true
+                        ensureSelfHasMember()
+                        denyMessageFieldIfNeeded()
+                        loadMessages(50, markLastAsRead = true)
+                    }
+            }
         }
-
-        this.loadMessages(50, markLastAsRead = true)
     }
 
     suspend fun unlockAgeGate() {

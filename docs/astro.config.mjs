@@ -5,14 +5,14 @@ import starlightThemeNext from 'starlight-theme-next'
 
 // https://astro.build/config
 export default defineConfig({
-    site: "https://stoatchat.github.io",
-    base: "/for-android",
+    site: "https://tribixbite.github.io",
+    base: "/stoat-android",
     integrations: [
         starlight({
             plugins: [starlightThemeNext()],
             title: "Stoat for Android Technical Documentation",
             social: [
-                { icon: "github", label: 'GitHub', href: "https://github.com/stoatchat/for-android" },
+                { icon: "github", label: 'GitHub', href: "https://github.com/tribixbite/stoat-android" },
             ],
             sidebar: [
                 {

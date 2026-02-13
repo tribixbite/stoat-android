@@ -43,6 +43,8 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.PermissionBit
 import chat.stoat.api.internals.Roles
 import chat.stoat.api.internals.has
+import chat.stoat.api.internals.ULID
+import chat.stoat.api.routes.channel.ackChannel
 import chat.stoat.api.routes.channel.bulkDeleteMessages
 import chat.stoat.api.routes.channel.deleteMessage
 import chat.stoat.api.routes.channel.pinMessage
@@ -584,14 +586,28 @@ fun MessageContextSheet(
                 )
             },
             onClick = {
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.comingsoon_toast),
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                coroutineScope.launch {
-                    onHideSheet()
+                // Ack to a synthetic ULID just before this message so the channel
+                // appears unread from this message onwards.
+                val channelId = message.channel
+                val msgId = message.id
+                if (channelId != null && msgId != null) {
+                    coroutineScope.launch {
+                        try {
+                            val ts = ULID.asTimestamp(msgId)
+                            val beforeId = ULID.makeSpecial(
+                                maxOf(ts - 1, 0),
+                                ByteArray(10) // all zeros — sorts before any real ULID at this ms
+                            )
+                            ackChannel(channelId, beforeId)
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                e.message ?: e.toString(),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        onHideSheet()
+                    }
                 }
             }
         )

@@ -133,6 +133,7 @@ import chat.stoat.screens.settings.server.InviteManagementScreen
 import chat.stoat.screens.settings.server.DefaultPermissionsEditorScreen
 import chat.stoat.screens.settings.server.RoleManagementScreen
 import chat.stoat.screens.settings.server.RolePermissionsEditorScreen
+import chat.stoat.screens.settings.server.DiscordImportScreen
 import chat.stoat.screens.settings.server.ServerSettingsScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
@@ -774,6 +775,10 @@ fun AppEntrypoint(
                     composable("settings/server/{serverId}/create-channel") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         CreateChannelScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/import-discord") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        DiscordImportScreen(navController, serverId)
                     }
                     composable("settings/server/{serverId}/invites") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""

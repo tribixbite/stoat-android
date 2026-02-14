@@ -82,7 +82,7 @@ jobs:
           files: app/build/outputs/apk/debug/Stoat-*.apk
           tag_name: "dev-${{ steps.sha.outputs.short }}"
           name: "Stoat Dev Build (${{ steps.sha.outputs.short }})"
-          prerelease: true
+          prerelease: false
           body: |
             Stoat Android APK — Development Build
 

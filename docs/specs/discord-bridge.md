@@ -54,6 +54,7 @@ Stoat supports importing channel structures from Discord servers and setting up 
 | GET | /api/links/guild/:id | Bridge links for a specific guild |
 | POST | /api/links | Create bridge link (auto-creates webhook) |
 | DELETE | /api/links/:discordChannelId | Remove a bridge link |
+| POST | /api/claim-code | Generate one-time code to authorize server linking |
 
 Auth: Optional `X-Api-Key` header (shared secret).
 
@@ -83,9 +84,10 @@ Auth: Optional `X-Api-Key` header (shared secret).
 ### Security Model
 
 1. **Discord permission gating**: `/migrate` requires Administrator, `/link`+`/unlink` require Manage Channels — enforced by Discord itself (non-admins can't see/invoke the commands)
-2. **Bot membership check**: When targeting an existing Stoat server, the bot verifies it can access that server (must be a member). Write permissions enforced by the Stoat API per-operation
+2. **Claim code authorization**: First-time migration into an existing Stoat server requires a one-time claim code generated via `POST /api/claim-code` (protected by API key). Codes expire after 1 hour and are single-use. Re-runs to already-linked servers don't need a code.
 3. **One-to-one binding**: Each Stoat server can only be linked to one Discord guild — prevents cross-guild hijacking
 4. **API key auth**: HTTP API optionally protected by shared secret in `X-Api-Key` header
+5. **Stoat API enforcement**: Write permissions (create channels, roles, edit server) enforced by Stoat API per-operation
 
 ### Database Tables
 - `server_links` — Discord guild ↔ Stoat server mappings (one-to-one)

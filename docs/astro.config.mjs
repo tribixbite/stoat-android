@@ -33,6 +33,13 @@ export default defineConfig({
                     label: "Reference",
                     autogenerate: { directory: "reference" },
                 },
+                {
+                    label: "Legal",
+                    items: [
+                        { label: "Privacy Policy", link: "/legal/privacy-policy" },
+                        { label: "Terms of Service", link: "/legal/terms-of-service" },
+                    ],
+                },
             ],
             customCss: ["./src/styles/custom.css"],
         }),

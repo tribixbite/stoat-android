@@ -209,6 +209,24 @@ Prevents duplicate message sends from rapid tapping.
 - Changed `supportSwipeReply` from `PointerEventPass.Main` to `PointerEventPass.Final` so child scrollable elements process events first
 - Filters out consumed pointer changes before passing to swipe handler
 
+### Duplicate Reply Banners (Upstream #57)
+- **Fixed duplicate reply banners** — selecting "Reply" on the same message multiple times stacked multiple reply banners
+- Context menu reply path called `draftReplyTo.add()` directly, bypassing the duplicate check in `addReplyTo()`
+- Now uses `addReplyTo()` which enforces both deduplication and max-5 limit
+
+### Spoiler Text (Upstream #54)
+- **Implemented `||spoiler||` syntax** — double-pipe delimiters render as hidden text
+- New `SpoilerParser` sequential parser recognizes `||..||` in the markdown pipeline
+- Hidden state: text foreground matches dark background (invisible)
+- Tap to reveal: toggles spoiler visibility, re-tapping hides again
+- Per-spoiler state tracked independently in each text block
+
+### Copy Text/ID Outside Share (Upstream #40)
+- **Added "Copy" and "Copy ID" buttons** to the top level of the message context sheet
+- Previously buried inside the "Share" sub-menu requiring two taps
+- "Copy" copies message text content, only shown when message has text
+- "Copy ID" copies message ULID, always available
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -378,3 +396,5 @@ All changes from upstream divergence point:
 | `4a29c1d` | fix | README dead links, add fork docs URLs (#42) |
 | `1f7a26f` | feat | Mark-as-unread in message context menu |
 | `65d18d3` | fix | Fetch user from API when not in cache for info sheet |
+| `43d10db` | docs | API coverage cross-reference with backend and JS client |
+| `f1919b0` | fix | Duplicate reply banners (#57), spoiler text (#54), copy buttons (#40) |

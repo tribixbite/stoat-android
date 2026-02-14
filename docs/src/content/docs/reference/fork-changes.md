@@ -227,6 +227,17 @@ Prevents duplicate message sends from rapid tapping.
 - "Copy" copies message text content, only shown when message has text
 - "Copy ID" copies message ULID, always available
 
+### Long-Press Server Icon Context Menu (Upstream #20)
+- **Added long-press to server icons** in the sidebar drawer
+- Opens the existing ServerContextSheet (Mark Read, Mute, Settings, Leave)
+- Changed from `.clickable` to `.combinedClickable`, matching the pattern used for channel items
+
+### Profile Card Tap-to-Copy (Upstream #19)
+- **Fixed tap-to-copy** on user profile cards — previously failed silently
+- Added try-catch around `copyCard()` so errors are displayed instead of swallowed
+- Always show "Copied" toast (system clipboard notification doesn't work well for image URIs on Android 13+)
+- Always show Share/Copy buttons (previously hidden on Android 13+, leaving only invisible tap)
+
 ### Discover Tab
 - **Fixed server clicks** — discover page links to `app.revolt.chat/invite/CODE` which was silently blocked; now handles all known Revolt/Stoat domains (stoat.chat, stt.gg, rvlt.gg, app.revolt.chat)
 
@@ -398,3 +409,6 @@ All changes from upstream divergence point:
 | `65d18d3` | fix | Fetch user from API when not in cache for info sheet |
 | `43d10db` | docs | API coverage cross-reference with backend and JS client |
 | `f1919b0` | fix | Duplicate reply banners (#57), spoiler text (#54), copy buttons (#40) |
+| `df30163` | docs | Add duplicate reply, spoiler, copy fixes to fork-changes |
+| `16cb2d6` | feat | Long-press server icon opens context menu (#20) |
+| `c72565d` | fix | Profile card tap-to-copy error handling and buttons (#19) |

@@ -632,6 +632,60 @@ fun MessageContextSheet(
             )
         }
 
+        // Copy text directly (upstream #40: copy outside share sub-menu)
+        if (!message.content.isNullOrEmpty()) {
+            SheetButton(
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.icn_content_copy_24dp),
+                        contentDescription = null,
+                    )
+                },
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.message_context_sheet_actions_copy),
+                    )
+                },
+                onClick = {
+                    if (Platform.needsShowClipboardNotification()) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.copied),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    clipboardManager.setText(AnnotatedString(message.content!!))
+                    coroutineScope.launch { onHideSheet() }
+                }
+            )
+        }
+
+        // Copy message ID directly (upstream #40)
+        SheetButton(
+            leadingContent = {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_content_copy_id_24dp),
+                    contentDescription = null,
+                )
+            },
+            headlineContent = {
+                Text(
+                    text = stringResource(id = R.string.message_context_sheet_actions_copy_id),
+                )
+            },
+            onClick = {
+                if (Platform.needsShowClipboardNotification()) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.message_context_sheet_actions_copy_id_copied),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                clipboardManager.setText(AnnotatedString(messageId))
+                coroutineScope.launch { onHideSheet() }
+            }
+        )
+
         SheetButton(
             leadingContent = {
                 Icon(

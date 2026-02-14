@@ -762,17 +762,9 @@ class ChannelScreenViewModel @Inject constructor(
 
                 when (it) {
                     is UiCallback.ReplyToMessage -> {
-                        val message = items.find { m ->
-                            m is ChannelScreenItem.RegularMessage && m.message.id == it.messageId
-                        } as? ChannelScreenItem.RegularMessage ?: return@onEach
-
-                        val shouldMention = kvStorage.getBoolean("mentionOnReply") ?: false
-                        draftReplyTo.add(
-                            SendMessageReply(
-                                message.message.id ?: return@onEach,
-                                shouldMention
-                            )
-                        )
+                        // Use addReplyTo() which enforces max-5 limit and
+                        // deduplication (upstream #57: duplicate reply banners)
+                        addReplyTo(it.messageId)
                     }
 
                     is UiCallback.EditMessage -> {

@@ -113,6 +113,7 @@ enum class JBMAnnotations(val tag: String, val clickable: Boolean) {
     Checkbox("Checkbox", false),
     UserAvatar("UserAvatar", true),
     RoleChip("RoleChip", false),
+    Spoiler("Spoiler", true),
     JBMBackgroundRoundingStart("JBMBackgroundRoundingStart", false),
     JBMBackgroundRoundingEnd("JBMBackgroundRoundingEnd", false),
 }
@@ -138,7 +139,9 @@ data class JBMarkdownTreeState(
         clickable = Color(0xFFFF00FF),
         clickableBackground = Color(0x2000FF00)
     ),
-    val brushCompat: InstancedBrushCompat? = null
+    val brushCompat: InstancedBrushCompat? = null,
+    /** Start offsets of spoiler nodes that have been revealed by tapping. */
+    val revealedSpoilers: Set<Int> = emptySet()
 )
 
 val LocalJBMarkdownTreeState =
@@ -319,6 +322,42 @@ private fun annotateText(
                         appendInlineContent(JBMAnnotations.CustomEmote.tag, emoteId)
                         pop()
                     }
+                }
+
+                RSMElementTypes.SPOILER -> {
+                    // ||spoiler|| text — tap to reveal (upstream #54)
+                    val revealed = state.revealedSpoilers.contains(node.startOffset)
+                    val spoilerId = node.startOffset.toString()
+                    pushStringAnnotation(
+                        tag = JBMAnnotations.Spoiler.tag,
+                        annotation = spoilerId
+                    )
+                    if (revealed) {
+                        // Revealed: show with a subtle background
+                        pushStyle(
+                            SpanStyle(
+                                background = Color(0x40808080)
+                            )
+                        )
+                    } else {
+                        // Hidden: foreground matches background so text is invisible
+                        pushStyle(
+                            SpanStyle(
+                                color = Color(0xFF2B2B2B),
+                                background = Color(0xFF2B2B2B)
+                            )
+                        )
+                    }
+                    // Render inner content, skipping the || delimiters.
+                    // The parser wraps the full ||content|| so children
+                    // include delimiter tokens at both ends.
+                    for (child in node.children) {
+                        val childText = child.getTextInNode(sourceText).toString()
+                        if (childText == "||") continue
+                        append(annotateText(state, child))
+                    }
+                    pop() // style
+                    pop() // annotation
                 }
 
                 MarkdownTokenTypes.ATX_HEADER -> {
@@ -516,7 +555,12 @@ private fun annotateText(
 private fun JBMText(node: ASTNode, modifier: Modifier) {
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     val mdState = LocalJBMarkdownTreeState.current
-    val annotatedText = remember(node) { annotateText(mdState, node) }
+    // Track which spoilers the user has tapped to reveal
+    var revealedSpoilers by remember { mutableStateOf(emptySet<Int>()) }
+    val spoilerState = remember(mdState, revealedSpoilers) {
+        mdState.copy(revealedSpoilers = revealedSpoilers)
+    }
+    val annotatedText = remember(node, revealedSpoilers) { annotateText(spoilerState, node) }
     val colours = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -615,6 +659,17 @@ private fun JBMText(node: ASTNode, modifier: Modifier) {
                                 ActionChannel.send(
                                     Action.EmoteInfo(item)
                                 )
+                            }
+                            return@handler true
+                        }
+
+                        JBMAnnotations.Spoiler.tag -> {
+                            // Toggle spoiler reveal state
+                            val offset = item.toIntOrNull() ?: return@handler false
+                            revealedSpoilers = if (revealedSpoilers.contains(offset)) {
+                                revealedSpoilers - offset
+                            } else {
+                                revealedSpoilers + offset
                             }
                             return@handler true
                         }

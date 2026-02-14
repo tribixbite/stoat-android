@@ -4,6 +4,7 @@ import chat.stoat.markdown.jbm.sequentialparsers.ChannelMentionParser
 import chat.stoat.markdown.jbm.sequentialparsers.CustomEmoteParser
 import chat.stoat.markdown.jbm.sequentialparsers.MassMentionParser
 import chat.stoat.markdown.jbm.sequentialparsers.RoleMentionParser
+import chat.stoat.markdown.jbm.sequentialparsers.SpoilerParser
 import chat.stoat.markdown.jbm.sequentialparsers.UserMentionParser
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
@@ -29,6 +30,7 @@ class RSMFlavourDescriptor : GFMFlavourDescriptor() {
                 RoleMentionParser(),
                 MassMentionParser(),
                 CustomEmoteParser(),
+                SpoilerParser(),
                 AutolinkParser(listOf(MarkdownTokenTypes.AUTOLINK, GFMTokenTypes.GFM_AUTOLINK)),
                 BacktickParser(),
                 MathParser(),

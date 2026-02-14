@@ -249,21 +249,26 @@ Comprehensive technical documentation added (not present in upstream):
 
 ## API Coverage Summary
 
+Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoatchat) backend (96 delta routes) and [stoatchat/javascript-client-api](https://github.com/stoatchat/javascript-client-api) (205 endpoints in routes.ts).
+
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
-| Total endpoints tracked | ~55 | 121 (full OpenAPI) |
-| Implemented | ~55 | 96 (79%) |
+| Backend delta routes | ~55 | 96 total, 81 implemented (84%) |
+| Auth routes (authifier) | ~10 | 23 implemented (login, MFA, sessions, account) |
+| Missing: Bots | 0 | 0 — 7 endpoints planned |
+| Missing: Webhooks | 0 | 0 — 10 endpoints planned |
+| Missing: Other | 0 | 0 — 3 planned (user flags, end\_ring, policy ack) |
 | Search | None | Full (API + UI + filters) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
 | Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
-| Account management | None | View, edit email/password, delete/disable account |
-| Social features | Basic | Mutual friends/servers, user profiles |
+| Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
+| Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread |
 | Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
 | Documentation | Minimal | 10 spec documents, API reference |
 
 ## Roadmap to Discord Parity
 
-Target: 117/121 endpoints (97%). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 81/96 delta (84%) + 23 auth routes implemented. 20 remaining endpoints are bots (7), webhooks (10), and 3 misc. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority)
 | Feature | Endpoints | Status |
@@ -301,15 +306,29 @@ Target: 117/121 endpoints (97%). 39 Discord features require backend changes (do
 ### Phase 5: Bots & Webhooks (Low Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Bot management | 7 endpoints | Planned |
-| Webhook management | 4 endpoints | Planned |
+| Bot create | `POST /bots/create` | Planned |
+| Bot fetch/edit/delete | `GET/PATCH/DELETE /bots/{id}` | Planned (3) |
+| Bot owned list | `GET /bots/@me` | Planned |
+| Bot invite | `GET/POST /bots/{id}/invite` | Planned (2) |
+| Webhook create | `POST /channels/{id}/webhooks` | Planned |
+| Webhook list | `GET /channels/{id}/webhooks` | Planned |
+| Webhook CRUD (auth) | `GET/PATCH/DELETE /webhooks/{id}` | Planned (3) |
+| Webhook CRUD (token) | `GET/PATCH/DELETE /webhooks/{id}/{token}` | Planned (3) |
+| Webhook execute | `POST /webhooks/{id}/{token}` | Planned |
+| Webhook GitHub | `POST /webhooks/{id}/{token}/github` | Planned |
 
 ### Phase 6: Polish & Edge Cases (Low Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Session rename | `PATCH /auth/session/{id}` | **Done** |
 | User flags | `GET /users/{id}/flags` | Planned |
-| Default avatar | `GET /users/{id}/default_avatar` | Planned |
+| Default avatar | `GET /users/{id}/default_avatar` | Existing (Glide handles) |
+| Policy acknowledge | `POST /policy/acknowledge` | Planned |
+| Voice end ring | `PUT /channels/{id}/end_ring/{userId}` | Planned |
+| Push unsubscribe | `POST /push/unsubscribe` | Planned |
+| Password reset | `POST/PATCH /auth/account/reset_password` | Planned (2) |
+| Email verify (code) | `POST /auth/account/verify/{code}` | Planned |
+| Members experimental query | `GET /servers/{id}/members_experimental_query` | Planned |
 
 ### Not Achievable (Backend Limitations)
 39 features require backend API changes: threads/forums, scheduled events, stage channels, AutoMod, audit log, slash commands, interactive components, polls, stickers, screen sharing, rich presence, server templates, vanity URLs, per-user permission overrides, slow mode. Full list in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md).

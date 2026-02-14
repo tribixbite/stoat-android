@@ -989,9 +989,10 @@ fun CategoryItem(
     isCollapsed: Boolean = false,
     onToggleCollapse: (() -> Unit)? = null
 ) {
-    // Animate chevron rotation: 0° = pointing down (expanded), -90° = pointing right (collapsed)
+    // Animate chevron rotation: 90° = pointing down (expanded), 0° = pointing right (collapsed)
+    // Base icon is keyboard_arrow_right (→), so 90° CW = down (↓)
     val rotation by animateFloatAsState(
-        targetValue = if (isCollapsed) -90f else 0f,
+        targetValue = if (isCollapsed) 0f else 90f,
         label = "categoryChevron"
     )
 

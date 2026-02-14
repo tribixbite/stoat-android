@@ -37,11 +37,12 @@ Stoat supports importing channel structures from Discord servers and setting up 
 **Repository**: [github.com/tribixbite/stoatcord-bot](https://github.com/tribixbite/stoatcord-bot)
 
 ### Stack
-- Runtime: Bun
-- Language: TypeScript
+- Runtime: Bun v1.2.20 via glibc-runner (grun) on Termux ARM64
+- Language: TypeScript (direct execution, no build step)
 - Discord: discord.js v14
 - Database: bun:sqlite (WAL mode)
 - HTTP: Bun.serve()
+- Env: Manual .env loader (`src/env.ts`) — grun doesn't forward env vars
 
 ### HTTP API Endpoints
 

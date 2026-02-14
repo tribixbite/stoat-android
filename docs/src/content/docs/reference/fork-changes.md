@@ -278,6 +278,7 @@ Comprehensive technical documentation added (not present in upstream):
 - **[Build System Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/build-system.md)** — Termux ARM64 build process documentation
 - **[Antifeature Audit](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/audit-antifeatures.md)** — telemetry, privacy, UX findings
 - **[Search API Benchmarks](https://github.com/tribixbite/stoat-android/blob/dev/docs/search-api-benchmark.md)** — performance testing results
+- **[Discord Bridge Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/discord-bridge.md)** — stoatcord-bot architecture, import wizard, bridge management
 
 ## API Coverage Summary
 
@@ -296,7 +297,8 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 | Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
 | Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread |
 | Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
-| Documentation | Minimal | 10 spec documents, API reference |
+| Discord bridge | None | Import wizard, bridge settings, stoatcord-bot integration |
+| Documentation | Minimal | 11 spec documents, API reference |
 
 ## Roadmap to Discord Parity
 

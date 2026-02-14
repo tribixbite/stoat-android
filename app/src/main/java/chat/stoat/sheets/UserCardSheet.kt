@@ -111,49 +111,59 @@ fun UserCardSheet(user: User?) {
     }
 
     suspend fun copyCard() {
-        val folder = File(
-            context.cacheDir,
-            "usercards"
-        ).let { File(it, StoatAPI.selfId.toString()) }
+        try {
+            val folder = File(
+                context.cacheDir,
+                "usercards"
+            ).let { File(it, StoatAPI.selfId.toString()) }
 
-        folder.mkdirs()
-        val bitmap = cardGraphics.toImageBitmap()
-        val file = File(folder, "usercard.png")
-        val outputStream = withContext(Dispatchers.IO) {
-            FileOutputStream(file)
-        }
+            folder.mkdirs()
+            val bitmap = cardGraphics.toImageBitmap()
+            val file = File(folder, "usercard.png")
+            val outputStream = withContext(Dispatchers.IO) {
+                FileOutputStream(file)
+            }
 
-        bitmap
-            .asAndroidBitmap()
-            .compress(
-                Bitmap.CompressFormat.PNG,
-                90,
-                outputStream
+            bitmap
+                .asAndroidBitmap()
+                .compress(
+                    Bitmap.CompressFormat.PNG,
+                    90,
+                    outputStream
+                )
+
+            withContext(Dispatchers.IO) {
+                outputStream.flush()
+                outputStream.close()
+            }
+
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${BuildConfig.APPLICATION_ID}.fileprovider",
+                file
             )
 
-        withContext(Dispatchers.IO) {
-            outputStream.flush()
-            outputStream.close()
-        }
-
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${BuildConfig.APPLICATION_ID}.fileprovider",
-            file
-        )
-
-        clipboardManager.nativeClipboard.setPrimaryClip(
-            ClipData.newUri(
-                context.contentResolver,
-                "User Card",
-                uri
+            clipboardManager.nativeClipboard.setPrimaryClip(
+                ClipData.newUri(
+                    context.contentResolver,
+                    "User Card",
+                    uri
+                )
             )
-        )
 
-        if (Platform.needsShowClipboardNotification()) {
+            // Always show toast — system clipboard notification may not
+            // display properly for image URIs (upstream #19)
             Toast.makeText(
                 context,
                 context.getString(R.string.copied),
+                Toast.LENGTH_SHORT
+            ).show()
+        } catch (e: Exception) {
+            hasError = true
+            e.printStackTrace()
+            Toast.makeText(
+                context,
+                "Failed to copy card: ${e.message}",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -193,7 +203,10 @@ fun UserCardSheet(user: User?) {
             )
         }
 
-        if (Platform.needsShowClipboardNotification()) {
+        // Always show Share/Copy buttons — previously hidden on
+        // Android 13+ where system clipboard notification doesn't
+        // display well for image URIs (upstream #19)
+        run {
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(

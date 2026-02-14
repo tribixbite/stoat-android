@@ -1,20 +1,33 @@
 <div align="center">
-    <h1>Stoat for Android</h1>
-    <p>Official <a href="https://stoat.chat">Stoat</a> Android app.</p>
-    <br/><br/>
+    <h1>Stoat for Android (Unofficial Fork)</h1>
+    <p><strong>⚠️ This is an UNOFFICIAL, third-party fork.</strong></p>
+    <p>Not affiliated with, endorsed by, or maintained by the <a href="https://stoat.chat">Stoat</a> team.</p>
+    <br/>
     <div>
         <a href="https://play.google.com/store/apps/details?id=chat.revolt"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" width="200"></a>
         <br/>
+        <small>(Google Play listing is the official app by the Stoat team, not this fork)</small>
     </div>
     <small>Google Play is a trademark of Google LLC.</small>
-    <br/><br/><br/>
+    <br/><br/>
 </div>
 
-## Description
+> **Disclaimer**: This fork is developed independently for personal/educational use.
+> It is not associated with Stoat, stoat.chat, or the original Revolt project.
+> Use at your own risk. See the [Stoat terms](https://stoat.chat/terms) for third-party usage requirements.
 
-The codebase includes the app itself, as well as an internal library for interacting with the Stoat
-API. The app is written in Kotlin, and wholly
-uses [Jetpack Compose](https://developer.android.com/jetpack/compose).
+## What is this?
+
+This is an **unofficial fork** of the [Stoat for Android](https://github.com/stoatchat/for-android) client with additional features, bug fixes, and improvements not present in the official app. See the [Fork Changes](https://tribixbite.github.io/stoat-android/reference/fork-changes/) page for a full list of differences.
+
+Key additions over upstream:
+- **Message search** with filters (per-channel and server-wide)
+- **Spoiler text** rendering (`||spoiler||`)
+- **Server management** (roles, permissions, emoji, invites, bans)
+- **Account management** (email, password, MFA/TOTP)
+- **Moderation tools** (kick, ban, bulk delete, pin)
+- **Copy text/ID** directly from message context menu
+- **Mark as unread**, collapsible categories, and many bug fixes
 
 ## Stack
 
@@ -28,19 +41,17 @@ uses [Jetpack Compose](https://developer.android.com/jetpack/compose).
 
 ## Resources
 
-### Stoat for Android
+### This Fork
 
-- [Roadmap](https://op.revolt.wtf/projects/revolt-for-android/work_packages)
 - [Fork Documentation & Changes](https://tribixbite.github.io/stoat-android/)
 - [Feature Gap Analysis](https://tribixbite.github.io/stoat-android/reference/fork-changes/)
 
-### Stoat
+### Official Stoat
 
-- [Stoat Project Board](https://github.com/revoltchat/revolt/discussions) (Submit feature requests
-  here)
+- [Stoat Website](https://stoat.chat)
 - [Stoat Development Server](https://app.revolt.chat/invite/API)
 - [Stoat Server](https://app.revolt.chat/invite/Testers)
-- [General Stoat Contribution Guide](https://developers.revolt.chat/contrib.html)
+- [General Contribution Guide](https://developers.revolt.chat/contrib.html)
 
 ## Quick Start
 
@@ -48,4 +59,7 @@ Open the project in Android Studio. You can then run the app on an emulator or a
 running the `app` module.
 
 For Termux ARM64 builds, use `./build-and-install.sh` (see [CLAUDE.md](./CLAUDE.md) for details).
-For Android Studio, open the project and run the `app` module
+
+## License
+
+This fork inherits the license from the upstream repository. As a third-party fork, it complies with the AGPLv3 requirements by publishing source code publicly.

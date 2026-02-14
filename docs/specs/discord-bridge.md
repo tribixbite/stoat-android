@@ -65,8 +65,30 @@ Auth: Optional `X-Api-Key` header (shared secret).
 
 **Echo prevention**: Two layers — masquerade check + 60s message ID tracking set.
 
+### Discord Slash Commands
+
+| Command | Permission | Description |
+|---------|-----------|-------------|
+| `/migrate` | Administrator | Interactive migration wizard with mode selection |
+| `/link` | Manage Channels | Link current Discord channel to a Stoat channel for bridging |
+| `/unlink` | Manage Channels | Remove bridge link from current channel |
+| `/status` | None | Show bridge status for the server |
+
+#### `/migrate` Modes
+- **missing** (default) — Only create channels/roles that don't exist on Stoat yet
+- **roles** — Create missing roles only (no channels)
+- **categories** — Organize existing Stoat channels into categories matching Discord layout
+- **all** — Create everything (warns about potential duplicates)
+
+### Security Model
+
+1. **Discord permission gating**: `/migrate` requires Administrator, `/link`+`/unlink` require Manage Channels — enforced by Discord itself (non-admins can't see/invoke the commands)
+2. **Bot ownership check**: When targeting an existing Stoat server, the bot verifies it owns that server (only servers created by the bot can be migrated into)
+3. **One-to-one binding**: Each Stoat server can only be linked to one Discord guild — prevents cross-guild hijacking
+4. **API key auth**: HTTP API optionally protected by shared secret in `X-Api-Key` header
+
 ### Database Tables
-- `server_links` — Discord guild ↔ Stoat server mappings
+- `server_links` — Discord guild ↔ Stoat server mappings (one-to-one)
 - `channel_links` — Discord channel ↔ Stoat channel with webhook credentials
 - `role_links` — Discord role ↔ Stoat role mappings
 - `migration_log` — Audit trail of import operations
@@ -129,9 +151,11 @@ Bot client ID hardcoded: `1472115292925857865`
 Default bot API URL: `http://localhost:3210` (user must change to actual bot host)
 
 ## Status
-- Import wizard: Complete
-- Bridge settings: Complete
+- Import wizard (Android): Complete
+- Bridge settings (Android): Complete
 - Bot HTTP API: Complete
 - Bot message relay: Complete (user avatar resolution implemented)
 - Discord slash commands: Complete (/migrate, /link, /unlink, /status)
-- Migration wizard (Discord-side): Complete
+- Migration wizard (Discord): Complete — selective mode, dedup, categories, security checks
+- Role migration: Complete (19+ Discord→Revolt permission mappings)
+- Category organization: Complete (maps Discord categories to Stoat server categories)

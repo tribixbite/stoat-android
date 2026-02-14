@@ -83,7 +83,7 @@ Auth: Optional `X-Api-Key` header (shared secret).
 ### Security Model
 
 1. **Discord permission gating**: `/migrate` requires Administrator, `/link`+`/unlink` require Manage Channels — enforced by Discord itself (non-admins can't see/invoke the commands)
-2. **Bot ownership check**: When targeting an existing Stoat server, the bot verifies it owns that server (only servers created by the bot can be migrated into)
+2. **Bot membership check**: When targeting an existing Stoat server, the bot verifies it can access that server (must be a member). Write permissions enforced by the Stoat API per-operation
 3. **One-to-one binding**: Each Stoat server can only be linked to one Discord guild — prevents cross-guild hijacking
 4. **API key auth**: HTTP API optionally protected by shared secret in `X-Api-Key` header
 

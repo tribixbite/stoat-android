@@ -956,6 +956,21 @@
     <string name="discord_import_no_servers">Bot is not in any Discord servers yet</string>
     <string name="discord_import_error_api">Could not connect to Stoatcord bot</string>
 
+    <!-- Bridge settings -->
+    <string name="server_settings_bridge">Bridge Settings</string>
+    <string name="server_settings_bridge_desc">Manage Discord↔Stoat message bridges</string>
+    <string name="bridge_settings_title">Bridge Settings</string>
+    <string name="bridge_settings_connection">Bot Connection</string>
+    <string name="bridge_settings_active_links">Active Bridges</string>
+    <string name="bridge_settings_no_links">No bridge links configured for this server</string>
+    <string name="bridge_settings_bidirectional">Bidirectional bridge</string>
+    <string name="bridge_settings_remove">Remove bridge</string>
+    <string name="bridge_settings_add_link">Add Bridge Link</string>
+    <string name="bridge_settings_new_bridge">New Bridge</string>
+    <string name="bridge_settings_discord_channel">Discord Channel</string>
+    <string name="bridge_settings_stoat_channel">Stoat Channel</string>
+    <string name="bridge_settings_create_link">Create Bridge</string>
+
     <!-- Member management -->
     <string name="member_nickname_title">Edit Nickname</string>
     <string name="member_nickname_label">Nickname</string>

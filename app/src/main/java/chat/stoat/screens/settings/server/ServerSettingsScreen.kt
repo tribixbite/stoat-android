@@ -410,6 +410,21 @@ fun ServerSettingsScreen(
                                 navController.navigate("settings/server/$serverId/import-discord")
                             }
                         )
+
+                        // Discord↔Stoat message bridge settings
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_bridge)) },
+                            supportingContent = { Text(stringResource(R.string.server_settings_bridge_desc)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/bridge-settings")
+                            }
+                        )
                     }
 
                     // Emoji management — requires ManageCustomisation

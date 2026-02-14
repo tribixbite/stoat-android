@@ -3,9 +3,14 @@ package chat.stoat.api.routes.discord
 import chat.stoat.api.StoatJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -104,4 +109,89 @@ suspend fun fetchGuildChannels(
         GuildChannelsResponse.serializer(),
         response
     )
+}
+
+// --- Bridge link management ---
+
+@Serializable
+data class BridgeLinkInfo(
+    val discordChannelId: String,
+    val discordChannelName: String? = null,
+    val stoatChannelId: String,
+    val hasWebhook: Boolean = false,
+    val active: Boolean = true,
+    val createdAt: Long = 0
+)
+
+@Serializable
+data class CreateLinkRequest(
+    val discordChannelId: String,
+    val stoatChannelId: String
+)
+
+@Serializable
+data class CreateLinkResponse(
+    val success: Boolean,
+    val discordChannelId: String,
+    val stoatChannelId: String,
+    val hasWebhook: Boolean = false
+)
+
+/**
+ * Fetch all active bridge links for a Discord guild.
+ */
+suspend fun fetchGuildLinks(
+    botApiUrl: String,
+    apiKey: String = "",
+    guildId: String
+): List<BridgeLinkInfo> {
+    val url = "${botApiUrl.trimEnd('/')}/api/links/guild/$guildId"
+    val response = discordApiHttp.get(url) {
+        if (apiKey.isNotBlank()) header("x-api-key", apiKey)
+    }.bodyAsText()
+
+    return StoatJson.decodeFromString(
+        ListSerializer(BridgeLinkInfo.serializer()),
+        response
+    )
+}
+
+/**
+ * Create a new bridge link between a Discord and Stoat channel.
+ */
+suspend fun createBridgeLink(
+    botApiUrl: String,
+    apiKey: String = "",
+    discordChannelId: String,
+    stoatChannelId: String
+): CreateLinkResponse {
+    val url = "${botApiUrl.trimEnd('/')}/api/links"
+    val body = StoatJson.encodeToString(
+        CreateLinkRequest.serializer(),
+        CreateLinkRequest(discordChannelId, stoatChannelId)
+    )
+    val response = discordApiHttp.post(url) {
+        if (apiKey.isNotBlank()) header("x-api-key", apiKey)
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }.bodyAsText()
+
+    return StoatJson.decodeFromString(
+        CreateLinkResponse.serializer(),
+        response
+    )
+}
+
+/**
+ * Delete (unlink) a bridge link by Discord channel ID.
+ */
+suspend fun deleteBridgeLink(
+    botApiUrl: String,
+    apiKey: String = "",
+    discordChannelId: String
+) {
+    val url = "${botApiUrl.trimEnd('/')}/api/links/$discordChannelId"
+    discordApiHttp.delete(url) {
+        if (apiKey.isNotBlank()) header("x-api-key", apiKey)
+    }
 }

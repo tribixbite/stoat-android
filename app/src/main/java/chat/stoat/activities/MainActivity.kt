@@ -740,6 +740,11 @@ fun AppEntrypoint(
                         MessageSearchScreen(channelId = channelId, navController = navController)
                     }
 
+                    composable("search/server/{serverId}") { backStackEntry ->
+                        val sId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        MessageSearchScreen(channelId = "", serverId = sId, navController = navController)
+                    }
+
                     composable("settings/channel/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
                         ChannelSettingsHome(navController, channelId)

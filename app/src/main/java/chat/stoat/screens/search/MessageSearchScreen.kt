@@ -97,12 +97,16 @@ private val URL_REGEX = Regex(
 @HiltViewModel
 class MessageSearchViewModel @Inject constructor() : ViewModel() {
     var channelId by mutableStateOf("")
+    /** When set, searches across all text channels in this server */
+    var serverId by mutableStateOf("")
     var query by mutableStateOf("")
     var isLoading by mutableStateOf(false)
     var hasSearched by mutableStateOf(false)
     var sort by mutableStateOf(SearchSort.Latest)
     var pinnedOnly by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
+    /** Progress indicator for server-wide search: "Searching channel 3 of 12..." */
+    var searchProgress by mutableStateOf<String?>(null)
 
     // Client-side content filters
     var hasLink by mutableStateOf(false)
@@ -118,9 +122,14 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
     val results = mutableStateListOf<Message>()
     private val rawResults = mutableListOf<Message>()
     val userCache = mutableMapOf<String, User>()
+    /** Maps channelId -> channel name for server-wide search result display */
+    val channelNameCache = mutableMapOf<String, String>()
 
     private var canLoadMore by mutableStateOf(true)
     private var searchJob: Job? = null
+
+    /** True when searching across an entire server (vs single channel) */
+    val isServerSearch: Boolean get() = serverId.isNotBlank()
 
     /** Whether any client-side filter is active (requires include_users for from:user) */
     private val needsUserData: Boolean
@@ -223,12 +232,7 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
             isLoading = true
             hasSearched = true
             errorMessage = null
-
-            val beforeId = if (!fresh && rawResults.isNotEmpty()) {
-                rawResults.lastOrNull()?.id
-            } else {
-                null
-            }
+            searchProgress = null
 
             if (fresh) {
                 rawResults.clear()
@@ -236,26 +240,123 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
                 canLoadMore = true
             }
 
-            // Pinned browse: send pinned=true with no query
-            // Text search: send query if provided, null to browse all messages
-            // Benchmark: null query returns all messages in ~0.4s vs " " returns nothing
-            val apiQuery = when {
-                pinnedOnly -> null
-                query.isNotBlank() -> query
-                else -> null // omit query to browse all (filter-only searches)
+            if (isServerSearch) {
+                performServerSearch()
+            } else {
+                performChannelSearch(channelId, fresh)
             }
 
-            // Use include_users only when from:user filter is active or first search.
-            // Without it, API returns faster bare array (~2-3s vs ~5s).
-            // We rely on StoatAPI.userCache for display names when possible.
-            val useIncludeUsers = needsUserData || (fresh && userCache.isEmpty())
+            isLoading = false
+            searchProgress = null
+        }
+    }
+
+    /** Search a single channel (original behavior) */
+    private suspend fun performChannelSearch(targetChannelId: String, fresh: Boolean) {
+        val beforeId = if (!fresh && rawResults.isNotEmpty()) {
+            rawResults.lastOrNull()?.id
+        } else {
+            null
+        }
+
+        val apiQuery = when {
+            pinnedOnly -> null
+            query.isNotBlank() -> query
+            else -> null
+        }
+
+        val useIncludeUsers = needsUserData || (rawResults.isEmpty() && userCache.isEmpty())
+
+        try {
+            val result = searchMessages(
+                channelId = targetChannelId,
+                query = apiQuery,
+                limit = 25,
+                before = beforeId,
+                sort = sort.apiValue,
+                includeUsers = if (useIncludeUsers) true else null,
+                pinned = if (pinnedOnly) true else null
+            )
+
+            when (result) {
+                is SearchResult.Success -> {
+                    result.data.users?.forEach { user ->
+                        user.id?.let { userCache[it] = user }
+                    }
+
+                    val messages = result.data.messages ?: emptyList()
+                    if (messages.isEmpty()) {
+                        canLoadMore = false
+                    } else {
+                        rawResults.addAll(messages)
+                    }
+
+                    applyClientFilters()
+                }
+                is SearchResult.Error -> {
+                    errorMessage = result.message
+                    canLoadMore = false
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            errorMessage = "${e.javaClass.simpleName}: ${e.message}"
+            canLoadMore = false
+            Log.e("MessageSearch", "Search failed", e)
+        }
+    }
+
+    /**
+     * Search across all text channels in a server.
+     * No server-wide search API exists, so we iterate channels.
+     * Results are aggregated and sorted by message timestamp.
+     */
+    private suspend fun performServerSearch() {
+        val server = StoatAPI.serverCache[serverId]
+        if (server == null) {
+            errorMessage = "Server not found"
+            return
+        }
+
+        // Get all text channel IDs from the server
+        val channelIds = server.channels?.mapNotNull { cId ->
+            val channel = StoatAPI.channelCache[cId]
+            // Only search text channels (not voice, not categories)
+            if (channel?.channelType?.let {
+                it == chat.stoat.core.model.schemas.ChannelType.TextChannel ||
+                it == chat.stoat.core.model.schemas.ChannelType.Group
+            } != false) {
+                // Cache channel names for display in results
+                channel?.name?.let { name -> channelNameCache[cId] = name }
+                cId
+            } else null
+        } ?: emptyList()
+
+        if (channelIds.isEmpty()) {
+            errorMessage = "No searchable channels found"
+            return
+        }
+
+        val apiQuery = when {
+            pinnedOnly -> null
+            query.isNotBlank() -> query
+            else -> null
+        }
+
+        val useIncludeUsers = needsUserData || userCache.isEmpty()
+        var errorCount = 0
+
+        // Search each channel, collecting results
+        channelIds.forEachIndexed { index, cId ->
+            val channelName = channelNameCache[cId] ?: "#$cId"
+            searchProgress = "Searching $channelName (${index + 1}/${channelIds.size})..."
 
             try {
                 val result = searchMessages(
-                    channelId = channelId,
+                    channelId = cId,
                     query = apiQuery,
                     limit = 25,
-                    before = beforeId,
                     sort = sort.apiValue,
                     includeUsers = if (useIncludeUsers) true else null,
                     pinned = if (pinnedOnly) true else null
@@ -263,34 +364,38 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
 
                 when (result) {
                     is SearchResult.Success -> {
-                        // Cache returned user data for display and from:user filter
                         result.data.users?.forEach { user ->
                             user.id?.let { userCache[it] = user }
                         }
-
                         val messages = result.data.messages ?: emptyList()
-                        if (messages.isEmpty()) {
-                            canLoadMore = false
-                        } else {
-                            rawResults.addAll(messages)
-                        }
-
+                        rawResults.addAll(messages)
+                        // Update results progressively so user sees them appear
                         applyClientFilters()
                     }
                     is SearchResult.Error -> {
-                        errorMessage = result.message
-                        canLoadMore = false
+                        errorCount++
+                        Log.w("ServerSearch", "Channel $cId search failed: ${result.message}")
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                errorMessage = "${e.javaClass.simpleName}: ${e.message}"
-                canLoadMore = false
-                Log.e("MessageSearch", "Search failed", e)
-            } finally {
-                isLoading = false
+                errorCount++
+                Log.w("ServerSearch", "Channel $cId search exception: ${e.message}")
             }
+        }
+
+        // Sort all aggregated results by timestamp (newest first by default)
+        rawResults.sortWith(compareByDescending { it.id ?: "" })
+        applyClientFilters()
+
+        canLoadMore = false // Server search fetches all at once
+        if (errorCount > 0 && rawResults.isEmpty()) {
+            errorMessage = "Search failed on all $errorCount channels"
+        } else if (errorCount > 0) {
+            // Partial success — note it but don't block results
+            searchProgress = null
+            errorMessage = "$errorCount channel(s) could not be searched"
         }
     }
 }
@@ -299,14 +404,16 @@ class MessageSearchViewModel @Inject constructor() : ViewModel() {
 @Composable
 fun MessageSearchScreen(
     channelId: String,
+    serverId: String = "",
     navController: NavController,
     viewModel: MessageSearchViewModel = hiltViewModel()
 ) {
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(channelId) {
+    LaunchedEffect(channelId, serverId) {
         viewModel.channelId = channelId
+        viewModel.serverId = serverId
     }
 
     LaunchedEffect(Unit) {
@@ -370,7 +477,11 @@ fun MessageSearchScreen(
                             ) {
                                 if (viewModel.query.isEmpty()) {
                                     Text(
-                                        text = stringResource(R.string.search_messages_hint),
+                                        text = if (viewModel.isServerSearch) {
+                                            stringResource(R.string.search_server_hint)
+                                        } else {
+                                            stringResource(R.string.search_messages_hint)
+                                        },
                                         style = LocalTextStyle.current.copy(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             fontSize = 16.sp
@@ -616,6 +727,27 @@ fun MessageSearchScreen(
                 )
             }
 
+            // Server-wide search progress indicator
+            if (viewModel.searchProgress != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = viewModel.searchProgress!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
             // Error display
             if (viewModel.errorMessage != null) {
                 Box(
@@ -661,6 +793,12 @@ fun MessageSearchScreen(
                             user = message.author?.let {
                                 viewModel.userCache[it] ?: StoatAPI.userCache[it]
                             },
+                            channelName = if (viewModel.isServerSearch) {
+                                message.channel?.let { cId ->
+                                    viewModel.channelNameCache[cId]
+                                        ?: StoatAPI.channelCache[cId]?.name
+                                }
+                            } else null,
                             onClick = {
                                 // TODO: navigate to message in channel via nearby fetch
                                 navController.popBackStack()
@@ -691,6 +829,7 @@ fun MessageSearchScreen(
 private fun SearchResultItem(
     message: Message,
     user: User?,
+    channelName: String? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -731,6 +870,16 @@ private fun SearchResultItem(
                         maxLines = 1
                     )
                 }
+            }
+
+            // Show channel name for server-wide search results
+            if (channelName != null) {
+                Text(
+                    text = "#$channelName",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                    maxLines = 1
+                )
             }
 
             Spacer(modifier = Modifier.height(2.dp))

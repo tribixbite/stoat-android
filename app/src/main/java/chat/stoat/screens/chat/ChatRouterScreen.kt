@@ -620,6 +620,9 @@ fun ChatRouterScreen(
                 },
                 onOpenServerSettings = {
                     topNav.navigate("settings/server/$serverContextSheetTarget")
+                },
+                onSearchServer = {
+                    topNav.navigate("search/server/$serverContextSheetTarget")
                 }
             )
         }

@@ -52,7 +52,8 @@ fun ServerContextSheet(
     serverId: String,
     onReportServer: () -> Unit,
     onHideSheet: suspend () -> Unit,
-    onOpenServerSettings: (() -> Unit)? = null
+    onOpenServerSettings: (() -> Unit)? = null,
+    onSearchServer: (() -> Unit)? = null
 ) {
     val server = StoatAPI.serverCache[serverId]
 
@@ -222,6 +223,29 @@ fun ServerContextSheet(
                 }
             }
         )
+
+        // Search entire server
+        if (onSearchServer != null) {
+            SheetButton(
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.icn_search_24dp),
+                        contentDescription = null
+                    )
+                },
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.search_server)
+                    )
+                },
+                onClick = {
+                    coroutineScope.launch {
+                        onHideSheet()
+                    }
+                    onSearchServer()
+                }
+            )
+        }
 
         // Mute/unmute server toggle
         val isServerMuted = server.id?.let {

@@ -867,6 +867,8 @@
     <string name="search_filter_from">From:</string>
     <string name="search_filter_from_hint">Username…</string>
     <string name="search_filter_clear_all">Clear all</string>
+    <string name="search_server_hint">Search entire server…</string>
+    <string name="search_server">Search Server</string>
 
     <!-- Message context: pin/unpin -->
     <string name="message_context_sheet_actions_pin">Pin message</string>

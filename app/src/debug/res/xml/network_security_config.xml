@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only: allow cleartext HTTP for local bot API (stoatcord-bot on LAN).
+     Release builds use the main/res/xml version which does NOT allow cleartext. -->
+<network-security-config>
+    <!-- Debug: permit cleartext HTTP globally for local development.
+         This only applies to debug builds — release uses the restrictive main config. -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Stoat CDN TLS pinning (same as release) -->
+    <domain-config>
+        <domain includeSubdomains="true">stoatusercontent.com</domain>
+        <trust-anchors>
+            <certificates src="@raw/cloudflare_tls_i_e1" />
+            <certificates src="@raw/sslcom_tls_ecc_root_ca_2022" />
+            <certificates src="@raw/we1" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

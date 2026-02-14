@@ -65,9 +65,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // Discord bot OAuth2 add URL for stoatcord-bot
+// Permissions: View Channels, Send Messages, Read Message History, Manage Webhooks
 // TODO: Move to build config or remote config
 private const val BOT_ADD_URL =
-    "https://discord.com/oauth2/authorize?client_id=1472115292925857865&permissions=0&scope=bot"
+    "https://discord.com/oauth2/authorize?client_id=1472115292925857865&permissions=536939520&scope=bot"
 
 // Default stoatcord-bot API URL
 private const val DEFAULT_BOT_API_URL = "http://localhost:3210"

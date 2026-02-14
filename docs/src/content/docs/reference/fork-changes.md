@@ -9,14 +9,16 @@ This page documents all features, bug fixes, and improvements added in the [trib
 ## New Features
 
 ### Message Search (Full UI + API)
-Channel message search with comprehensive filtering, not available in upstream.
+Channel and server-wide message search with comprehensive filtering, not available in upstream.
 
 - **Search API route** (`POST /channels/{channelId}/search`) with full parameter support: `query`, `limit`, `before`, `after`, `sort`, `include_users`, `pinned`
+- **Server-wide search** — iterates all text channels in a server, aggregates results with progress indicator showing current channel (X/Y), error count for inaccessible channels. Accessible from server context sheet (⋮ menu → "Search Server")
 - **Search UI screen** with text input, debounced queries (400ms), and paginated results
 - **Search filters**: sort order (Relevance/Latest/Oldest), pinned-only mode, date range (before/after), mention filter, attachment filter (client-side)
 - **Collapsible filter panel** with "Clear All" button and result count display
 - **Infinite scroll** pagination using cursor-based `before` parameter
 - **Search result navigation**: tap a result to jump to the message in channel context
+- **Channel labels** on server search results showing which channel each message is from
 - MongoDB `$text` search syntax support: OR matching, `"exact phrases"`, `-negation`, stemming
 
 ### Moderation Tools
@@ -163,7 +165,8 @@ Advanced message management for moderators.
 ### Collapsible Channel Categories (Upstream #51)
 Tap category headers in the channel side drawer to collapse/expand.
 
-- **Animated chevron indicator** — rotates 90° between collapsed/expanded states
+- **Animated chevron indicator** — rotates 90° between collapsed (→) and expanded (↓) states
+- **Chevron direction fix** — corrected rotation values so → means collapsed and ↓ means expanded (was inverted)
 - **Client-side state** — collapse state tracked per-category in Compose state map
 - **Filtered channel list** — collapsed categories hide their channels from the flat list
 
@@ -287,7 +290,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 | Missing: Bots | 0 | 0 — 7 endpoints planned |
 | Missing: Webhooks | 0 | 0 — 10 endpoints planned |
 | Missing: Other | 0 | 0 — 3 planned (user flags, end\_ring, policy ack) |
-| Search | None | Full (API + UI + filters) |
+| Search | None | Full (API + UI + filters + server-wide) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
 | Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
 | Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
@@ -412,3 +415,7 @@ All changes from upstream divergence point:
 | `df30163` | docs | Add duplicate reply, spoiler, copy fixes to fork-changes |
 | `16cb2d6` | feat | Long-press server icon opens context menu (#20) |
 | `c72565d` | fix | Profile card tap-to-copy error handling and buttons (#19) |
+| `07b052c` | docs | Add server icon long-press and profile card fixes to fork-changes |
+| `104bed3` | fix | Category chevron direction (expanded=down, collapsed=right) |
+| `5d0a7e4` | docs | Rewrite README with clear UNOFFICIAL fork disclaimer |
+| `94b62ce` | feat | Server-wide message search via context sheet |

@@ -34,7 +34,7 @@ Server moderation features with full UI, only API stubs existed upstream.
 ### Server Management (Full UI + API)
 Complete server administration screens with permission-gated access.
 
-- **Server Settings screen** — edit name, description, icon upload, banner upload/remove via InlineMediaPicker with progress bar and Autumn upload
+- **Server Settings screen** — edit name, description, icon upload (auto-crop to 1:1, resize to 1024px, WebP), banner upload (auto-crop to 5:2, resize to 2048px, WebP) via InlineMediaPicker with progress bar and Autumn upload
 - **Role Management screen** — create, edit (name, colour with hex preview, hoist toggle, rank editing), delete roles
 - **Ban Management screen** — view ban list with reasons, unban with confirmation
 - **Create Channel screen** — Text/Voice type selection, name, description, NSFW toggle (passes `nsfw` param to API)
@@ -78,6 +78,26 @@ Automated build and release system.
 - Placeholder `google-services.json` generation for CI builds
 - SDK 36 + build-tools 35.0.0 setup
 
+### Image Processing Pipeline
+Automatic image optimization for all uploads, ensuring compatibility with Autumn file server limits.
+
+- **ImageProcessor utility** (`ImageProcessor.kt`) — handles complete image preparation pipeline
+- **EXIF rotation** — reads EXIF orientation tag and applies rotation/flip before processing (many phone cameras embed rotation in metadata rather than pixel data)
+- **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners crop to 5:2 wide, emojis preserve original aspect
+- **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscaling
+- **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit
+- **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB
+- **Downsampled decoding** — uses `BitmapFactory.Options.inSampleSize` for memory-safe decoding of large images
+- **Wired into**: server icon/banner upload (ServerSettingsScreen), emoji upload (EmojiManagementScreen), bot avatar upload (BotManagementScreen)
+
+### Bot Description & Avatar
+Bot profile editing using the bot's own authentication token.
+
+- **Description field** — text editor for bot bio/description, saved via `PATCH /users/@me` using the bot's token
+- **Avatar picker** — InlineMediaPicker with ImageProcessor pipeline, uploads to `autumn/avatars`, then sets via bot-authenticated `PATCH /users/@me`
+- **Avatar removal** — remove button sends `remove: ["Avatar"]` to clear the bot's avatar
+- **Why bot token?** — The `PATCH /bots/{id}` endpoint only supports name/public/analytics/interactions_url. Avatar and description are on the bot's User object, requiring the bot's own token to `PATCH /users/@me`
+
 ## Bug Fixes
 
 ### WebSocket Reconnection
@@ -113,7 +133,7 @@ Full account settings screen with API integration.
 Server emoji administration with upload and delete support.
 
 - **Emoji list** — shows all custom emoji for a server from cache, with names and creator info
-- **Upload emoji** — pick image, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
+- **Upload emoji** — pick image, auto-process (resize to 512px, compress as WebP within 500KB), preview with dimensions/size display, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
 - **Delete emoji** — `DELETE /custom/emoji/{id}` with confirmation dialog
 - **Permission-gated** — requires ManageCustomisation or ManageServer
 
@@ -276,6 +296,9 @@ Prevents duplicate message sends from rapid tapping.
 - **WebP upload support**: fixed content type detection for WebP image uploads
 - **Search submit button** properly triggers search on keyboard action
 - **Reduced HTTP retry** from 5 to 2 for server errors: 502 Bad Gateway caused ~62s exponential backoff hangs
+- **Autumn upload double body read** — `uploadToAutumn()` was calling `bodyAsText()` twice (once for success, once for error). Now reads body once and checks status code
+- **ActionChannel crash protection** — receive loop in ChatRouterScreen now wrapped in try-catch; a single action handler exception no longer kills the entire action dispatch loop
+- **MemberListSheet off-main-thread** — member categorization/sorting for large servers (1000+ members) moved to `Dispatchers.Default` to avoid main thread blocking
 
 ## Performance Optimizations
 
@@ -421,7 +444,7 @@ Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth route
 | Webhook CRUD (auth) | `GET/PATCH/DELETE /webhooks/{id}` | **Done** (3) |
 | Webhook CRUD (token) | `GET/PATCH/DELETE /webhooks/{id}/{token}` | **Done** (3) |
 | Webhook execute | `POST /webhooks/{id}/{token}` | **Done** |
-| Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy) |
+| Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy, avatar, description) |
 | Webhook management UI | `WebhookManagementScreen` | **Done** (create, edit, delete, URL copy) |
 
 ### Phase 6: Polish & Edge Cases (Low Priority) — Complete
@@ -517,5 +540,7 @@ All changes from upstream divergence point:
 | `9abb26a` | feat | Finish remaining stubs and add missing endpoints (Phase 6) |
 | `5717ca1` | docs | Update roadmap — Phase 2+6 complete, all stubs resolved |
 | `9542704` | perf | Eliminate double deserialization and parallelize startup |
+| `f4fa15c` | feat | Image processing, bot profile editing, PAL review fixes |
+| `bbb79b3` | docs | Update roadmap — 121/121 API endpoints, search scroll-to-message |
 | `d9071bc` | docs | Add performance optimizations to fork-changes |
 | `66c5b1e` | feat | Search result scroll-to-message, remaining API endpoints, fix TODOs |

@@ -251,6 +251,17 @@ Prevents duplicate message sends from rapid tapping.
 - Generates synthetic ULID just before the selected message, acks channel to that ID
 - Channel appears unread from the selected message onwards in the channel list
 
+### Search Result Navigation (Jump to Message)
+- **Fixed search result click** — previously just closed the search screen; now navigates to the correct channel and scrolls to the target message
+- Uses the Revolt API's `nearby` parameter to fetch messages centered on the target when it isn't in the loaded set
+- New `SwitchChannelAndScrollToMessage` action enables cross-screen channel-switch-and-scroll in one step
+- 5-second timeout with graceful fallback for deleted/unavailable messages
+- Works for both single-channel search and server-wide search results
+
+### Upload Error Display
+- **Fixed silent upload failure** — attachment upload errors now display an error banner above the message field instead of failing silently
+- Tap to dismiss the error banner
+
 ### User Info Sheet Cache Miss
 - **Fixed "user not found"** for users not yet in local cache when opening their profile
 - Now fetches from `GET /users/{id}` on cache miss, populating the cache for subsequent access
@@ -299,7 +310,7 @@ User fetch and profile fetch in `UserInfoSheet` ran sequentially. Wrapped in `co
 
 Comprehensive technical documentation added (not present in upstream):
 
-- **[Feature Gap Analysis](/stoat-android/reference/fork-changes)** — tracks all 121 API endpoints, 96 implemented (79%), 25 remaining
+- **[Feature Gap Analysis](/stoat-android/reference/fork-changes)** — tracks all 121 API endpoints, 121 implemented (100%)
 - **[Discord Parity Plan](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/discord-parity-plan.md)** — 6-phase plan for all 56 remaining endpoints
 - **[Backend Required Features](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)** — 39 Discord features impossible without API changes
 - **[Revolt API Reference](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/revolt-api-reference.md)** — exhaustive 113+ endpoint reference with schemas, rate limits, WebSocket events
@@ -333,7 +344,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (100%) + 27 auth routes implemented. All 6 phases complete including Discord bridge integration. Phase 6 polish done: user flags display, password reset/email verify endpoints, policy acknowledge, mass mention parsing, webhook sheet, feedback link. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth routes + voice end ring + experimental member query. All 6 phases complete including Discord bridge integration. Search result navigation now scrolls to the target message in-channel. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -420,7 +431,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (
 | User flags display | Bitmask (Suspended/Deleted/Banned/Spam) | **Done** (UserFlagList + UserInfoSheet) |
 | Default avatar | `GET /users/{id}/default_avatar` | Existing (Glide handles) |
 | Policy acknowledge | `POST /policy/acknowledge` | **Done** |
-| Voice end ring | `PUT /channels/{id}/end_ring/{userId}` | Planned |
+| Voice end ring | `PUT /channels/{id}/end_ring/{userId}` | **Done** |
 | Push unsubscribe | `POST /push/unsubscribe` | **Done** |
 | FCM notification-only handling | `HandlerService` fallback | **Done** |
 | Robust push registration | `ChatRouterScreen` retry logic | **Done** |
@@ -429,7 +440,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (
 | Mass mention parsing | `@everyone`/`@here` in markdown | **Done** (MassMentionParser + renderer) |
 | Webhook info sheet | `WebHookUserSheet` | **Done** (replaces stub) |
 | Feedback link | OverviewScreen → GitHub Issues | **Done** |
-| Members experimental query | `GET /servers/{id}/members_experimental_query` | Planned |
+| Members experimental query | `GET /servers/{id}/members_experimental_query` | **Done** |
 
 ### Not Achievable (Backend Limitations)
 39 features require backend API changes: threads/forums, scheduled events, stage channels, AutoMod, audit log, slash commands, interactive components, polls, stickers, screen sharing, rich presence, server templates, vanity URLs, per-user permission overrides, slow mode. Full list in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md).
@@ -506,3 +517,5 @@ All changes from upstream divergence point:
 | `9abb26a` | feat | Finish remaining stubs and add missing endpoints (Phase 6) |
 | `5717ca1` | docs | Update roadmap — Phase 2+6 complete, all stubs resolved |
 | `9542704` | perf | Eliminate double deserialization and parallelize startup |
+| `d9071bc` | docs | Add performance optimizations to fork-changes |
+| `66c5b1e` | feat | Search result scroll-to-message, remaining API endpoints, fix TODOs |

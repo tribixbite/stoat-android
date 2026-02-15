@@ -28,6 +28,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -158,6 +159,8 @@ fun RoleManagementScreen(
     showEditDialog?.let { (roleId, role) ->
         var editName by remember { mutableStateOf(role.name ?: "") }
         var editColour by remember { mutableStateOf(role.colour ?: "") }
+        var editHoist by remember { mutableStateOf(role.hoist ?: false) }
+        var editRank by remember { mutableStateOf(role.rank?.toInt()?.toString() ?: "") }
         var isSaving by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -189,6 +192,29 @@ fun RoleManagementScreen(
                                 .background(color)
                         )
                     }
+                    // Hoist toggle — display separately in member list
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            stringResource(R.string.role_hoist_label),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Switch(
+                            checked = editHoist,
+                            onCheckedChange = { editHoist = it }
+                        )
+                    }
+                    // Rank field
+                    OutlinedTextField(
+                        value = editRank,
+                        onValueChange = { editRank = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.role_rank_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
@@ -200,11 +226,17 @@ fun RoleManagementScreen(
                                 val nameParam = if (editName != role.name) editName else null
                                 val colourParam = if (editColour.isNotBlank() && editColour != role.colour) editColour else null
                                 val removeParam = if (editColour.isBlank() && role.colour != null) listOf("Colour") else null
+                                val hoistParam = if (editHoist != (role.hoist ?: false)) editHoist else null
+                                val rankParam = editRank.toDoubleOrNull()?.let { r ->
+                                    if (r != role.rank) r else null
+                                }
 
                                 val updated = editRole(
                                     serverId, roleId,
                                     name = nameParam,
                                     colour = colourParam,
+                                    hoist = hoistParam,
+                                    rank = rankParam,
                                     remove = removeParam
                                 )
                                 // Update local list
@@ -346,8 +378,11 @@ fun RoleManagementScreen(
                                     color = roleColor ?: MaterialTheme.colorScheme.onSurface
                                 )
                             },
-                            supportingContent = role.rank?.let {
-                                { Text("Rank ${it.toInt()}") }
+                            supportingContent = {
+                                val parts = mutableListOf<String>()
+                                role.rank?.let { parts.add("Rank ${it.toInt()}") }
+                                if (role.hoist == true) parts.add("Hoisted")
+                                if (parts.isNotEmpty()) Text(parts.joinToString(" · "))
                             },
                             leadingContent = {
                                 Box(

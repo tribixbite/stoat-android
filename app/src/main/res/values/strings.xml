@@ -798,6 +798,20 @@
     <string name="channel_settings_overview_nsfw_undo_confirm_no">Keep as is</string>
     <string name="channel_settings_overview_save">Save</string>
     <string name="channel_settings_permissions">Permissions</string>
+    <string name="channel_perm_role_header">Role Overrides</string>
+    <string name="channel_perm_no_roles">No role overrides configured</string>
+    <string name="channel_perm_add_role">Add Role Override</string>
+    <string name="channel_perm_select_role">Select a role</string>
+    <string name="channel_perm_saved">Permission override saved</string>
+    <string name="server_settings_system_messages">System Messages</string>
+    <string name="server_settings_system_messages_desc">Configure notification channels</string>
+    <string name="system_messages_user_joined">User Joined Channel</string>
+    <string name="system_messages_user_left">User Left Channel</string>
+    <string name="system_messages_user_kicked">User Kicked Channel</string>
+    <string name="system_messages_user_banned">User Banned Channel</string>
+    <string name="system_messages_none">None</string>
+    <string name="system_messages_saved">System messages updated</string>
+    <string name="server_settings_banner">Server Banner</string>
     <string name="channel_settings_delete">Delete Channel</string>
     <string name="channel_settings_delete_confirm">Are you sure you want to delete this channel?</string>
     <string name="channel_settings_delete_confirm_description">All messages and settings for this channel will be gone forever (a long time!)</string>
@@ -919,6 +933,8 @@
     <string name="role_deleted">Role deleted</string>
     <string name="role_empty">No roles configured</string>
     <string name="role_list_header">%1$d roles</string>
+    <string name="role_hoist_label">Display separately in member list</string>
+    <string name="role_rank_label">Rank (lower = higher priority)</string>
 
     <!-- Ban management -->
     <string name="ban_unban_title">Unban Member</string>
@@ -935,6 +951,7 @@
     <string name="channel_create_details">Details</string>
     <string name="channel_create_name">Channel name</string>
     <string name="channel_create_description">Description (optional)</string>
+    <string name="channel_create_nsfw">Mark as NSFW</string>
     <string name="channel_create_button">Create Channel</string>
     <string name="channel_created">Channel \"%1$s\" created</string>
 

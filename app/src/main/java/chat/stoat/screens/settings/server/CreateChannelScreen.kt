@@ -20,6 +20,7 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +56,7 @@ fun CreateChannelScreen(
     var channelName by remember { mutableStateOf("") }
     var channelDescription by remember { mutableStateOf("") }
     var channelType by remember { mutableStateOf("Text") }
+    var channelNsfw by remember { mutableStateOf(false) }
     var isCreating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -142,6 +145,24 @@ fun CreateChannelScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // NSFW toggle — only for text channels
+                if (channelType == "Text") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            stringResource(R.string.channel_create_nsfw),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Switch(
+                            checked = channelNsfw,
+                            onCheckedChange = { channelNsfw = it }
+                        )
+                    }
+                }
+
                 if (error != null) {
                     Text(
                         error ?: "",
@@ -160,7 +181,8 @@ fun CreateChannelScreen(
                                     serverId = serverId,
                                     name = channelName,
                                     type = channelType,
-                                    description = channelDescription.ifBlank { null }
+                                    description = channelDescription.ifBlank { null },
+                                    nsfw = channelNsfw
                                 )
                                 Toast.makeText(
                                     context,

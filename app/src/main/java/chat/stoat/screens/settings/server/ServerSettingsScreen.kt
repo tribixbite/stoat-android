@@ -80,6 +80,10 @@ class ServerSettingsViewModel @Inject constructor(
     var iconIsUploading by mutableStateOf(false)
     var iconUploadProgress by mutableFloatStateOf(0f)
 
+    var bannerModel by mutableStateOf<Any?>(null)
+    var bannerIsUploading by mutableStateOf(false)
+    var bannerUploadProgress by mutableFloatStateOf(0f)
+
     var uploadError by mutableStateOf<String?>(null)
     var updateError by mutableStateOf<String?>(null)
 
@@ -90,6 +94,7 @@ class ServerSettingsViewModel @Inject constructor(
             serverName = it.name ?: ""
             serverDescription = it.description ?: ""
             iconModel = it.icon?.let { icon -> "$STOAT_FILES/icons/${icon.id}" }
+            bannerModel = it.banner?.let { banner -> "$STOAT_FILES/banners/${banner.id}" }
         }
     }
 
@@ -151,6 +156,68 @@ class ServerSettingsViewModel @Inject constructor(
                 uploadError = e.message
                 iconUploadProgress = 0f
                 iconIsUploading = false
+            }
+        }
+    }
+
+    private fun unsetBanner() {
+        bannerIsUploading = true
+        bannerUploadProgress = 0f
+        uploadError = null
+
+        initialServer?.id?.let { serverId ->
+            viewModelScope.launch {
+                try {
+                    editServer(serverId, remove = listOf("Banner"))
+                    bannerModel = null
+                } catch (e: Exception) {
+                    updateError = e.message
+                }
+                bannerIsUploading = false
+            }
+        } ?: run { bannerIsUploading = false }
+    }
+
+    fun pickBanner(newModel: Any?) {
+        bannerModel = newModel
+        uploadError = null
+        bannerUploadProgress = 0f
+
+        val uri = when (newModel) {
+            is Uri -> newModel
+            is String -> Uri.parse(newModel)
+            else -> null
+        } ?: run {
+            unsetBanner()
+            return
+        }
+
+        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "banner")
+        mFile.outputStream().use { output ->
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                input.copyTo(output)
+            }
+        }
+        val mime = context.contentResolver.getType(uri)
+
+        viewModelScope.launch {
+            bannerIsUploading = true
+            try {
+                val id = uploadToAutumn(
+                    mFile,
+                    uri.lastPathSegment ?: "banner",
+                    "banners",
+                    ContentType.parse(mime ?: "image/*"),
+                    onProgress = { soFar, outOf ->
+                        bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", banner = id)
+                bannerIsUploading = false
+            } catch (e: Exception) {
+                uploadError = e.message
+                bannerUploadProgress = 0f
+                bannerIsUploading = false
             }
         }
     }
@@ -278,6 +345,36 @@ fun ServerSettingsScreen(
                         AnimatedVisibility(visible = viewModel.iconIsUploading) {
                             LinearProgressIndicator(
                                 progress = { viewModel.iconUploadProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Banner picker — wider aspect ratio for banners
+                        ListHeader {
+                            Text(stringResource(R.string.server_settings_banner))
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            InlineMediaPicker(
+                                currentModel = viewModel.bannerModel,
+                                onPick = { viewModel.pickBanner(it) },
+                                circular = false,
+                                mimeType = "image/*",
+                                canRemove = true,
+                                enabled = !viewModel.bannerIsUploading,
+                                onRemove = { viewModel.pickBanner(null) },
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        AnimatedVisibility(visible = viewModel.bannerIsUploading) {
+                            LinearProgressIndicator(
+                                progress = { viewModel.bannerUploadProgress },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp, horizontal = 16.dp)

@@ -288,10 +288,10 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
-| Backend delta routes | ~55 | 96 total, 92 implemented (96%) |
+| Backend delta routes | ~55 | 96 total, 96 implemented (100%) |
 | Auth routes (authifier) | ~10 | 27 implemented (login, MFA, sessions, account, logout) |
-| Missing: Bots | 0 | 0 — 7 endpoints planned |
-| Missing: Webhooks | 0 | 0 — 10 endpoints planned |
+| Bots | 0 | 7 endpoints — create, list, fetch, edit, delete, invite, public info |
+| Webhooks | 0 | 10 endpoints — create, list, fetch, edit, delete (auth + token), execute |
 | Search | None | Full (API + UI + filters + server-wide, MongoDB $text syntax) |
 | Moderation UI | Partial | Kick, ban, pin/unpin, reporting (full UI) |
 | Server admin UI | None | Settings, roles (hoist/rank), bans, channels (NSFW), permissions (channel-level), emoji, invites, banner, system messages |
@@ -304,7 +304,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 92/96 delta (96%) + 27 auth routes implemented. Phases 1-4 complete + Discord bridge integration. 17 remaining endpoints are bots (7) and webhooks (10). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (100%) + 27 auth routes implemented. All 6 phases complete including Discord bridge integration. Remaining Phase 6 items are polish (user flags, password reset, policy ack). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -369,19 +369,20 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 92/96 delta (
 | Migration wizard (roles, channels, emoji) | stoatcord-bot `/migrate` command | **Done** |
 | Stoat↔Discord message relay | WebSocket listener + Discord webhooks | **Done** |
 
-### Phase 5: Bots & Webhooks (Low Priority)
+### Phase 5: Bots & Webhooks — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Bot create | `POST /bots/create` | Planned |
-| Bot fetch/edit/delete | `GET/PATCH/DELETE /bots/{id}` | Planned (3) |
-| Bot owned list | `GET /bots/@me` | Planned |
-| Bot invite | `GET/POST /bots/{id}/invite` | Planned (2) |
-| Webhook create | `POST /channels/{id}/webhooks` | Planned |
-| Webhook list | `GET /channels/{id}/webhooks` | Planned |
-| Webhook CRUD (auth) | `GET/PATCH/DELETE /webhooks/{id}` | Planned (3) |
-| Webhook CRUD (token) | `GET/PATCH/DELETE /webhooks/{id}/{token}` | Planned (3) |
-| Webhook execute | `POST /webhooks/{id}/{token}` | Planned |
-| Webhook GitHub | `POST /webhooks/{id}/{token}/github` | Planned |
+| Bot create | `POST /bots/create` | **Done** |
+| Bot fetch/edit/delete | `GET/PATCH/DELETE /bots/{id}` | **Done** (3) |
+| Bot owned list | `GET /bots/@me` | **Done** |
+| Bot invite | `GET/POST /bots/{id}/invite` | **Done** (2) |
+| Webhook create | `POST /channels/{id}/webhooks` | **Done** |
+| Webhook list | `GET /channels/{id}/webhooks` | **Done** |
+| Webhook CRUD (auth) | `GET/PATCH/DELETE /webhooks/{id}` | **Done** (3) |
+| Webhook CRUD (token) | `GET/PATCH/DELETE /webhooks/{id}/{token}` | **Done** (3) |
+| Webhook execute | `POST /webhooks/{id}/{token}` | **Done** |
+| Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy) |
+| Webhook management UI | `WebhookManagementScreen` | **Done** (create, edit, delete, URL copy) |
 
 ### Phase 6: Polish & Edge Cases (Low Priority)
 | Feature | Endpoints | Status |

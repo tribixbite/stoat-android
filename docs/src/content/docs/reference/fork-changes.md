@@ -87,8 +87,10 @@ Automatic image optimization for all uploads, ensuring compatibility with Autumn
 - **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscaling
 - **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit
 - **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB
-- **Downsampled decoding** — uses `BitmapFactory.Options.inSampleSize` for memory-safe decoding of large images
-- **Wired into**: server icon/banner upload (ServerSettingsScreen), emoji upload (EmojiManagementScreen), bot avatar upload (BotManagementScreen)
+- **Downsampled decoding** — uses `BitmapFactory.Options.inSampleSize` for memory-safe decoding of large images. Threshold at 1.5x target dimension prevents OOM on 4000+ pixel camera photos
+- **OOM protection** — catches `Throwable` (not just `Exception`) to handle `OutOfMemoryError` from large bitmap processing. Intermediate bitmaps recycled immediately after each step to minimize peak memory
+- **Safe center-crop** — crop region bounds are coerced to prevent `IllegalArgumentException` when computed dimensions exceed bitmap bounds
+- **Wired into**: server icon/banner upload (ServerSettingsScreen), emoji upload (EmojiManagementScreen), bot avatar upload (BotManagementScreen), profile avatar/background (ProfileSettingsScreen), channel icon (ChannelSettingsOverview)
 
 ### Bot Description & Avatar
 Bot profile editing using the bot's own authentication token.
@@ -540,6 +542,8 @@ All changes from upstream divergence point:
 | `9abb26a` | feat | Finish remaining stubs and add missing endpoints (Phase 6) |
 | `5717ca1` | docs | Update roadmap — Phase 2+6 complete, all stubs resolved |
 | `9542704` | perf | Eliminate double deserialization and parallelize startup |
+| `b656e54` | fix | Prevent OOM crash in image processing for banners/backgrounds |
+| `ae2499e` | fix | Use ImageProcessor for profile avatar/background and channel icon |
 | `f4fa15c` | feat | Image processing, bot profile editing, PAL review fixes |
 | `bbb79b3` | docs | Update roadmap — 121/121 API endpoints, search scroll-to-message |
 | `d9071bc` | docs | Add performance optimizations to fork-changes |

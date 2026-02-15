@@ -295,18 +295,18 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 | Missing: Other | 0 | 0 — 3 planned (user flags, end\_ring, policy ack) |
 | Search | None | Full (API + UI + filters + server-wide) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
-| Server admin UI | None | Settings, roles (hoist/rank), bans, channels (NSFW), permissions (channel-level), emoji, invites, banner |
+| Server admin UI | None | Settings, roles (hoist/rank), bans, channels (NSFW), permissions (channel-level), emoji, invites, banner, system messages |
 | Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
 | Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread |
-| Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
+| Notification controls | Basic | Mute/unmute, FCM management, push unsub on logout, notification-only FCM handling |
 | Discord bridge | None | Import wizard, bridge settings, stoatcord-bot integration |
 | Documentation | Minimal | 11 spec documents, API reference |
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 86/96 delta (90%) + 23 auth routes implemented. Phases 1-4 are substantially complete. 20 remaining endpoints are bots (7), webhooks (10), and 3 misc. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 89/96 delta (93%) + 25 auth routes implemented. Phases 1-4 complete. 17 remaining endpoints are bots (7), webhooks (10). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
-### Phase 1: Account & Security (High Priority) — 13/15 Done
+### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Account info display | `GET /auth/account` | **Done** |
@@ -315,8 +315,10 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 86/96 delta (
 | Delete/disable account | `POST /auth/account/delete`, `disable` | **Done** |
 | Email verification | `POST /auth/account/reverify` | **Done** |
 | MFA setup (TOTP) | 7 endpoints | **Done** |
+| Push unsubscribe on logout | `POST /push/unsubscribe` | **Done** |
+| Server-side session logout | `POST /auth/session/logout` | **Done** |
 
-### Phase 2: Server Admin Polish (High Priority) — 17/18 Done
+### Phase 2: Server Admin Polish (High Priority) — 18/19 Done
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Default permissions editor | `PUT /servers/{id}/permissions/default` | **Done** |
@@ -328,6 +330,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 86/96 delta (
 | Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | **Done** |
 | Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | **Done** |
 | Member search | `GET /servers/{id}/members` with query | **Done** (client-side) |
+| System messages settings | `PATCH /servers/{id}` (system\_messages) | **Done** |
 | Fetch single role | `GET /servers/{id}/roles/{role_id}` | Planned |
 
 ### Phase 3: Social Features (Medium Priority) — 4/5 Done
@@ -366,7 +369,9 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 86/96 delta (
 | Default avatar | `GET /users/{id}/default_avatar` | Existing (Glide handles) |
 | Policy acknowledge | `POST /policy/acknowledge` | Planned |
 | Voice end ring | `PUT /channels/{id}/end_ring/{userId}` | Planned |
-| Push unsubscribe | `POST /push/unsubscribe` | Planned |
+| Push unsubscribe | `POST /push/unsubscribe` | **Done** |
+| FCM notification-only handling | `HandlerService` fallback | **Done** |
+| Robust push registration | `ChatRouterScreen` retry logic | **Done** |
 | Password reset | `POST/PATCH /auth/account/reset_password` | Planned (2) |
 | Email verify (code) | `POST /auth/account/verify/{code}` | Planned |
 | Members experimental query | `GET /servers/{id}/members_experimental_query` | Planned |
@@ -435,3 +440,6 @@ All changes from upstream divergence point:
 | `8c02958` | docs | Discord bridge architecture spec |
 | `604fe31` | fix | Allow cleartext HTTP in debug builds, fix bot OAuth permissions |
 | `76bb98b` | feat | Role hoist/rank editing, NSFW toggle, channel perms, server banner |
+| `dec3d10` | feat | Notification debug logging, system messages settings, server banner |
+| `38170e8` | fix | Robust FCM push registration and notification-only message handling |
+| `beeaf35` | feat | Push unsubscribe and proper server-side session logout |

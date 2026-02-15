@@ -1215,4 +1215,44 @@
     <string name="mfa_recovery_codes_regenerated">Previous recovery codes have been invalidated.</string>
     <string name="mfa_recovery_codes_copied">Recovery codes copied to clipboard</string>
     <string name="mfa_copy_all">Copy All</string>
+
+    <!-- Bot management -->
+    <string name="bot_management_title">Bots</string>
+    <string name="bot_management_empty">You haven\'t created any bots yet</string>
+    <string name="bot_management_create">Create Bot</string>
+    <string name="bot_management_create_title">Create a new bot</string>
+    <string name="bot_management_name">Bot Name</string>
+    <string name="bot_management_name_hint">2–32 characters</string>
+    <string name="bot_management_public">Public Bot</string>
+    <string name="bot_management_public_desc">Allow others to invite this bot</string>
+    <string name="bot_management_analytics">Analytics</string>
+    <string name="bot_management_analytics_desc">Receive usage analytics for this bot</string>
+    <string name="bot_management_interactions_url">Interactions URL</string>
+    <string name="bot_management_interactions_url_hint">https://example.com/interactions</string>
+    <string name="bot_management_token">Bot Token</string>
+    <string name="bot_management_token_copied">Token copied to clipboard</string>
+    <string name="bot_management_token_warning">Keep this token secret. Anyone with it can control your bot.</string>
+    <string name="bot_management_delete">Delete Bot</string>
+    <string name="bot_management_delete_confirm">Are you sure you want to permanently delete this bot? This cannot be undone.</string>
+    <string name="bot_management_invite_to">Invite to Server</string>
+
+    <!-- Webhook management -->
+    <string name="webhook_management_title">Webhooks</string>
+    <string name="webhook_management_empty">No webhooks in this channel</string>
+    <string name="webhook_management_create">Create Webhook</string>
+    <string name="webhook_management_create_title">Create a new webhook</string>
+    <string name="webhook_management_name">Webhook Name</string>
+    <string name="webhook_management_name_hint">1–32 characters</string>
+    <string name="webhook_management_token">Webhook Token</string>
+    <string name="webhook_management_token_copied">Token copied to clipboard</string>
+    <string name="webhook_management_url">Webhook URL</string>
+    <string name="webhook_management_url_copied">Webhook URL copied to clipboard</string>
+    <string name="webhook_management_delete">Delete Webhook</string>
+    <string name="webhook_management_delete_confirm">Are you sure you want to delete this webhook?</string>
+    <string name="webhook_management_channel">Channel</string>
+    <string name="webhook_management_select_channel">Select a channel</string>
+
+    <!-- Server settings additions -->
+    <string name="server_settings_bots">Bots</string>
+    <string name="server_settings_webhooks">Webhooks</string>
 </resources>

@@ -541,6 +541,22 @@ fun ServerSettingsScreen(
                         )
                     }
 
+                    // Webhook management — requires ManageWebhooks
+                    if (canManage || permissions has PermissionBit.ManageWebhooks) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_webhooks)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/webhooks")
+                            }
+                        )
+                    }
+
                     // Emoji management — requires ManageCustomisation
                     if (canManage || permissions has PermissionBit.ManageCustomisation) {
                         ListItem(

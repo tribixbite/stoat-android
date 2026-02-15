@@ -137,6 +137,8 @@ import chat.stoat.screens.settings.server.BridgeSettingsScreen
 import chat.stoat.screens.settings.server.DiscordImportScreen
 import chat.stoat.screens.settings.server.ServerSettingsScreen
 import chat.stoat.screens.settings.server.SystemMessagesScreen
+import chat.stoat.screens.settings.server.WebhookManagementScreen
+import chat.stoat.screens.settings.BotManagementScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.AndroidEntryPoint
@@ -737,6 +739,7 @@ fun AppEntrypoint(
                     composable("settings/notifications") { NotificationSettingsScreen(navController) }
                     composable("settings/account") { AccountSettingsScreen(navController) }
                     composable("settings/mfa") { MfaSetupScreen(navController) }
+                    composable("settings/bots") { BotManagementScreen(navController) }
 
                     composable("search/{channelId}") { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
@@ -806,6 +809,10 @@ fun AppEntrypoint(
                     composable("settings/server/{serverId}/system-messages") { backStackEntry ->
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         SystemMessagesScreen(navController, serverId)
+                    }
+                    composable("settings/server/{serverId}/webhooks") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        WebhookManagementScreen(navController, serverId)
                     }
 
                     composable("about") { AboutScreen(navController) }

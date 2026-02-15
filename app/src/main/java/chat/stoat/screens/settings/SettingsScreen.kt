@@ -269,6 +269,27 @@ fun SettingsScreen(
                             }
                     )
 
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = stringResource(id = R.string.bot_management_title)
+                            )
+                        },
+                        leadingContent = {
+                            SettingsIcon {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_smart_toy_24dp),
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .testTag("settings_view_bots")
+                            .clickable {
+                                navController.navigate("settings/bots")
+                            }
+                    )
+
                     ListHeader {
                         Text(stringResource(R.string.settings_category_miscellaneous))
                     }

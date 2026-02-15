@@ -13,6 +13,30 @@ import logcat.LogPriority
 import logcat.logcat
 
 /**
+ * Unsubscribe this device from push notifications.
+ * Should be called before logout to stop receiving notifications.
+ * Returns null on success, or an error message on failure.
+ */
+suspend fun unsubscribePush(): String? {
+    return try {
+        logcat("Push", LogPriority.DEBUG) { "Unsubscribing from push notifications" }
+        val response = StoatHttp.post("/push/unsubscribe".api())
+
+        if (response.status.isSuccess()) {
+            logcat("Push", LogPriority.DEBUG) { "Push unsubscribe successful" }
+            null
+        } else {
+            val body = response.bodyAsText()
+            logcat("Push", LogPriority.ERROR) { "Push unsubscribe failed: ${response.status} $body" }
+            "HTTP ${response.status.value}: $body"
+        }
+    } catch (e: Exception) {
+        logcat("Push", LogPriority.ERROR) { "Failed to unsubscribe push: ${e.message}" }
+        e.message ?: "Unknown error"
+    }
+}
+
+/**
  * Subscribe this device's FCM token to push notifications.
  * Returns null on success, or an error message on failure.
  */

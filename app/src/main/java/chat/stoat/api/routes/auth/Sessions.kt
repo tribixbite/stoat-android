@@ -7,6 +7,7 @@ import chat.stoat.core.model.schemas.Session
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -22,6 +23,11 @@ suspend fun fetchAllSessions(): List<Session> {
 
 suspend fun logoutSessionById(id: String) {
     StoatHttp.delete("/auth/session/$id".api())
+}
+
+/** Logout the current session (revokes token server-side) */
+suspend fun logoutCurrentSession() {
+    StoatHttp.post("/auth/session/logout".api())
 }
 
 suspend fun logoutAllSessions(includingSelf: Boolean = false) {

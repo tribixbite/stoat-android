@@ -37,6 +37,8 @@ import chat.stoat.R
 import chat.stoat.activities.InviteActivity
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.settings.FeatureFlags
+import chat.stoat.api.routes.auth.logoutCurrentSession
+import chat.stoat.api.routes.push.unsubscribePush
 import chat.stoat.api.settings.LoadedSettings
 import chat.stoat.composables.generic.ListHeader
 import chat.stoat.persistence.KVStorage
@@ -50,7 +52,17 @@ class SettingsScreenViewModel @Inject constructor(
 ) : ViewModel() {
     fun logout() {
         runBlocking {
+            // Unsubscribe push and revoke session server-side before clearing local state
+            try {
+                unsubscribePush()
+            } catch (_: Exception) { /* best-effort */ }
+            try {
+                logoutCurrentSession()
+            } catch (_: Exception) { /* best-effort — server may be unreachable */ }
             kvStorage.remove("sessionToken")
+            kvStorage.remove("fcmToken")
+            kvStorage.remove("pushRegistrationFailed")
+            kvStorage.remove("pushNotificationsRejected")
             LoadedSettings.reset()
             StoatAPI.logout()
         }

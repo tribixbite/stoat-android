@@ -243,31 +243,85 @@ class ChatRouterViewModel @Inject constructor(
     }
 
     /**
-     * Retry push registration if a previous attempt failed.
-     * Called on app resume to recover from transient failures.
+     * Ensure push is registered on every app resume.
+     * Handles: previous failure retry, first-time registration after
+     * user enabled notifications in system settings, and token refresh.
      */
     fun retryPushRegistrationIfNeeded() {
         viewModelScope.launch {
-            // Skip retry if Firebase is placeholder/unconfigured
+            // Skip if Firebase is placeholder/unconfigured
             try {
                 val options = com.google.firebase.FirebaseApp.getInstance().options
                 if (options.projectId == "stoat-local-dev" || options.gcmSenderId == "000000000000") {
+                    Log.d("FCM", "Firebase unconfigured, skipping push registration")
                     return@launch
                 }
             } catch (_: Exception) {
+                Log.d("FCM", "Firebase not available, skipping push registration")
                 return@launch
             }
 
-            val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
-            if (!failed) return@launch
+            // Skip if OS notifications are disabled
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                Log.d("FCM", "Notifications disabled at OS level, skipping push registration")
+                return@launch
+            }
 
-            val token = kvStorage.get("fcmToken") ?: return@launch
-            val error = subscribePush(auth = token)
-            if (error == null) {
-                kvStorage.set("pushRegistrationFailed", false)
-                Log.d("FCM", "Push registration retry succeeded")
-            } else {
-                Log.w("FCM", "Push registration retry failed: $error")
+            // Check if we already have a stored token
+            val existingToken = kvStorage.get("fcmToken")
+            val previouslyFailed = kvStorage.getBoolean("pushRegistrationFailed") == true
+
+            if (existingToken != null && !previouslyFailed) {
+                // Token exists and last registration succeeded — re-subscribe to be safe
+                // (server may have lost our subscription, or token may have rotated)
+                Log.d("FCM", "Re-subscribing with existing token")
+                val error = subscribePush(auth = existingToken)
+                if (error != null) {
+                    Log.w("FCM", "Push re-subscription failed: $error")
+                    kvStorage.set("pushRegistrationFailed", true)
+                } else {
+                    Log.d("FCM", "Push re-subscription succeeded")
+                }
+                return@launch
+            }
+
+            if (existingToken != null && previouslyFailed) {
+                // Retry with existing token
+                Log.d("FCM", "Retrying push registration with stored token")
+                val error = subscribePush(auth = existingToken)
+                if (error == null) {
+                    kvStorage.set("pushRegistrationFailed", false)
+                    Log.d("FCM", "Push registration retry succeeded")
+                } else {
+                    Log.w("FCM", "Push registration retry failed: $error")
+                }
+                return@launch
+            }
+
+            // No token stored yet — fetch one from Firebase and subscribe
+            Log.d("FCM", "No FCM token stored, fetching from Firebase")
+            try {
+                FirebaseMessaging.getInstance().token
+            } catch (e: Exception) {
+                Log.e("FCM", "Firebase token fetch threw exception", e)
+                return@launch
+            }.addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    Log.w("FCM", "FCM token fetch failed", task.exception)
+                    task.exception?.let { Sentry.captureException(it) }
+                    return@addOnCompleteListener
+                }
+                val token = task.result
+                viewModelScope.launch {
+                    kvStorage.set("fcmToken", token)
+                    val error = subscribePush(auth = token)
+                    kvStorage.set("pushRegistrationFailed", error != null)
+                    if (error != null) {
+                        Log.w("FCM", "Initial push registration failed: $error")
+                    } else {
+                        Log.d("FCM", "Initial push registration succeeded")
+                    }
+                }
             }
         }
     }

@@ -66,17 +66,33 @@ class HandlerService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(fcmMessage: RemoteMessage) {
-        /// TEMPORARY CODE, SCHEMA TO BE REPLACED
         Log.d("HandlerService", "=== FCM MESSAGE RECEIVED ===")
         Log.d("HandlerService", "From: ${fcmMessage.from}")
         Log.d("HandlerService", "Data keys: ${fcmMessage.data.keys}")
+        Log.d("HandlerService", "Notification title: ${fcmMessage.notification?.title}")
         Log.d("HandlerService", "Notification body: ${fcmMessage.notification?.body}")
         Log.d("HandlerService", "Message ID: ${fcmMessage.messageId}")
         Log.d("HandlerService", "Priority: ${fcmMessage.priority}")
 
         val payloadString = fcmMessage.data["payload"]
+
+        // Server may send FCM notification-only messages (no data payload).
+        // In foreground, onMessageReceived is called but data["payload"] is null.
+        // Handle this case with a simple notification from the notification fields.
         if (payloadString == null) {
-            Log.e("HandlerService", "No payload in message (missing 'payload' key), abort. All data: ${fcmMessage.data}")
+            Log.d("HandlerService", "No 'payload' data key — checking for notification-only FCM message")
+            val notification = fcmMessage.notification
+            if (notification != null) {
+                Log.d("HandlerService", "Displaying notification-only FCM message")
+                showSimpleNotification(
+                    title = notification.title ?: "New Message",
+                    body = notification.body ?: "",
+                    imageUrl = notification.imageUrl?.toString(),
+                    tag = fcmMessage.collapseKey
+                )
+                return
+            }
+            Log.e("HandlerService", "No payload and no notification fields, abort. All data: ${fcmMessage.data}")
             return
         }
 
@@ -291,6 +307,77 @@ class HandlerService : FirebaseMessagingService() {
             Log.d("HandlerService", "=== DISPLAYING NOTIFICATION for channel $messageChannelId ===")
             notify(messageChannelId, NotificationID.NEW_MESSAGE, builder.build())
         }
-        /// END TEMPORARY CODE
+    }
+
+    /**
+     * Show a simple notification from FCM notification-only messages.
+     * The server's FCM v1 consumer sends notification fields (title/body/image)
+     * rather than data payloads. This fallback handles that format.
+     */
+    private fun showSimpleNotification(
+        title: String,
+        body: String,
+        imageUrl: String? = null,
+        tag: String? = null
+    ) {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w("HandlerService", "POST_NOTIFICATIONS permission not granted, cannot show simple notification")
+            return
+        }
+
+        val author = Person.Builder()
+            .setName(title)
+            .setKey("notification-${tag ?: "default"}")
+            .build()
+
+        // Load image if provided
+        val bitmap: Bitmap? = if (imageUrl != null) {
+            try {
+                Glide.with(this)
+                    .asBitmap()
+                    .load(imageUrl)
+                    .circleCrop()
+                    .submit()
+                    .get(10, TimeUnit.SECONDS)
+            } catch (e: Exception) {
+                Log.w("HandlerService", "Failed to load notification image: ${e.message}")
+                null
+            }
+        } else null
+
+        if (bitmap != null) {
+            author.toBuilder().setIcon(IconCompat.createWithBitmap(bitmap)).build()
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
+            .setSmallIcon(R.drawable.icn_chat_24dp)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setContentIntent(contentIntent)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setStyle(
+                NotificationCompat.MessagingStyle(author)
+                    .setConversationTitle(title)
+                    .addMessage(body, System.currentTimeMillis(), author)
+            )
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        Log.d("HandlerService", "=== DISPLAYING SIMPLE NOTIFICATION: $title ===")
+        NotificationManagerCompat.from(this)
+            .notify(tag ?: "simple", NotificationID.NEW_MESSAGE, builder.build())
     }
 }

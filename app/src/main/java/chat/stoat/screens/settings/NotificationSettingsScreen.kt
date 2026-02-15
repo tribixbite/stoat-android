@@ -1,8 +1,13 @@
 package chat.stoat.screens.settings
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
+import chat.stoat.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -378,6 +383,84 @@ fun NotificationSettingsScreen(
                     )
                 }
             }
+
+            // Debug / testing
+            ListHeader {
+                Text("Debug")
+            }
+
+            // Test local notification — bypasses FCM to verify display path
+            ListItem(
+                headlineContent = { Text("Send Test Notification") },
+                supportingContent = { Text("Creates a local notification to verify display works (bypasses FCM)") },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_notification_settings_24dp),
+                            contentDescription = null,
+                        )
+                    }
+                },
+                modifier = Modifier.clickable {
+                    val testAuthor = Person.Builder()
+                        .setName("Notification Test")
+                        .setKey("test-user")
+                        .build()
+                    val builder = NotificationCompat.Builder(context, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
+                        .setSmallIcon(R.drawable.icn_chat_24dp)
+                        .setContentTitle("Test Notification")
+                        .setContentText("If you see this, local notifications work. FCM path may be the issue.")
+                        .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                        .setStyle(
+                            NotificationCompat.MessagingStyle(testAuthor)
+                                .setConversationTitle("#test-channel")
+                                .addMessage(
+                                    "If you see this, local notifications work. FCM path may be the issue.",
+                                    System.currentTimeMillis(),
+                                    testAuthor
+                                )
+                        )
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setAutoCancel(true)
+
+                    if (ActivityCompat.checkSelfPermission(
+                            context, android.Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        NotificationManagerCompat.from(context)
+                            .notify("test-notification", 999, builder.build())
+                        Log.d("NotificationTest", "Test notification sent successfully")
+                    } else {
+                        Log.w("NotificationTest", "POST_NOTIFICATIONS permission not granted")
+                    }
+                }
+            )
+
+            // Show FCM token (truncated) for debugging
+            ListItem(
+                headlineContent = { Text("FCM Token") },
+                supportingContent = {
+                    var token by mutableStateOf("(tap to load)")
+                    Text(token)
+                    // Load on composition
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        try {
+                            val options = com.google.firebase.FirebaseApp.getInstance().options
+                            token = "Project: ${options.projectId}\nSender: ${options.gcmSenderId}"
+                        } catch (e: Exception) {
+                            token = "Firebase not configured: ${e.message}"
+                        }
+                    }
+                },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_key_24dp),
+                            contentDescription = null,
+                        )
+                    }
+                }
+            )
 
             // Reset
             ListHeader {

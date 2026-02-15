@@ -67,13 +67,20 @@ class HandlerService : FirebaseMessagingService() {
 
     override fun onMessageReceived(fcmMessage: RemoteMessage) {
         /// TEMPORARY CODE, SCHEMA TO BE REPLACED
+        Log.d("HandlerService", "=== FCM MESSAGE RECEIVED ===")
+        Log.d("HandlerService", "From: ${fcmMessage.from}")
+        Log.d("HandlerService", "Data keys: ${fcmMessage.data.keys}")
+        Log.d("HandlerService", "Notification body: ${fcmMessage.notification?.body}")
+        Log.d("HandlerService", "Message ID: ${fcmMessage.messageId}")
+        Log.d("HandlerService", "Priority: ${fcmMessage.priority}")
+
         val payloadString = fcmMessage.data["payload"]
         if (payloadString == null) {
-            Log.e("HandlerService", "No payload in message (missing 'payload' key), abort")
+            Log.e("HandlerService", "No payload in message (missing 'payload' key), abort. All data: ${fcmMessage.data}")
             return
         }
 
-        Log.d("HandlerService", payloadString)
+        Log.d("HandlerService", "Payload (first 500 chars): ${payloadString.take(500)}")
 
         val payload = try {
             StoatJson.parseToJsonElement(payloadString).jsonObject
@@ -123,6 +130,10 @@ class HandlerService : FirebaseMessagingService() {
             Log.d("HandlerService", "Channel $messageChannelId is muted, suppressing notification")
             return
         }
+
+        Log.d("HandlerService", "Message from ${message.author} in channel $messageChannelId (server=$serverId)")
+        Log.d("HandlerService", "Content: ${message.content?.take(100)}")
+        Log.d("HandlerService", "Mentions: ${message.mentions}")
 
         if (authorIcon == null) {
             authorIcon =
@@ -274,8 +285,10 @@ class HandlerService : FirebaseMessagingService() {
                     android.Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
+                Log.w("HandlerService", "POST_NOTIFICATIONS permission not granted, cannot show notification")
                 return
             }
+            Log.d("HandlerService", "=== DISPLAYING NOTIFICATION for channel $messageChannelId ===")
             notify(messageChannelId, NotificationID.NEW_MESSAGE, builder.build())
         }
         /// END TEMPORARY CODE

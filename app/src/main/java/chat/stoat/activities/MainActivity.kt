@@ -136,6 +136,7 @@ import chat.stoat.screens.settings.server.RolePermissionsEditorScreen
 import chat.stoat.screens.settings.server.BridgeSettingsScreen
 import chat.stoat.screens.settings.server.DiscordImportScreen
 import chat.stoat.screens.settings.server.ServerSettingsScreen
+import chat.stoat.screens.settings.server.SystemMessagesScreen
 import chat.stoat.ui.theme.StoatTheme
 import com.google.android.material.color.DynamicColors
 import dagger.hilt.android.AndroidEntryPoint
@@ -801,6 +802,10 @@ fun AppEntrypoint(
                         val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
                         val roleId = backStackEntry.arguments?.getString("roleId") ?: ""
                         RolePermissionsEditorScreen(navController, serverId, roleId)
+                    }
+                    composable("settings/server/{serverId}/system-messages") { backStackEntry ->
+                        val serverId = backStackEntry.arguments?.getString("serverId") ?: ""
+                        SystemMessagesScreen(navController, serverId)
                     }
 
                     composable("about") { AboutScreen(navController) }

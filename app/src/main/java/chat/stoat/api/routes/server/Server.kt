@@ -27,6 +27,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonElement
 
@@ -147,6 +148,7 @@ suspend fun editServer(
     description: String? = null,
     icon: String? = null,
     banner: String? = null,
+    systemMessages: Map<String, String?>? = null,
     remove: List<String>? = null
 ) {
     val body = mutableMapOf<String, JsonElement>()
@@ -154,6 +156,9 @@ suspend fun editServer(
     if (description != null) body["description"] = StoatJson.encodeToJsonElement(String.serializer(), description)
     if (icon != null) body["icon"] = StoatJson.encodeToJsonElement(String.serializer(), icon)
     if (banner != null) body["banner"] = StoatJson.encodeToJsonElement(String.serializer(), banner)
+    if (systemMessages != null) body["system_messages"] = StoatJson.encodeToJsonElement(
+        MapSerializer(String.serializer(), String.serializer().nullable), systemMessages
+    )
     if (remove != null) body["remove"] = StoatJson.encodeToJsonElement(ListSerializer(String.serializer()), remove)
 
     val response = StoatHttp.patch("/servers/$serverId".api()) {

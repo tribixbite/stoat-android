@@ -28,13 +28,18 @@ suspend fun subscribePush(
             auth = auth
         )
 
+        logcat("Push", LogPriority.DEBUG) {
+            "Subscribing push: endpoint=$endpoint, auth=${auth.take(20)}..., p256dh=${(p256diffieHellman ?: "").take(20)}"
+        }
+
         val response = StoatHttp.post("/push/subscribe".api()) {
             setBody(data)
             contentType(ContentType.Application.Json)
         }
 
         if (response.status.isSuccess()) {
-            logcat("Push", LogPriority.DEBUG) { "Push subscription registered successfully" }
+            val body = response.bodyAsText()
+            logcat("Push", LogPriority.DEBUG) { "Push subscription registered successfully. Response: ${body.take(200)}" }
             null
         } else {
             val body = response.bodyAsText()

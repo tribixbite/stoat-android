@@ -479,6 +479,23 @@ fun ServerSettingsScreen(
                         )
                     }
 
+                    // System messages — configure join/leave/kick/ban channels
+                    if (canManage) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_system_messages)) },
+                            supportingContent = { Text(stringResource(R.string.server_settings_system_messages_desc)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_notification_settings_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/system-messages")
+                            }
+                        )
+                    }
+
                     if (canManage || permissions has PermissionBit.ManageChannel) {
                         ListItem(
                             headlineContent = { Text(stringResource(R.string.server_settings_create_channel)) },

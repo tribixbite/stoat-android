@@ -42,7 +42,6 @@ import chat.stoat.api.internals.PermissionBit
 import chat.stoat.api.internals.hasPermission
 import chat.stoat.api.routes.channel.leaveDeleteOrCloseChannel
 import chat.stoat.core.model.schemas.ChannelType
-import chat.stoat.api.settings.FeatureFlags
 import chat.stoat.internals.extensions.rememberChannelPermissions
 import chat.stoat.screens.settings.SettingsIcon
 import kotlinx.coroutines.launch
@@ -148,8 +147,7 @@ fun ChannelSettingsHome(navController: NavController, channelId: String) {
                         )
                     }
 
-                    // TODO Implement permissions UI and remove the predicate check
-                    if (permissions.hasPermission(PermissionBit.ManageRole) && FeatureFlags.labsAccessControlGranted) {
+                    if (permissions.hasPermission(PermissionBit.ManageRole)) {
                         ListItem(
                             headlineContent = {
                                 Text(

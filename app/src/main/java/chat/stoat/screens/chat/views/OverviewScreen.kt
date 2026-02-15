@@ -230,7 +230,7 @@ fun OverviewScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         state = lazyStaggeredGridState
                     ) {
-                        if (false) { // TODO - implement catch up screen
+                        if (false) { // Disabled: CatchUpScreen needs newest message ID tracking to work
                             item(key = "catchup") {
                                 OverviewScreenLink(
                                     onClick = {

@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -72,6 +73,8 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.ULID
 import chat.stoat.api.routes.channel.SearchResult
 import chat.stoat.api.routes.channel.searchMessages
+import chat.stoat.callbacks.Action
+import chat.stoat.callbacks.ActionChannel
 import chat.stoat.composables.chat.formatLongAsTime
 import chat.stoat.composables.generic.UserAvatar
 import chat.stoat.core.model.schemas.Message
@@ -410,6 +413,7 @@ fun MessageSearchScreen(
 ) {
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(channelId, serverId) {
         viewModel.channelId = channelId
@@ -800,7 +804,17 @@ fun MessageSearchScreen(
                                 }
                             } else null,
                             onClick = {
-                                // TODO: navigate to message in channel via nearby fetch
+                                // Navigate to message in channel and scroll to it
+                                val targetChannelId = message.channel ?: channelId
+                                val targetMessageId = message.id ?: return@SearchResultItem
+                                scope.launch {
+                                    ActionChannel.send(
+                                        Action.SwitchChannelAndScrollToMessage(
+                                            channelId = targetChannelId,
+                                            messageId = targetMessageId
+                                        )
+                                    )
+                                }
                                 navController.popBackStack()
                             }
                         )

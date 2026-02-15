@@ -5,6 +5,7 @@ import chat.stoat.api.StoatHttp
 import chat.stoat.api.StoatJson
 import chat.stoat.api.api
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -30,4 +31,17 @@ suspend fun joinCall(channelId: String, nodeName: String): JoinCallResponse {
     }
 
     return StoatJson.decodeFromString(JoinCallResponse.serializer(), body)
+}
+
+/**
+ * End an incoming voice call ring for a specific user.
+ * PUT /channels/{channelId}/end_ring/{userId}
+ */
+suspend fun endRing(channelId: String, userId: String) {
+    val res = StoatHttp.put("/channels/$channelId/end_ring/$userId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }

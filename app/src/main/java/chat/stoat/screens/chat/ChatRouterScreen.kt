@@ -562,6 +562,15 @@ fun ChatRouterScreen(
                         // Forward to ChannelScreen via ViewModel (upstream #23)
                         viewModel.scrollToMessageId = action.messageId
                     }
+
+                    is Action.SwitchChannelAndScrollToMessage -> {
+                        // Navigate to channel and scroll to a specific message (search result click)
+                        val resolvedChannel = StoatAPI.channelCache[action.channelId]
+                        if (resolvedChannel != null) {
+                            viewModel.scrollToMessageId = action.messageId
+                            viewModel.setSaveDestination(ChatRouterDestination.Channel(action.channelId))
+                        }
+                    }
                 }
             }
         }

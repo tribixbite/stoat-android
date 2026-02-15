@@ -105,6 +105,9 @@ class ChannelScreenViewModel @Inject constructor(
 
     var editingMessage by mutableStateOf<String?>(null)
 
+    // Transient error message shown when attachment upload fails
+    var uploadError by mutableStateOf<String?>(null)
+
     // Prevents duplicate sends from rapid tapping (upstream #33/#30)
     var isSendingMessage by mutableStateOf(false)
         private set
@@ -372,6 +375,7 @@ class ChannelScreenViewModel @Inject constructor(
         // Prevent duplicate sends from rapid tapping (upstream #33/#30)
         if (isSendingMessage) return
         isSendingMessage = true
+        uploadError = null
 
         // Immediately, make copies of the draft content and replyTo list, as
         // 1. they will be cleared
@@ -410,7 +414,7 @@ class ChannelScreenViewModel @Inject constructor(
                     } catch (e: Exception) {
                         Log.e("ChannelScreenViewModel", "Failed to upload attachment", e)
                         attachmentUploadProgress = 0f
-                        // TODO show error message
+                        uploadError = e.message ?: "Upload failed"
                         return@launch
                     }
                 }
@@ -537,11 +541,10 @@ class ChannelScreenViewModel @Inject constructor(
                     }
 
                     // Place items according to whether above/below/around was specified.
-                    // TODO: Aditionally, place LoadTriggers at the beginning and end of the list.
                     val newItemsWithPosition = when {
                         before != null -> items + newItems
                         after != null -> newItems + items
-                        // TODO around, which should place the new items in the middle of the list
+                        // around or initial load — replace entire list with new items centered on target
                         else -> newItems
                     }
 
@@ -555,6 +558,17 @@ class ChannelScreenViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Replace the current message list with messages centered around the given message ID.
+     * Used by search result navigation and jump-to-message when the target isn't loaded.
+     */
+    fun loadMessagesAround(messageId: String) {
+        endOfChannel = false
+        didInitialChannelFetch = false
+        items = mutableStateListOf(ChannelScreenItem.Loading)
+        loadMessages(50, around = messageId)
     }
 
     suspend fun ackMessage(messageId: String) {

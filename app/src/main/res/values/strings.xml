@@ -25,6 +25,8 @@
 
     <string name="login">Log In</string>
     <string name="signup">Sign Up</string>
+    <string name="init_screen_heading">Find your community</string>
+    <string name="init_screen_body">Stoat is the chat app that\'s truly built with you in mind.</string>
     <string name="resend">Resend</string>
     <string name="send_email">Send email</string>
 

@@ -151,6 +151,7 @@ import com.valentinilk.shimmer.ShimmerBounds
 import com.valentinilk.shimmer.rememberShimmer
 import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 import java.io.File
@@ -417,11 +418,12 @@ fun ChannelScreen(
         label = "ScrollDownFABPadding"
     )
 
-    // Scroll to a specific message when requested (upstream #23 — jump to reply)
+    // Scroll to a specific message when requested (upstream #23 — jump to reply, search result click)
     LaunchedEffect(scrollToMessageId) {
         val targetId = scrollToMessageId ?: return@LaunchedEffect
         onScrollToMessageConsumed()
-        val index = viewModel.items.indexOfFirst { item ->
+
+        fun findMessageIndex(): Int = viewModel.items.indexOfFirst { item ->
             when (item) {
                 is ChannelScreenItem.RegularMessage -> item.message.id == targetId
                 is ChannelScreenItem.ProspectiveMessage -> item.message.id == targetId
@@ -429,14 +431,35 @@ fun ChannelScreen(
                 else -> false
             }
         }
+
+        // First check if message is already loaded
+        var index = findMessageIndex()
+        if (index >= 0) {
+            lazyListState.animateScrollToItem(index)
+            return@LaunchedEffect
+        }
+
+        // Message not in loaded set — fetch messages around it via the `nearby` API param
+        viewModel.loadMessagesAround(targetId)
+
+        // Wait for the target message to appear in the items list (with timeout)
+        try {
+            kotlinx.coroutines.withTimeout(5_000) {
+                snapshotFlow { findMessageIndex() }
+                    .first { it >= 0 }
+            }
+        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+            // Message not found even after fetch — may have been deleted
+            return@LaunchedEffect
+        }
+
+        index = findMessageIndex()
         if (index >= 0) {
             lazyListState.animateScrollToItem(index)
         }
     }
 
     // Load more messages when we reach the top of the list
-    // TODO: Temp - use LoadTrigger instead
-
     LaunchedEffect(isNearTop) {
         snapshotFlow { isNearTop.value }
             .distinctUntilChanged()
@@ -1047,6 +1070,34 @@ fun ChannelScreen(
                                                     }
                                                 }
                                             )
+                                        }
+
+                                        // Upload error banner — auto-dismisses on tap
+                                        AnimatedVisibility(visible = viewModel.uploadError != null) {
+                                            Row(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                                    .clickable { viewModel.uploadError = null }
+                                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.icn_error_24dp),
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Text(
+                                                    text = viewModel.uploadError ?: "",
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
                                         }
 
                                         AnimatedVisibility(visible = viewModel.editingMessage != null) {

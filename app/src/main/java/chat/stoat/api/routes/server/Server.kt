@@ -97,6 +97,38 @@ suspend fun fetchMember(serverId: String, userId: String, pure: Boolean = false)
     return member
 }
 
+/**
+ * Search server members by name (nickname or username).
+ * Experimental API — requires `experimental_api=true` query param.
+ */
+suspend fun queryMembers(serverId: String, query: String): FetchMembersResponse {
+    val res = StoatHttp.get("/servers/$serverId/members_experimental_query".api()) {
+        parameter("query", query)
+        parameter("experimental_api", true)
+    }
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val response = StoatJson.decodeFromString(FetchMembersResponse.serializer(), body)
+
+    response.members.forEach { member ->
+        member.id?.let {
+            if (!StoatAPI.members.hasMember(serverId, it.user)) {
+                StoatAPI.members.setMember(serverId, member)
+            }
+        }
+    }
+    response.users.forEach { user ->
+        user.id?.let { StoatAPI.userCache.putIfAbsent(it, user) }
+    }
+
+    return response
+}
+
 suspend fun leaveOrDeleteServer(serverId: String, leaveSilently: Boolean = false) {
     StoatHttp.delete("/servers/$serverId".api()) {
         parameter("leave_silently", leaveSilently)

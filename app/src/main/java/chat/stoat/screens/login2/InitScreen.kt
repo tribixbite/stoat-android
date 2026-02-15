@@ -109,13 +109,13 @@ private fun LeadPart(windowSizeClass: WindowSizeClass) {
         )
         Spacer(modifier = Modifier.height(64.dp))
         Text(
-            "Find your community", // FIXME hardcoded string
+            stringResource(R.string.init_screen_heading),
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Stoat is the chat app that’s truly built with you in mind.", // FIXME hardcoded string
+            stringResource(R.string.init_screen_body),
             style = MaterialTheme.typography.bodyLarge,
             fontSize = 18.sp,
             textAlign = TextAlign.Center
@@ -142,13 +142,13 @@ private fun LinkPart(windowSizeClass: WindowSizeClass) {
                 onClick = {/* navController.navigate("login2/existing/details") */ },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Log In") // FIXME hardcoded string
+                Text(stringResource(R.string.login))
             }
             TextButton(
                 onClick = {/* navController.navigate("login2/new/details") */ },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Sign Up") // FIXME hardcoded string
+                Text(stringResource(R.string.signup))
             }
         }
 

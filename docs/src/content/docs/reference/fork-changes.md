@@ -288,23 +288,23 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
-| Backend delta routes | ~55 | 96 total, 86 implemented (90%) |
-| Auth routes (authifier) | ~10 | 23 implemented (login, MFA, sessions, account) |
+| Backend delta routes | ~55 | 96 total, 92 implemented (96%) |
+| Auth routes (authifier) | ~10 | 27 implemented (login, MFA, sessions, account, logout) |
 | Missing: Bots | 0 | 0 — 7 endpoints planned |
 | Missing: Webhooks | 0 | 0 — 10 endpoints planned |
-| Missing: Other | 0 | 0 — 3 planned (user flags, end\_ring, policy ack) |
-| Search | None | Full (API + UI + filters + server-wide) |
-| Moderation UI | Partial | Kick, ban, pin (full UI) |
+| Search | None | Full (API + UI + filters + server-wide, MongoDB $text syntax) |
+| Moderation UI | Partial | Kick, ban, pin/unpin, reporting (full UI) |
 | Server admin UI | None | Settings, roles (hoist/rank), bans, channels (NSFW), permissions (channel-level), emoji, invites, banner, system messages |
-| Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
-| Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread |
+| Account management | None | View, edit email/password, delete/disable, MFA/TOTP, session CRUD |
+| Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread, block/friend, group DMs |
 | Notification controls | Basic | Mute/unmute, FCM management, push unsub on logout, notification-only FCM handling |
 | Discord bridge | None | Import wizard, bridge settings, stoatcord-bot integration |
+| Sync | None | Settings sync (fetch/set), unread sync |
 | Documentation | Minimal | 11 spec documents, API reference |
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 89/96 delta (93%) + 25 auth routes implemented. Phases 1-4 complete. 17 remaining endpoints are bots (7), webhooks (10). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 92/96 delta (96%) + 27 auth routes implemented. Phases 1-4 complete + Discord bridge integration. 17 remaining endpoints are bots (7) and webhooks (10). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -333,12 +333,17 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 89/96 delta (
 | System messages settings | `PATCH /servers/{id}` (system\_messages) | **Done** |
 | Fetch single role | `GET /servers/{id}/roles/{role_id}` | Planned |
 
-### Phase 3: Social Features (Medium Priority) — 4/5 Done
+### Phase 3: Social Features (Medium Priority) — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Mutual friends/servers | `GET /users/{id}/mutual` | **Done** |
 | DM channel listing | `GET /users/dms` | Existing |
-| User profile display | `GET /users/{id}/profile` | Existing (partial) |
+| User profile display + editing | `GET /users/{id}/profile`, `PATCH /users/@me` | **Done** (avatar, background, bio with Autumn upload) |
+| Block/unblock users | `PUT/DELETE /users/{id}/block` | **Done** |
+| Friend requests | `POST /users/friend`, `PUT/DELETE /users/{id}/friend` | **Done** (send, accept, unfriend) |
+| Open DM channel | `GET /users/{id}/dm` | **Done** |
+| Group DM management | `POST /channels/create`, `PUT/DELETE /channels/{id}/recipients/{userId}` | **Done** |
+| Content reporting | `POST /safety/report` | **Done** (messages, servers, users) |
 
 ### Phase 4: Content Management (Medium Priority) — Complete
 | Feature | Endpoints | Status |
@@ -346,6 +351,23 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 89/96 delta (
 | Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | **Done** |
 | Bulk delete UI | `DELETE /channels/{id}/messages/bulk` | **Done** |
 | Server emoji listing | `GET /servers/{id}/emojis` | **Done** (via cache) |
+| Pin/unpin messages | `POST/DELETE /channels/{id}/messages/{msg}/pin` | **Done** |
+| Message reactions | `PUT/DELETE /channels/{id}/messages/{msg}/reactions/{emoji}` | **Done** |
+| Message search | `POST /channels/{id}/search` | **Done** (text, pinned, sort, pagination) |
+| Channel invite creation | `POST /channels/{id}/invites` | **Done** |
+| Settings sync | `POST /sync/settings/fetch`, `POST /sync/settings/set` | **Done** |
+| Unread sync | `GET /sync/unreads` | **Done** |
+| Voice call join | `POST /channels/{id}/join_call` | **Done** (LiveKit integration) |
+
+### Discord Bridge Integration (Fork-Exclusive)
+| Feature | Component | Status |
+|---------|-----------|--------|
+| Discord import wizard | `DiscordImportScreen` + stoatcord-bot API | **Done** |
+| Bridge settings (channel linking) | `BridgeSettingsScreen` + bot API | **Done** |
+| Discord guild/channel fetch | `GET /api/guilds`, `GET /api/guilds/{id}/channels` | **Done** |
+| Bridge link CRUD | `POST /api/links`, `DELETE /api/links/{id}`, `GET /api/links/guild/{id}` | **Done** |
+| Migration wizard (roles, channels, emoji) | stoatcord-bot `/migrate` command | **Done** |
+| Stoat↔Discord message relay | WebSocket listener + Discord webhooks | **Done** |
 
 ### Phase 5: Bots & Webhooks (Low Priority)
 | Feature | Endpoints | Status |
@@ -364,7 +386,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 89/96 delta (
 ### Phase 6: Polish & Edge Cases (Low Priority)
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
-| Session rename | `PATCH /auth/session/{id}` | **Done** |
+| Session management (rename, revoke, revoke all) | `PATCH/DELETE /auth/session/{id}`, `DELETE /auth/session/all` | **Done** |
 | User flags | `GET /users/{id}/flags` | Planned |
 | Default avatar | `GET /users/{id}/default_avatar` | Existing (Glide handles) |
 | Policy acknowledge | `POST /policy/acknowledge` | Planned |

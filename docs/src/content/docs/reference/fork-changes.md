@@ -304,7 +304,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (100%) + 27 auth routes implemented. All 6 phases complete including Discord bridge integration. Remaining Phase 6 items are polish (user flags, password reset, policy ack). 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (100%) + 27 auth routes implemented. All 6 phases complete including Discord bridge integration. Phase 6 polish done: user flags display, password reset/email verify endpoints, policy acknowledge, mass mention parsing, webhook sheet, feedback link. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -318,7 +318,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (
 | Push unsubscribe on logout | `POST /push/unsubscribe` | **Done** |
 | Server-side session logout | `POST /auth/session/logout` | **Done** |
 
-### Phase 2: Server Admin Polish (High Priority) — 18/19 Done
+### Phase 2: Server Admin Polish (High Priority) — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Default permissions editor | `PUT /servers/{id}/permissions/default` | **Done** |
@@ -331,7 +331,7 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (
 | Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | **Done** |
 | Member search | `GET /servers/{id}/members` with query | **Done** (client-side) |
 | System messages settings | `PATCH /servers/{id}` (system\_messages) | **Done** |
-| Fetch single role | `GET /servers/{id}/roles/{role_id}` | Planned |
+| Fetch single role | `GET /servers/{id}/roles/{role_id}` | **Done** |
 
 ### Phase 3: Social Features (Medium Priority) — Complete
 | Feature | Endpoints | Status |
@@ -384,19 +384,22 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 96/96 delta (
 | Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy) |
 | Webhook management UI | `WebhookManagementScreen` | **Done** (create, edit, delete, URL copy) |
 
-### Phase 6: Polish & Edge Cases (Low Priority)
+### Phase 6: Polish & Edge Cases (Low Priority) — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Session management (rename, revoke, revoke all) | `PATCH/DELETE /auth/session/{id}`, `DELETE /auth/session/all` | **Done** |
-| User flags | `GET /users/{id}/flags` | Planned |
+| User flags display | Bitmask (Suspended/Deleted/Banned/Spam) | **Done** (UserFlagList + UserInfoSheet) |
 | Default avatar | `GET /users/{id}/default_avatar` | Existing (Glide handles) |
-| Policy acknowledge | `POST /policy/acknowledge` | Planned |
+| Policy acknowledge | `POST /policy/acknowledge` | **Done** |
 | Voice end ring | `PUT /channels/{id}/end_ring/{userId}` | Planned |
 | Push unsubscribe | `POST /push/unsubscribe` | **Done** |
 | FCM notification-only handling | `HandlerService` fallback | **Done** |
 | Robust push registration | `ChatRouterScreen` retry logic | **Done** |
-| Password reset | `POST/PATCH /auth/account/reset_password` | Planned (2) |
-| Email verify (code) | `POST /auth/account/verify/{code}` | Planned |
+| Password reset | `POST/PATCH /auth/account/reset_password` | **Done** (2 endpoints) |
+| Email verify (code) | `POST /auth/account/verify/{code}` | **Done** |
+| Mass mention parsing | `@everyone`/`@here` in markdown | **Done** (MassMentionParser + renderer) |
+| Webhook info sheet | `WebHookUserSheet` | **Done** (replaces stub) |
+| Feedback link | OverviewScreen → GitHub Issues | **Done** |
 | Members experimental query | `GET /servers/{id}/members_experimental_query` | Planned |
 
 ### Not Achievable (Backend Limitations)
@@ -466,3 +469,9 @@ All changes from upstream divergence point:
 | `dec3d10` | feat | Notification debug logging, system messages settings, server banner |
 | `38170e8` | fix | Robust FCM push registration and notification-only message handling |
 | `beeaf35` | feat | Push unsubscribe and proper server-side session logout |
+| `a66e966` | docs | Update roadmap with push, notifications, system messages progress |
+| `f1f15a4` | docs | Comprehensive roadmap audit — add 20+ untracked features |
+| `22d22ba` | docs | F-Droid anti-features audit and degoogling roadmap |
+| `99730c3` | feat | Bot management and webhook CRUD (Phase 5) |
+| `4a8d96a` | docs | Update roadmap — Phase 5 complete, 96/96 delta routes (100%) |
+| `9abb26a` | feat | Finish remaining stubs and add missing endpoints (Phase 6) |

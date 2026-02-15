@@ -49,6 +49,8 @@ import androidx.navigation.NavController
 import chat.stoat.R
 import chat.stoat.api.STOAT_FILES
 import chat.stoat.api.StoatAPI
+import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
+import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.routes.user.fetchUserProfile
 import chat.stoat.api.routes.user.patchSelf
@@ -58,8 +60,9 @@ import chat.stoat.composables.screens.settings.RawUserOverview
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.http.ContentType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -103,32 +106,23 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
             else -> return
         }
 
-        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "avatar")
-
-        mFile.outputStream().use { output ->
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                input.copyTo(output)
-            }
-        }
-
-        val mime = context.contentResolver.getType(uri)
-
-        if (mime?.endsWith("webp") == true) {
-            uploadError = "WebP is not supported"
-            return
-        }
-
         viewModelScope.launch {
             try {
+                // Process image: center-crop to 1:1, resize, compress as WebP
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.AVATAR)
+                } ?: throw Exception("Failed to process image")
+
                 val id = uploadToAutumn(
-                    mFile,
-                    uri.lastPathSegment ?: "avatar",
+                    processed.file,
+                    "avatar.webp",
                     "avatars",
-                    ContentType.parse(mime ?: "image/*"),
+                    ContentType.Image.Any,
                     onProgress = { soFar, outOf ->
                         uploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
+                processed.file.delete()
 
                 patchSelf(avatar = id)
             } catch (e: Exception) {
@@ -154,32 +148,23 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
             else -> return
         }
 
-        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "background")
-
-        mFile.outputStream().use { output ->
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                input.copyTo(output)
-            }
-        }
-
-        val mime = context.contentResolver.getType(uri)
-
-        if (mime?.endsWith("webp") == true) {
-            uploadError = "WebP is not supported"
-            return
-        }
-
         viewModelScope.launch {
             try {
+                // Process image: resize, compress as WebP (no forced aspect ratio for backgrounds)
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.BACKGROUND)
+                } ?: throw Exception("Failed to process image")
+
                 val id = uploadToAutumn(
-                    mFile,
-                    uri.lastPathSegment ?: "background",
+                    processed.file,
+                    "background.webp",
                     "backgrounds",
-                    ContentType.parse(mime ?: "image/*"),
+                    ContentType.Image.Any,
                     onProgress = { soFar, outOf ->
                         uploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
+                processed.file.delete()
 
                 patchSelf(background = id)
             } catch (e: Exception) {

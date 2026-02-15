@@ -59,6 +59,8 @@ import chat.stoat.activities.StoatTweenFloat
 import chat.stoat.api.STOAT_FILES
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.routes.channel.patchChannel
+import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
+import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.settings.NotificationSettingsProvider
 import chat.stoat.api.settings.SyncedSettings
@@ -69,7 +71,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.http.ContentType
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -133,28 +134,24 @@ class ChannelSettingsOverviewViewModel @Inject constructor(@ApplicationContext v
             return
         }
 
-        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "icon")
-
-        mFile.outputStream().use { output ->
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                input.copyTo(output)
-            }
-        }
-
-        val mime = context.contentResolver.getType(uri)
-
         viewModelScope.launch {
             iconIsUploading = true
             try {
+                // Process image: center-crop to 1:1, resize to 1024px, compress as WebP
+                val processed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.ICON)
+                } ?: throw Exception("Failed to process image")
+
                 val id = uploadToAutumn(
-                    mFile,
-                    uri.lastPathSegment ?: "icon",
+                    processed.file,
+                    "icon.webp",
                     "icons",
-                    ContentType.parse(mime ?: "image/*"),
+                    ContentType.Image.Any,
                     onProgress = { soFar, outOf ->
                         iconUploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
+                processed.file.delete()
 
                 patchChannel(initialChannel?.id ?: "", icon = id)
 

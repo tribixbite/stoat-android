@@ -11,67 +11,56 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.serialization.SerializationException
 
 suspend fun blockUser(userId: String) {
-    val response = StoatHttp.put("/users/$userId/block".api())
-        .bodyAsText()
+    val res = StoatHttp.put("/users/$userId/block".api())
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
 suspend fun unblockUser(userId: String) {
-    val response = StoatHttp.delete("/users/$userId/block".api())
-        .bodyAsText()
+    val res = StoatHttp.delete("/users/$userId/block".api())
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
 suspend fun friendUser(username: String) {
-    val response = StoatHttp.post("/users/friend".api()) {
+    val res = StoatHttp.post("/users/friend".api()) {
         contentType(ContentType.Application.Json)
         setBody(mapOf("username" to username))
     }
-    val body = response.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), body)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
 suspend fun acceptFriendRequest(userId: String) {
-    val response = StoatHttp.put("/users/$userId/friend".api())
-        .bodyAsText()
+    val res = StoatHttp.put("/users/$userId/friend".api())
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
 suspend fun unfriendUser(userId: String) {
-    val response = StoatHttp.delete("/users/$userId/friend".api())
-        .bodyAsText()
+    val res = StoatHttp.delete("/users/$userId/friend".api())
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }

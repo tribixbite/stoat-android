@@ -10,34 +10,29 @@ import chat.stoat.core.model.util.RsResult
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
-import kotlinx.serialization.SerializationException
 
 suspend fun fetchInviteByCode(code: String): RsResult<Invite, StoatAPIError> {
-    val response = StoatHttp.get("/invites/$code".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/invites/$code".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        if (error.type != "Server") return RsResult.err(error)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        return RsResult.err(error ?: StoatAPIError("HTTP ${res.status.value}"))
     }
 
-    val invite = StoatJson.decodeFromString(Invite.serializer(), response)
+    val invite = StoatJson.decodeFromString(Invite.serializer(), body)
     return RsResult.ok(invite)
 }
 
 suspend fun joinInviteByCode(code: String): RsResult<InviteJoined, StoatAPIError> {
-    val response = StoatHttp.post("/invites/$code".api())
-        .bodyAsText()
+    val res = StoatHttp.post("/invites/$code".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        if (error.type != "Server") return RsResult.err(error)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        return RsResult.err(error ?: StoatAPIError("HTTP ${res.status.value}"))
     }
 
-    val invite = StoatJson.decodeFromString(InviteJoined.serializer(), response)
+    val invite = StoatJson.decodeFromString(InviteJoined.serializer(), body)
     return RsResult.ok(invite)
 }

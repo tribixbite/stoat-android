@@ -13,9 +13,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 
 // --- Channel-scoped webhook endpoints ---
@@ -25,43 +23,46 @@ suspend fun createWebhook(channelId: String, name: String, avatar: String? = nul
     @Serializable
     data class Body(val name: String, val avatar: String? = null)
 
-    val response = StoatHttp.post("/channels/$channelId/webhooks".api()) {
+    val res = StoatHttp.post("/channels/$channelId/webhooks".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), Body(name, avatar)))
-    }.bodyAsText()
+    }
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Webhook.serializer(), response)
+    return StoatJson.decodeFromString(Webhook.serializer(), body)
 }
 
 /** List all webhooks in a channel. Requires ManageWebhooks permission. */
 suspend fun fetchChannelWebhooks(channelId: String): List<Webhook> {
-    val response = StoatHttp.get("/channels/$channelId/webhooks".api()).bodyAsText()
+    val res = StoatHttp.get("/channels/$channelId/webhooks".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(ListSerializer(Webhook.serializer()), response)
+    return StoatJson.decodeFromString(ListSerializer(Webhook.serializer()), body)
 }
 
 // --- Webhook-scoped endpoints (authenticated) ---
 
 /** Fetch a webhook by ID (authenticated). Does NOT include token. */
 suspend fun fetchWebhook(webhookId: String): Webhook {
-    val response = StoatHttp.get("/webhooks/$webhookId".api()).bodyAsText()
+    val res = StoatHttp.get("/webhooks/$webhookId".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Webhook.serializer(), response)
+    return StoatJson.decodeFromString(Webhook.serializer(), body)
 }
 
 /** Edit a webhook (authenticated). Requires ManageWebhooks permission. */
@@ -81,30 +82,27 @@ suspend fun editWebhook(
     )
 
     val body = Body(name, avatar, permissions, remove)
-    val response = StoatHttp.patch("/webhooks/$webhookId".api()) {
+    val res = StoatHttp.patch("/webhooks/$webhookId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Webhook.serializer(), response)
+    return StoatJson.decodeFromString(Webhook.serializer(), responseBody)
 }
 
 /** Delete a webhook (authenticated). Requires ManageWebhooks permission. */
 suspend fun deleteWebhook(webhookId: String) {
-    val response = StoatHttp.delete("/webhooks/$webhookId".api())
-    if (response.status.value !in 200..299) {
-        val body = response.bodyAsText()
-        try {
-            val error = StoatJson.decodeFromString(StoatAPIError.serializer(), body)
-            throw Exception(error.type)
-        } catch (_: SerializationException) {
-            throw Exception("HTTP ${response.status.value}: $body")
-        }
+    val res = StoatHttp.delete("/webhooks/$webhookId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}: $body")
     }
 }
 
@@ -112,14 +110,15 @@ suspend fun deleteWebhook(webhookId: String) {
 
 /** Fetch a webhook by ID and token. Includes the token field. */
 suspend fun fetchWebhookWithToken(webhookId: String, token: String): Webhook {
-    val response = StoatHttp.get("/webhooks/$webhookId/$token".api()).bodyAsText()
+    val res = StoatHttp.get("/webhooks/$webhookId/$token".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Webhook.serializer(), response)
+    return StoatJson.decodeFromString(Webhook.serializer(), body)
 }
 
 /** Edit a webhook using token auth. */
@@ -140,30 +139,27 @@ suspend fun editWebhookWithToken(
     )
 
     val body = Body(name, avatar, permissions, remove)
-    val response = StoatHttp.patch("/webhooks/$webhookId/$token".api()) {
+    val res = StoatHttp.patch("/webhooks/$webhookId/$token".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Webhook.serializer(), response)
+    return StoatJson.decodeFromString(Webhook.serializer(), responseBody)
 }
 
 /** Delete a webhook using token auth. */
 suspend fun deleteWebhookWithToken(webhookId: String, token: String) {
-    val response = StoatHttp.delete("/webhooks/$webhookId/$token".api())
-    if (response.status.value !in 200..299) {
-        val body = response.bodyAsText()
-        try {
-            val error = StoatJson.decodeFromString(StoatAPIError.serializer(), body)
-            throw Exception(error.type)
-        } catch (_: SerializationException) {
-            throw Exception("HTTP ${response.status.value}: $body")
-        }
+    val res = StoatHttp.delete("/webhooks/$webhookId/$token".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}: $body")
     }
 }
 

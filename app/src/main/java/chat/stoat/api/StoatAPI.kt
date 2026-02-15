@@ -45,7 +45,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
-import kotlinx.coroutines.runBlocking
+
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -129,9 +129,9 @@ val StoatHttp = HttpClient(OkHttp) {
 
     val chuckerInterceptor = ChuckerInterceptor.Builder(StoatApplication.instance)
         .collector(chuckerCollector)
-        .maxContentLength(250_000L)
+        .maxContentLength(50_000L) // Reduced from 250k — skip buffering large response bodies
         .redactHeaders(StoatAPI.TOKEN_HEADER_NAME)
-        .alwaysReadResponseBody(true)
+        .alwaysReadResponseBody(false) // Only read body when collector needs it, not every request
         .createShortcut(false)
         .build()
 
@@ -243,14 +243,17 @@ object StoatAPI {
         // Send a ping every roughly 30 seconds else the socket dies
         // Same interval as the web clients (/revolt.js)
         // Note: This will run even if the socket is closed (sendPing will just exit early)
-        mainHandler.post(object : Runnable {
-            override fun run() {
-                runBlocking {
-                    RealtimeSocket.sendPing()
-                }
-                mainHandler.postDelayed(this, 30 * 1000)
+        // Uses coroutine on IO dispatcher instead of runBlocking on main thread to avoid UI jank
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                try {
+                    withContext(realtimeContext) {
+                        RealtimeSocket.sendPing()
+                    }
+                } catch (_: Exception) { }
             }
-        })
+        }
     }
 
     suspend fun initialize() {

@@ -146,6 +146,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.request.get
 import io.sentry.android.core.SentryAndroid
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -201,10 +203,17 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("MainActivity", "Hydrating Experiments from KV")
             Experiments.hydrateWithKv()
-            Log.d("MainActivity", "Performing health check")
-            doHealthCheck()
-            Log.d("MainActivity", "Performing update geo state")
-            updateGeoState()
+            // Health check and geo update are independent — run in parallel
+            coroutineScope {
+                launch {
+                    Log.d("MainActivity", "Performing health check")
+                    doHealthCheck()
+                }
+                launch {
+                    Log.d("MainActivity", "Performing update geo state")
+                    updateGeoState()
+                }
+            }
         }
     }
 
@@ -238,11 +247,13 @@ class MainActivityViewModel @Inject constructor(
                 "We have a session token, checking if it's valid and if we can still reach Stoat"
             )
 
-            val canReachStoat = canReachStoat()
-            val valid = try {
-                StoatAPI.checkSessionToken(token)
-            } catch (e: Throwable) {
-                false
+            // Run reachability and token validation in parallel — both are independent reads
+            val (canReachStoat, valid) = coroutineScope {
+                val reachDeferred = async { canReachStoat() }
+                val validDeferred = async {
+                    try { StoatAPI.checkSessionToken(token) } catch (_: Throwable) { false }
+                }
+                reachDeferred.await() to validDeferred.await()
             }
 
             if (canReachStoat && !valid) {
@@ -305,17 +316,15 @@ class MainActivityViewModel @Inject constructor(
     val activeAlert = MutableStateFlow<HealthNotice?>(null)
     val isAlertActive = MutableStateFlow(false)
 
-    private fun doHealthCheck() {
-        viewModelScope.launch {
-            try {
-                val health = healthCheck()
-                if (health.alert != null) {
-                    activeAlert.emit(health)
-                    isAlertActive.emit(true)
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to perform health check", e)
+    private suspend fun doHealthCheck() {
+        try {
+            val health = healthCheck()
+            if (health.alert != null) {
+                activeAlert.emit(health)
+                isAlertActive.emit(true)
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to perform health check", e)
         }
     }
 

@@ -15,7 +15,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 @Serializable
 data class LoginNegotiation(
@@ -118,19 +117,16 @@ suspend fun negotiateAuthentication(email: String, password: String): EmailPassw
     val responseContent = response.bodyAsText()
     Log.d("Stoat", "negotiateAuthentication: $responseContent")
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent)
-        return EmailPasswordAssessment(error = error)
-    } catch (e: SerializationException) {
-        // Not an error
-    }
-
+    // Check for error responses via HTTP status code first
     if (response.status == HttpStatusCode.InternalServerError) {
         return EmailPasswordAssessment(
-            error = StoatAPIError(
-                "InternalServerError"
-            )
+            error = StoatAPIError("InternalServerError")
         )
+    }
+
+    if (response.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent) } catch (_: Exception) { null }
+        return EmailPasswordAssessment(error = error ?: StoatAPIError("HTTP ${response.status.value}"))
     }
 
     val responseJson = StoatJson.decodeFromString(MfaCheck.serializer(), responseContent)
@@ -158,15 +154,13 @@ suspend fun authenticateWithMfaTotpCode(
         setBody(LoginMfaAmendmentTotpCode(mfaTicket, mfaResponse, friendlySessionName()))
     }
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response.bodyAsText())
-        return EmailPasswordAssessment(error = error)
-    } catch (e: SerializationException) {
-        // Not an error
-    }
-
     val responseContent = response.bodyAsText()
     Log.d("Stoat", "authenticateWithMfaTotpCode: $responseContent")
+
+    if (response.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent) } catch (_: Exception) { null }
+        return EmailPasswordAssessment(error = error ?: StoatAPIError("HTTP ${response.status.value}"))
+    }
 
     return EmailPasswordAssessment(
         firstUserHints = StoatJson.decodeFromString(UserHints.serializer(), responseContent)
@@ -182,15 +176,13 @@ suspend fun authenticateWithMfaRecoveryCode(
         setBody(LoginMfaAmendmentRecoveryCode(mfaTicket, mfaResponse, friendlySessionName()))
     }
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response.bodyAsText())
-        return EmailPasswordAssessment(error = error)
-    } catch (e: SerializationException) {
-        // Not an error
-    }
-
     val responseContent = response.bodyAsText()
     Log.d("Stoat", "authenticateWithMfaRecoveryCode: $responseContent")
+
+    if (response.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent) } catch (_: Exception) { null }
+        return EmailPasswordAssessment(error = error ?: StoatAPIError("HTTP ${response.status.value}"))
+    }
 
     return EmailPasswordAssessment(
         firstUserHints = StoatJson.decodeFromString(UserHints.serializer(), responseContent)

@@ -14,24 +14,21 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonElement
 
 suspend fun fetchSelf(): User {
-    val response = StoatHttp.get("/users/@me".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/users/@me".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    val user = StoatJson.decodeFromString(User.serializer(), response)
+    val user = StoatJson.decodeFromString(User.serializer(), body)
 
     if (user.id == null) {
         throw Exception("Self user ID is null")
@@ -118,16 +115,14 @@ suspend fun fetchUser(id: String): User {
         return User.getPlaceholder(id)
     }
 
-    val response = res.bodyAsText()
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    val user = StoatJson.decodeFromString(User.serializer(), response)
+    val user = StoatJson.decodeFromString(User.serializer(), body)
 
     user.id?.let {
         StoatAPI.userCache[it] = user
@@ -160,15 +155,12 @@ data class MutualInfo(
 
 suspend fun fetchUserProfile(id: String): Profile {
     val res = StoatHttp.get("/users/$id/profile".api())
+    val body = res.bodyAsText()
 
-    val response = res.bodyAsText()
-
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    return StoatJson.decodeFromString(Profile.serializer(), response)
+    return StoatJson.decodeFromString(Profile.serializer(), body)
 }

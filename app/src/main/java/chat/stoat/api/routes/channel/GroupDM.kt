@@ -15,7 +15,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 @Serializable
 data class CreateGroupDMBody(
@@ -28,19 +27,18 @@ suspend fun createGroupDM(name: String, members: List<String>): Channel {
         throw Exception("Too many members, maximum is $MAX_ADDABLE_PEOPLE_IN_GROUP")
     }
 
-    val response = StoatHttp.post("/channels/create".api()) {
+    val res = StoatHttp.post("/channels/create".api()) {
         contentType(ContentType.Application.Json)
         setBody(CreateGroupDMBody(name, members))
-    }.bodyAsText()
+    }
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    return StoatJson.decodeFromString(Channel.serializer(), response)
+    return StoatJson.decodeFromString(Channel.serializer(), body)
 }
 
 suspend fun removeMember(channelId: String, userId: String) {

@@ -7,18 +7,15 @@ import chat.stoat.api.api
 import chat.stoat.core.model.schemas.Channel
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
-import kotlinx.serialization.SerializationException
 
 suspend fun openDM(userId: String): Channel {
-    val response = StoatHttp.get("/users/$userId/dm".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/users/$userId/dm".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    return StoatJson.decodeFromString(Channel.serializer(), response)
+    return StoatJson.decodeFromString(Channel.serializer(), body)
 }

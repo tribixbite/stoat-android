@@ -10,7 +10,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 @Serializable
 data class JoinCallResponse(
@@ -19,17 +18,16 @@ data class JoinCallResponse(
 )
 
 suspend fun joinCall(channelId: String, nodeName: String): JoinCallResponse {
-    val response = StoatHttp.post("/channels/$channelId/join_call".api()) {
+    val res = StoatHttp.post("/channels/$channelId/join_call".api()) {
         contentType(ContentType.Application.Json)
         setBody(mapOf("node" to nodeName))
-    }.bodyAsText()
+    }
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    return StoatJson.decodeFromString(JoinCallResponse.serializer(), response)
+    return StoatJson.decodeFromString(JoinCallResponse.serializer(), body)
 }

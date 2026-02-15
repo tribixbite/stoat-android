@@ -16,7 +16,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 @Serializable
 data class OnboardingResponse(
@@ -28,16 +27,17 @@ suspend fun needsOnboarding(sessionToken: String = StoatAPI.sessionToken): Boole
         header(StoatAPI.TOKEN_HEADER_NAME, sessionToken)
     }
 
-    val responseContent = response.bodyAsText()
-
-    try {
-        val rateLimitResponse =
+    // Rate limit responses use 429 status code
+    if (response.status.value == 429) {
+        val responseContent = response.bodyAsText()
+        val rateLimitResponse = try {
             StoatJson.decodeFromString(RateLimitResponse.serializer(), responseContent)
-        throw rateLimitResponse.toException()
-    } catch (e: SerializationException) {
-        // good path
+        } catch (_: Exception) { null }
+        throw rateLimitResponse?.toException()
+            ?: chat.stoat.api.HitRateLimitException()
     }
 
+    val responseContent = response.bodyAsText()
     return StoatJson.decodeFromString(OnboardingResponse.serializer(), responseContent).onboarding
 }
 
@@ -64,13 +64,10 @@ suspend fun completeOnboarding(
         return RsResult.err(StoatAPIError("InvalidUsername"))
     }
 
-    val responseContent = response.bodyAsText()
-
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent)
-        return RsResult.err(error)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (response.status.value !in 200..299) {
+        val responseContent = response.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent) } catch (_: Exception) { null }
+        return RsResult.err(error ?: StoatAPIError("HTTP ${response.status.value}"))
     }
 
     return RsResult.ok(Unit)

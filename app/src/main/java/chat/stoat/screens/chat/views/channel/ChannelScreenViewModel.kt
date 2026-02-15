@@ -160,9 +160,11 @@ class ChannelScreenViewModel @Inject constructor(
 
         if (channel != null) {
             // Channel is in cache — proceed normally
+            // denyMessageFieldIfNeeded() already fetches the member if missing,
+            // so ensureSelfHasMember() is redundant — skip it to avoid a duplicate API call
             viewModelScope.launch {
-                ensureSelfHasMember()
                 denyMessageFieldIfNeeded()
+                ensuredSelfMember = true
             }
             this.loadMessages(50, markLastAsRead = true)
         } else {
@@ -179,8 +181,8 @@ class ChannelScreenViewModel @Inject constructor(
                         ageGateUnlocked = cachedChannel.nsfw != true
                         showGeoGate = cachedChannel.nsfw == true &&
                                 GeoStateProvider.geoState?.isAgeRestrictedGeo == true
-                        ensureSelfHasMember()
                         denyMessageFieldIfNeeded()
+                        ensuredSelfMember = true
                         loadMessages(50, markLastAsRead = true)
                     }
             }

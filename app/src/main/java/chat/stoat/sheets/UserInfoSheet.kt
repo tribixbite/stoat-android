@@ -59,6 +59,8 @@ import chat.stoat.composables.screens.settings.RawUserOverview
 import chat.stoat.composables.screens.settings.UserButtons
 import chat.stoat.composables.sheets.SheetTile
 import chat.stoat.core.model.schemas.Profile
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,23 +81,28 @@ fun UserInfoSheet(
     var profile by remember { mutableStateOf<Profile?>(null) }
     var profileNotFound by remember { mutableStateOf(false) }
 
+    // Fetch user and profile in parallel for faster sheet load
     LaunchedEffect(userId) {
-        // Fetch user from API if not in cache
-        if (user == null && !fetchAttempted) {
-            fetchAttempted = true
-            try {
-                val fetched = fetchUser(userId)
-                StoatAPI.userCache[userId] = fetched
-            } catch (_: Exception) {
-                // Will show not-found state below
+        coroutineScope {
+            launch {
+                if (user == null && !fetchAttempted) {
+                    fetchAttempted = true
+                    try {
+                        val fetched = fetchUser(userId)
+                        StoatAPI.userCache[userId] = fetched
+                    } catch (_: Exception) {
+                        // Will show not-found state below
+                    }
+                }
             }
-        }
-        // Fetch profile
-        try {
-            fetchUserProfile(userId).let { profile = it }
-        } catch (e: Exception) {
-            if (e.message == "NotFound") {
-                profileNotFound = true
+            launch {
+                try {
+                    fetchUserProfile(userId).let { profile = it }
+                } catch (e: Exception) {
+                    if (e.message == "NotFound") {
+                        profileNotFound = true
+                    }
+                }
             }
         }
     }

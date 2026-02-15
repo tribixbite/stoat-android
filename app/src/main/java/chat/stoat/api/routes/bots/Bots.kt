@@ -15,7 +15,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 /** Full bot object returned by the API */
 @Serializable
@@ -62,41 +61,44 @@ suspend fun createBot(name: String): BotWithUserResponse {
     @Serializable
     data class Body(val name: String)
 
-    val response = StoatHttp.post("/bots/create".api()) {
+    val res = StoatHttp.post("/bots/create".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), Body(name)))
-    }.bodyAsText()
+    }
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), response)
+    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), body)
 }
 
 /** Fetch all bots owned by the current user. */
 suspend fun fetchOwnedBots(): OwnedBotsResponse {
-    val response = StoatHttp.get("/bots/@me".api()).bodyAsText()
+    val res = StoatHttp.get("/bots/@me".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(OwnedBotsResponse.serializer(), response)
+    return StoatJson.decodeFromString(OwnedBotsResponse.serializer(), body)
 }
 
 /** Fetch a specific bot by ID. Must be owner. */
 suspend fun fetchBot(botId: String): BotWithUserResponse {
-    val response = StoatHttp.get("/bots/$botId".api()).bodyAsText()
+    val res = StoatHttp.get("/bots/$botId".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), response)
+    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), body)
 }
 
 /** Edit a bot's properties (name, public, analytics, interactions_url). */
@@ -119,30 +121,27 @@ suspend fun editBot(
     )
 
     val body = Body(name, public, analytics, interactionsUrl, remove)
-    val response = StoatHttp.patch("/bots/$botId".api()) {
+    val res = StoatHttp.patch("/bots/$botId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), response)
+    return StoatJson.decodeFromString(BotWithUserResponse.serializer(), responseBody)
 }
 
 /** Delete a bot permanently. */
 suspend fun deleteBot(botId: String) {
-    val response = StoatHttp.delete("/bots/$botId".api())
-    if (response.status.value !in 200..299) {
-        val body = response.bodyAsText()
-        try {
-            val error = StoatJson.decodeFromString(StoatAPIError.serializer(), body)
-            throw Exception(error.type)
-        } catch (_: SerializationException) {
-            throw Exception("HTTP ${response.status.value}: $body")
-        }
+    val res = StoatHttp.delete("/bots/$botId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}: $body")
     }
 }
 
@@ -155,29 +154,26 @@ suspend fun inviteBot(botId: String, serverId: String? = null, groupId: String? 
     )
 
     val body = Body(server = serverId, group = groupId)
-    val response = StoatHttp.post("/bots/$botId/invite".api()) {
+    val res = StoatHttp.post("/bots/$botId/invite".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), body))
     }
-    if (response.status.value !in 200..299) {
-        val responseBody = response.bodyAsText()
-        try {
-            val error = StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody)
-            throw Exception(error.type)
-        } catch (_: SerializationException) {
-            throw Exception("HTTP ${response.status.value}: $responseBody")
-        }
+    if (res.status.value !in 200..299) {
+        val responseBody = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}: $responseBody")
     }
 }
 
 /** Fetch public bot info for invite page. */
 suspend fun fetchPublicBot(botId: String): PublicBot {
-    val response = StoatHttp.get("/bots/$botId/invite".api()).bodyAsText()
+    val res = StoatHttp.get("/bots/$botId/invite".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(PublicBot.serializer(), response)
+    return StoatJson.decodeFromString(PublicBot.serializer(), body)
 }

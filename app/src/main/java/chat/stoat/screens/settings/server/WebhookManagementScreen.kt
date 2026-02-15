@@ -65,6 +65,9 @@ import chat.stoat.core.model.schemas.Channel
 import chat.stoat.core.model.schemas.ChannelType
 import chat.stoat.core.model.schemas.Webhook
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 
 /**
@@ -90,19 +93,20 @@ fun WebhookManagementScreen(navController: NavController, serverId: String) {
         }?.filter { it.channelType == ChannelType.TextChannel } ?: emptyList()
     }
 
-    // Fetch webhooks from all text channels
+    // Fetch webhooks from all text channels in parallel
     LaunchedEffect(serverId) {
         try {
-            val allWebhooks = mutableListOf<Webhook>()
-            for (channel in textChannels) {
-                try {
-                    val channelWebhooks = withContext(Dispatchers.IO) {
-                        fetchChannelWebhooks(channel.id ?: "")
+            val allWebhooks = coroutineScope {
+                textChannels.map { channel ->
+                    async(Dispatchers.IO) {
+                        try {
+                            fetchChannelWebhooks(channel.id ?: "")
+                        } catch (_: Exception) {
+                            // May not have permission on all channels — skip
+                            emptyList()
+                        }
                     }
-                    allWebhooks.addAll(channelWebhooks)
-                } catch (_: Exception) {
-                    // May not have permission on all channels — skip
-                }
+                }.awaitAll().flatten()
             }
             webhooks = allWebhooks
         } catch (e: Exception) {

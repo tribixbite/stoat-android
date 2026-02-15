@@ -22,7 +22,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -122,7 +121,7 @@ suspend fun sendMessage(
 }
 
 suspend fun editMessage(channelId: String, messageId: String, newContent: String? = null) {
-    val response = StoatHttp.patch("/channels/$channelId/messages/$messageId".api()) {
+    val res = StoatHttp.patch("/channels/$channelId/messages/$messageId".api()) {
         contentType(ContentType.Application.Json)
         setBody(
             EditMessageBody(
@@ -130,13 +129,11 @@ suspend fun editMessage(channelId: String, messageId: String, newContent: String
             )
         )
     }
-        .bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -169,13 +166,15 @@ suspend fun fetchGroupParticipants(channelId: String): List<User> {
 }
 
 suspend fun createInvite(channelId: String): CreateInviteResponse {
-    val response = StoatHttp.post("/channels/$channelId/invites".api())
-        .bodyAsText()
+    val res = StoatHttp.post("/channels/$channelId/invites".api())
+    val body = res.bodyAsText()
 
-    val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-    if (error.type != "Server") throw Error(error.type)
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(CreateInviteResponse.serializer(), response)
+    return StoatJson.decodeFromString(CreateInviteResponse.serializer(), body)
 }
 
 suspend fun fetchSingleMessage(channelId: String, messageId: String): Message {
@@ -230,7 +229,7 @@ suspend fun patchChannel(
         body["nsfw"] = StoatJson.encodeToJsonElement(Boolean.serializer(), nsfw)
     }
 
-    val response = StoatHttp.patch("/channels/$channelId".api()) {
+    val res = StoatHttp.patch("/channels/$channelId".api()) {
         contentType(ContentType.Application.Json)
         setBody(
             StoatJson.encodeToString(
@@ -242,17 +241,15 @@ suspend fun patchChannel(
             )
         )
     }
-        .bodyAsText()
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
     if (!pure) {
-        val channel = StoatJson.decodeFromString(Channel.serializer(), response)
+        val channel = StoatJson.decodeFromString(Channel.serializer(), responseBody)
         StoatAPI.channelCache[channelId] = channel
     }
 }

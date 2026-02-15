@@ -11,7 +11,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 
 @Serializable
 data class RegistrationBody(
@@ -27,13 +26,10 @@ suspend fun register(body: RegistrationBody): RsResult<Unit, StoatAPIError> {
         contentType(ContentType.Application.Json)
     }
 
-    val responseContent = response.bodyAsText()
-
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent)
-        return RsResult.err(error)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (response.status.value !in 200..299) {
+        val responseContent = response.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent) } catch (_: Exception) { null }
+        return RsResult.err(error ?: StoatAPIError("HTTP ${response.status.value}"))
     }
 
     return RsResult.ok(Unit)

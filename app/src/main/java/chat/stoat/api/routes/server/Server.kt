@@ -24,7 +24,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.nullable
@@ -46,21 +45,18 @@ suspend fun fetchMembers(
     includeOffline: Boolean = false,
     pure: Boolean = false
 ): FetchMembersResponse {
-    val response = StoatHttp.get("/servers/$serverId/members".api()) {
+    val res = StoatHttp.get("/servers/$serverId/members".api()) {
         parameter("exclude_offline", !includeOffline)
     }
+    val body = res.bodyAsText()
 
-    val responseContent = response.bodyAsText()
-
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), responseContent)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 
     val membersResponse =
-        StoatJson.decodeFromString(FetchMembersResponse.serializer(), responseContent)
+        StoatJson.decodeFromString(FetchMembersResponse.serializer(), body)
 
     if (pure) {
         return membersResponse
@@ -80,16 +76,15 @@ suspend fun fetchMembers(
 }
 
 suspend fun fetchMember(serverId: String, userId: String, pure: Boolean = false): Member {
-    val response = StoatHttp.get("/servers/$serverId/members/$userId".api())
+    val res = StoatHttp.get("/servers/$serverId/members/$userId".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response.bodyAsText())
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    val member = StoatJson.decodeFromString(Member.serializer(), response.bodyAsText())
+    val member = StoatJson.decodeFromString(Member.serializer(), body)
 
     if (!pure) {
         member.id?.let {
@@ -122,18 +117,17 @@ suspend fun createServer(
 ): ServerWithChannelObjects {
     val body = ServerCreationBody(name, description, nsfw)
 
-    val response = StoatHttp.post("/servers/create".api()) {
+    val res = StoatHttp.post("/servers/create".api()) {
         setBody(StoatJson.encodeToString(ServerCreationBody.serializer(), body))
     }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response.bodyAsText())
-        throw Exception(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 
-    return StoatJson.decodeFromString(ServerWithChannelObjects.serializer(), response.bodyAsText())
+    return StoatJson.decodeFromString(ServerWithChannelObjects.serializer(), responseBody)
 }
 
 // --- Server editing ---
@@ -161,18 +155,19 @@ suspend fun editServer(
     )
     if (remove != null) body["remove"] = StoatJson.encodeToJsonElement(ListSerializer(String.serializer()), remove)
 
-    val response = StoatHttp.patch("/servers/$serverId".api()) {
+    val res = StoatHttp.patch("/servers/$serverId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(MapSerializer(String.serializer(), JsonElement.serializer()), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
     // Update local cache
-    val updated = StoatJson.decodeFromString(Server.serializer(), response)
+    val updated = StoatJson.decodeFromString(Server.serializer(), responseBody)
     StoatAPI.serverCache[serverId]?.let { existing ->
         StoatAPI.serverCache[serverId] = existing.mergeWithPartial(updated)
     }
@@ -269,17 +264,18 @@ suspend fun editMember(
     remove: List<String>? = null
 ): Member {
     val body = EditMemberBody(nickname, avatar, roles, timeout, remove)
-    val response = StoatHttp.patch("/servers/$serverId/members/$userId".api()) {
+    val res = StoatHttp.patch("/servers/$serverId/members/$userId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(EditMemberBody.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    val member = StoatJson.decodeFromString(Member.serializer(), response)
+    val member = StoatJson.decodeFromString(Member.serializer(), responseBody)
     StoatAPI.members.setMember(serverId, member)
     return member
 }
@@ -306,17 +302,18 @@ suspend fun createChannel(
     nsfw: Boolean = false
 ): Channel {
     val body = CreateChannelBody(name, type, description, nsfw)
-    val response = StoatHttp.post("/servers/$serverId/channels".api()) {
+    val res = StoatHttp.post("/servers/$serverId/channels".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(CreateChannelBody.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    val channel = StoatJson.decodeFromString(Channel.serializer(), response)
+    val channel = StoatJson.decodeFromString(Channel.serializer(), responseBody)
     channel.id?.let { StoatAPI.channelCache[it] = channel }
     return channel
 }
@@ -341,17 +338,18 @@ data class CreateRoleResponse(
  */
 suspend fun createRole(serverId: String, name: String, rank: Double? = null): CreateRoleResponse {
     val body = CreateRoleBody(name, rank)
-    val response = StoatHttp.post("/servers/$serverId/roles".api()) {
+    val res = StoatHttp.post("/servers/$serverId/roles".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(CreateRoleBody.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(CreateRoleResponse.serializer(), response)
+    return StoatJson.decodeFromString(CreateRoleResponse.serializer(), responseBody)
 }
 
 @Serializable
@@ -377,31 +375,33 @@ suspend fun editRole(
     remove: List<String>? = null
 ): Role {
     val body = EditRoleBody(name, colour, hoist, rank, remove)
-    val response = StoatHttp.patch("/servers/$serverId/roles/$roleId".api()) {
+    val res = StoatHttp.patch("/servers/$serverId/roles/$roleId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(EditRoleBody.serializer(), body))
-    }.bodyAsText()
+    }
+    val responseBody = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Role.serializer(), response)
+    return StoatJson.decodeFromString(Role.serializer(), responseBody)
 }
 
 /**
  * Fetch a single role by ID from a server.
  */
 suspend fun fetchRole(serverId: String, roleId: String): Role {
-    val response = StoatHttp.get("/servers/$serverId/roles/$roleId".api()).bodyAsText()
+    val res = StoatHttp.get("/servers/$serverId/roles/$roleId".api())
+    val body = res.bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Exception(error.type)
-    } catch (_: SerializationException) {}
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
-    return StoatJson.decodeFromString(Role.serializer(), response)
+    return StoatJson.decodeFromString(Role.serializer(), body)
 }
 
 /**

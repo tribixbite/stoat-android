@@ -15,7 +15,6 @@ import chat.stoat.api.api
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
-import kotlinx.serialization.SerializationException
 
 suspend fun putMessageReport(
     messageId: String,
@@ -31,7 +30,7 @@ suspend fun putMessageReport(
         additional_context = additionalContext
     )
 
-    val response = StoatHttp.post("/safety/report".api()) {
+    val res = StoatHttp.post("/safety/report".api()) {
         setBody(
             StoatJson.encodeToString(
                 FullMessageReport.serializer(),
@@ -39,13 +38,11 @@ suspend fun putMessageReport(
             )
         )
     }
-        .bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -63,7 +60,7 @@ suspend fun putServerReport(
         additional_context = additionalContext
     )
 
-    val response = StoatHttp.post("/safety/report".api()) {
+    val res = StoatHttp.post("/safety/report".api()) {
         setBody(
             StoatJson.encodeToString(
                 FullServerReport.serializer(),
@@ -71,13 +68,11 @@ suspend fun putServerReport(
             )
         )
     }
-        .bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -95,7 +90,7 @@ suspend fun putUserReport(
         additional_context = additionalContext
     )
 
-    val response = StoatHttp.post("/safety/report".api()) {
+    val res = StoatHttp.post("/safety/report".api()) {
         setBody(
             StoatJson.encodeToString(
                 FullUserReport.serializer(),
@@ -103,12 +98,10 @@ suspend fun putUserReport(
             )
         )
     }
-        .bodyAsText()
 
-    try {
-        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
-        throw Error(error.type)
-    } catch (e: SerializationException) {
-        // Not an error
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
     }
 }

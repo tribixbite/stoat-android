@@ -34,22 +34,24 @@ Server moderation features with full UI, only API stubs existed upstream.
 ### Server Management (Full UI + API)
 Complete server administration screens with permission-gated access.
 
-- **Server Settings screen** — edit name, description, icon upload with progress indicator
-- **Role Management screen** — create, edit (name + colour with hex preview), delete roles
+- **Server Settings screen** — edit name, description, icon upload, banner upload/remove via InlineMediaPicker with progress bar and Autumn upload
+- **Role Management screen** — create, edit (name, colour with hex preview, hoist toggle, rank editing), delete roles
 - **Ban Management screen** — view ban list with reasons, unban with confirmation
-- **Create Channel screen** — Text/Voice type selection, name, description
+- **Create Channel screen** — Text/Voice type selection, name, description, NSFW toggle (passes `nsfw` param to API)
+- **Channel Permissions screen** — full per-role permission overrides with tri-state toggles (Allow/Neutral/Deny), add role dialog, save to API
 - **Member nickname edit** — edit own or others' nicknames (permission-gated)
 - **Role assignment dialog** — toggle roles per member with visual checkmarks
 - **Server Settings entry point** — accessible from server context sheet (long-press server)
-- **11 API routes**: `PATCH /servers/{id}`, `POST/PATCH/DELETE roles`, `GET/DELETE bans`, `PATCH members`, `POST channels`, plus `uploadToAutumn()` for icons
+- **14 API routes**: `PATCH /servers/{id}`, `POST/PATCH/DELETE roles`, `PATCH /servers/{id}/roles/ranks`, `GET/DELETE bans`, `PATCH members`, `POST channels`, `PUT /channels/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/default`, plus `uploadToAutumn()` for icons and banners
 
 ### Permissions Editor
-Full default and per-role permission editor matching the web client UI.
+Full default and per-role permission editor matching the web client UI, for both server-level and channel-level permissions.
 
 - **Default Permissions screen** — checkbox toggles for all 32 permission bits on the default role
 - **Role Permissions screen** — tri-state segmented buttons (Allow / Neutral / Deny) per permission
+- **Channel Permissions screen** — per-role permission overrides for individual channels, with add-role dialog and save to API
 - **5 categories**: Admin (5), Members (8), Channels (6), Messaging (6), Voice (7)
-- **API routes**: `PUT /servers/{id}/permissions/default`, `PUT /servers/{id}/permissions/{roleId}`
+- **API routes**: `PUT /servers/{id}/permissions/default`, `PUT /servers/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/default`
 
 ### Notification Controls
 Granular notification management beyond upstream.
@@ -268,7 +270,7 @@ Prevents duplicate message sends from rapid tapping.
 
 Comprehensive technical documentation added (not present in upstream):
 
-- **[Feature Gap Analysis](/stoat-android/reference/fork-changes)** — tracks all 121 API endpoints, 65 implemented (54%), 56 remaining
+- **[Feature Gap Analysis](/stoat-android/reference/fork-changes)** — tracks all 121 API endpoints, 96 implemented (79%), 25 remaining
 - **[Discord Parity Plan](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/discord-parity-plan.md)** — 6-phase plan for all 56 remaining endpoints
 - **[Backend Required Features](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)** — 39 Discord features impossible without API changes
 - **[Revolt API Reference](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/revolt-api-reference.md)** — exhaustive 113+ endpoint reference with schemas, rate limits, WebSocket events
@@ -286,14 +288,14 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 | Category | Upstream | This Fork |
 |----------|----------|-----------|
-| Backend delta routes | ~55 | 96 total, 81 implemented (84%) |
+| Backend delta routes | ~55 | 96 total, 86 implemented (90%) |
 | Auth routes (authifier) | ~10 | 23 implemented (login, MFA, sessions, account) |
 | Missing: Bots | 0 | 0 — 7 endpoints planned |
 | Missing: Webhooks | 0 | 0 — 10 endpoints planned |
 | Missing: Other | 0 | 0 — 3 planned (user flags, end\_ring, policy ack) |
 | Search | None | Full (API + UI + filters + server-wide) |
 | Moderation UI | Partial | Kick, ban, pin (full UI) |
-| Server admin UI | None | Settings, roles, bans, channels, permissions, emoji, invites |
+| Server admin UI | None | Settings, roles (hoist/rank), bans, channels (NSFW), permissions (channel-level), emoji, invites, banner |
 | Account management | None | View, edit email/password, delete/disable, MFA/TOTP |
 | Social features | Basic | Mutual friends/servers, user profiles, mark-as-unread |
 | Notification controls | Basic | Mute/unmute, FCM management, placeholder detection |
@@ -302,9 +304,9 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 96/96 backend delta routes + full auth coverage. Currently 81/96 delta (84%) + 23 auth routes implemented. 20 remaining endpoints are bots (7), webhooks (10), and 3 misc. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 96/96 backend delta routes + full auth coverage. Currently 86/96 delta (90%) + 23 auth routes implemented. Phases 1-4 are substantially complete. 20 remaining endpoints are bots (7), webhooks (10), and 3 misc. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
 
-### Phase 1: Account & Security (High Priority)
+### Phase 1: Account & Security (High Priority) — 13/15 Done
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Account info display | `GET /auth/account` | **Done** |
@@ -314,23 +316,28 @@ Target: 96/96 backend delta routes + full auth coverage. Currently 81/96 delta (
 | Email verification | `POST /auth/account/reverify` | **Done** |
 | MFA setup (TOTP) | 7 endpoints | **Done** |
 
-### Phase 2: Server Admin Polish (High Priority)
+### Phase 2: Server Admin Polish (High Priority) — 17/18 Done
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Default permissions editor | `PUT /servers/{id}/permissions/default` | **Done** |
 | Role permissions editor | `PUT /servers/{id}/permissions/{roleId}` | **Done** |
+| Role hoist toggle + rank editing | `PATCH /servers/{id}/roles/{roleId}`, `PATCH /servers/{id}/roles/ranks` | **Done** |
+| Channel permissions (per-role overrides) | `PUT /channels/{id}/permissions/{roleId}`, default | **Done** (tri-state Allow/Neutral/Deny) |
+| Server banner upload/remove | `PATCH /servers/{id}` + Autumn upload | **Done** (InlineMediaPicker) |
+| Create channel NSFW toggle | `POST /servers/{id}/channels` | **Done** |
 | Server invite management | `GET /servers/{id}/invites`, `DELETE /invites/{id}` | **Done** |
 | Custom emoji management | `PUT/DELETE /custom/emoji/{id}` | **Done** |
 | Member search | `GET /servers/{id}/members` with query | **Done** (client-side) |
+| Fetch single role | `GET /servers/{id}/roles/{role_id}` | Planned |
 
-### Phase 3: Social Features (Medium Priority)
+### Phase 3: Social Features (Medium Priority) — 4/5 Done
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Mutual friends/servers | `GET /users/{id}/mutual` | **Done** |
 | DM channel listing | `GET /users/dms` | Existing |
 | User profile display | `GET /users/{id}/profile` | Existing (partial) |
 
-### Phase 4: Content Management (Medium Priority)
+### Phase 4: Content Management (Medium Priority) — Complete
 | Feature | Endpoints | Status |
 |---------|-----------|--------|
 | Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | **Done** |
@@ -421,3 +428,10 @@ All changes from upstream divergence point:
 | `104bed3` | fix | Category chevron direction (expanded=down, collapsed=right) |
 | `5d0a7e4` | docs | Rewrite README with clear UNOFFICIAL fork disclaimer |
 | `94b62ce` | feat | Server-wide message search via context sheet |
+| `9f7d001` | docs | Server-wide search, chevron fix, README update to fork-changes |
+| `e1fc408` | feat | Discord import wizard in server settings |
+| `c28356d` | docs | Privacy policy and terms of service pages |
+| `59dc49e` | feat | Bridge settings screen for Discord-Stoat channel linking |
+| `8c02958` | docs | Discord bridge architecture spec |
+| `604fe31` | fix | Allow cleartext HTTP in debug builds, fix bot OAuth permissions |
+| `76bb98b` | feat | Role hoist/rank editing, NSFW toggle, channel perms, server banner |

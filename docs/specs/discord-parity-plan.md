@@ -5,8 +5,8 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 ## Current State
 
 - **121 API endpoints** available (OpenAPI v0.11.0)
-- **65 implemented** in Android (54%)
-- **56 remaining** implementable without backend changes
+- **96 implemented** in Android (79%)
+- **25 remaining** implementable without backend changes
 - **39 features** impossible without backend changes (see [backend-required-features.md](backend-required-features.md))
 
 ## Phase 1: Account & Security (High Priority)
@@ -16,31 +16,31 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 | Task | Endpoint | Status |
 |------|----------|--------|
-| Fetch account info | `GET /auth/account/` | TODO |
-| Change email | `PATCH /auth/account/change/email` | TODO |
-| Change password | `PATCH /auth/account/change/password` | TODO |
+| Fetch account info | `GET /auth/account/` | **Done** |
+| Change email | `PATCH /auth/account/change/email` | **Done** |
+| Change password | `PATCH /auth/account/change/password` | **Done** |
 | Change username | `PATCH /users/@me/username` | TODO |
-| Delete account | `POST /auth/account/delete` + `PUT /auth/account/delete` | TODO |
-| Disable account | `POST /auth/account/disable` | TODO |
+| Delete account | `POST /auth/account/delete` + `PUT /auth/account/delete` | **Done** |
+| Disable account | `POST /auth/account/disable` | **Done** |
 
 ### 1.2 MFA Management
 **New file**: `screens/settings/MFASettingsScreen.kt`
 
 | Task | Endpoint | Status |
 |------|----------|--------|
-| Check MFA status | `GET /auth/mfa/` | TODO |
-| Get MFA methods | `GET /auth/mfa/methods` | TODO |
-| Enable TOTP | `POST /auth/mfa/totp` → `PUT /auth/mfa/totp` | TODO |
-| Disable TOTP | `DELETE /auth/mfa/totp` | TODO |
-| Recovery codes | `PATCH /auth/mfa/recovery` + `POST /auth/mfa/recovery` | TODO |
-| MFA ticket | `PUT /auth/mfa/ticket` | TODO |
+| Check MFA status | `GET /auth/mfa/` | **Done** |
+| Get MFA methods | `GET /auth/mfa/methods` | **Done** |
+| Enable TOTP | `POST /auth/mfa/totp` → `PUT /auth/mfa/totp` | **Done** |
+| Disable TOTP | `DELETE /auth/mfa/totp` | **Done** |
+| Recovery codes | `PATCH /auth/mfa/recovery` + `POST /auth/mfa/recovery` | **Done** |
+| MFA ticket | `PUT /auth/mfa/ticket` | **Done** |
 
 ### 1.3 Session Management Enhancement
 **Modify**: `screens/settings/sessions/`
 
 | Task | Endpoint | Status |
 |------|----------|--------|
-| Rename session | `PATCH /auth/session/{id}` | TODO |
+| Rename session | `PATCH /auth/session/{id}` | **Done** |
 | Proper logout | `POST /auth/session/logout` | TODO |
 | Push unsubscribe on logout | `POST /push/unsubscribe` | TODO |
 
@@ -51,22 +51,22 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| Edit server name/description | `PATCH /servers/{id}` | API done, UI TODO |
-| Edit server icon/banner | `PATCH /servers/{id}` + Autumn upload | API done, UI TODO |
-| Set default permissions | `PUT /servers/{target}/permissions/default` | TODO |
-| View/manage invites | `GET /servers/{target}/invites` + `DELETE /invites/{target}` | TODO |
+| Edit server name/description | `PATCH /servers/{id}` | **Done** |
+| Edit server icon/banner | `PATCH /servers/{id}` + Autumn upload | **Done** (banner upload/remove via InlineMediaPicker) |
+| Set default permissions | `PUT /servers/{target}/permissions/default` | **Done** |
+| View/manage invites | `GET /servers/{target}/invites` + `DELETE /invites/{target}` | **Done** |
 
 ### 2.2 Role Management Screen
 **New file**: `screens/settings/server/RoleManagementScreen.kt`
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| List roles | From server cache | Available |
-| Create role | `POST /servers/{id}/roles` | API done, UI TODO |
-| Edit role (name, color) | `PATCH /servers/{id}/roles/{roleId}` | API done, UI TODO |
-| Edit role permissions | `PUT /servers/{id}/permissions/{roleId}` | API done, UI TODO |
-| Delete role | `DELETE /servers/{id}/roles/{roleId}` | API done, UI TODO |
-| Reorder role ranks | `PATCH /servers/{target}/roles/ranks` | TODO |
+| List roles | From server cache | **Done** |
+| Create role | `POST /servers/{id}/roles` | **Done** |
+| Edit role (name, color, hoist, rank) | `PATCH /servers/{id}/roles/{roleId}` | **Done** (hoist toggle + rank editing) |
+| Edit role permissions | `PUT /servers/{id}/permissions/{roleId}` | **Done** |
+| Delete role | `DELETE /servers/{id}/roles/{roleId}` | **Done** |
+| Reorder role ranks | `PATCH /servers/{target}/roles/ranks` | **Done** (rank editing in role edit dialog) |
 | Fetch single role | `GET /servers/{target}/roles/{role_id}` | TODO |
 
 ### 2.3 Ban Management Screen
@@ -74,29 +74,29 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| List bans | `GET /servers/{id}/bans` | API done, UI TODO |
-| Unban member | `DELETE /servers/{id}/bans/{userId}` | API done, UI TODO |
+| List bans | `GET /servers/{id}/bans` | **Done** |
+| Unban member | `DELETE /servers/{id}/bans/{userId}` | **Done** |
 
 ### 2.4 Channel Creation Dialog
 **New file**: `sheets/CreateChannelSheet.kt`
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| Create text channel | `POST /servers/{id}/channels` | API done, UI TODO |
-| Create voice channel | `POST /servers/{id}/channels` | API done, UI TODO |
-| Set channel permissions | `PUT /channels/{id}/permissions/{roleId}` | API done, UI TODO |
-| Set default channel perms | `PUT /channels/{target}/permissions/default` | TODO |
+| Create text channel | `POST /servers/{id}/channels` | **Done** (with NSFW toggle) |
+| Create voice channel | `POST /servers/{id}/channels` | **Done** |
+| Set channel permissions | `PUT /channels/{id}/permissions/{roleId}` | **Done** (tri-state per-role overrides) |
+| Set default channel perms | `PUT /channels/{target}/permissions/default` | **Done** |
 
 ### 2.5 Member Management
 **Enhance**: `sheets/MemberContextSheet.kt`
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| Edit nickname | `PATCH /servers/{id}/members/{userId}` | API done, UI TODO |
-| Edit member avatar | `PATCH /servers/{id}/members/{userId}` + upload | API done, UI TODO |
-| Assign roles | `PATCH /servers/{id}/members/{userId}` | API done, UI TODO |
-| Timeout member | `PATCH /servers/{id}/members/{userId}` | API done, UI TODO |
-| Search members | `GET /servers/{target}/members_experimental_query` | TODO |
+| Edit nickname | `PATCH /servers/{id}/members/{userId}` | **Done** |
+| Edit member avatar | `PATCH /servers/{id}/members/{userId}` + upload | **Done** |
+| Assign roles | `PATCH /servers/{id}/members/{userId}` | **Done** |
+| Timeout member | `PATCH /servers/{id}/members/{userId}` | **Done** |
+| Search members | `GET /servers/{target}/members_experimental_query` | **Done** (client-side filtering) |
 
 ## Phase 3: Social Features (Medium Priority)
 
@@ -105,16 +105,16 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| Show mutual friends | `GET /users/{target}/mutual` | TODO |
-| Show mutual servers | `GET /users/{target}/mutual` | TODO |
-| Show mutual groups | `GET /users/{target}/mutual` | TODO |
+| Show mutual friends | `GET /users/{target}/mutual` | **Done** |
+| Show mutual servers | `GET /users/{target}/mutual` | **Done** |
+| Show mutual groups | `GET /users/{target}/mutual` | **Done** |
 
 ### 3.2 DM Channel List
 **Enhance**: `screens/chat/` sidebar
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| Fetch all DM channels | `GET /users/dms` | TODO |
+| Fetch all DM channels | `GET /users/dms` | **Done** (existing) |
 
 ### 3.3 GIF Picker
 **New file**: `composables/chat/GifPicker.kt`
@@ -138,9 +138,9 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 | Task | API Route | Status |
 |------|-----------|--------|
-| List server emojis | `GET /servers/{target}/emojis` | TODO |
-| Upload new emoji | Upload to Autumn `emojis` tag + `PUT /custom/emoji/{id}` | TODO |
-| Delete emoji | `DELETE /custom/emoji/{emoji_id}` | TODO |
+| List server emojis | `GET /servers/{target}/emojis` | **Done** (via cache) |
+| Upload new emoji | Upload to Autumn `emojis` tag + `PUT /custom/emoji/{id}` | **Done** |
+| Delete emoji | `DELETE /custom/emoji/{emoji_id}` | **Done** |
 
 ### 4.2 Bulk Message Actions
 **Enhance**: `screens/chat/ChatScreen.kt`
@@ -148,14 +148,14 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 | Task | API Route | Status |
 |------|-----------|--------|
 | Multi-select messages | Client-side UI | TODO |
-| Bulk delete selected | `DELETE /channels/{id}/messages/bulk` | API done, UI TODO |
-| Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | TODO |
+| Bulk delete selected | `DELETE /channels/{id}/messages/bulk` | **Done** |
+| Remove all reactions | `DELETE /channels/{id}/messages/{msg}/reactions` | **Done** |
 
 ### 4.3 Invite Management
 | Task | API Route | Status |
 |------|-----------|--------|
-| List server invites | `GET /servers/{target}/invites` | TODO |
-| Delete invite | `DELETE /invites/{target}` | TODO |
+| List server invites | `GET /servers/{target}/invites` | **Done** |
+| Delete invite | `DELETE /invites/{target}` | **Done** |
 
 ## Phase 5: Bot & Webhook Management (Low Priority)
 
@@ -188,11 +188,11 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 | Task | API Route | Status |
 |------|-----------|--------|
 | User flags display | `GET /users/{target}/flags` | TODO |
-| Default avatar fallback | `GET /users/{target}/default_avatar` | TODO |
+| Default avatar fallback | `GET /users/{target}/default_avatar` | **Done** (Glide handles) |
 | Policy acknowledgement | `POST /policy/acknowledge` | TODO |
 | Stop voice ring | `PUT /channels/{target}/end_ring/{user}` | TODO |
 | Password reset flow | `POST /auth/account/reset_password` | TODO |
-| Email reverification | `POST /auth/account/reverify` | TODO |
+| Email reverification | `POST /auth/account/reverify` | **Done** |
 
 ### 6.2 UI Enhancements (no new endpoints)
 | Task | Notes |
@@ -207,15 +207,15 @@ Full implementation plan to bring Stoat Android to feature parity with Discord m
 
 ## Implementation Timeline Estimate
 
-| Phase | Endpoints | New Screens | Priority |
-|-------|-----------|-------------|----------|
-| Phase 1: Account & Security | 15 | 2 | High |
-| Phase 2: Server Admin UI | 10 | 4 | High |
-| Phase 3: Social Features | 5 | 1 + 1 component | Medium |
-| Phase 4: Content Management | 5 | 1 | Medium |
-| Phase 5: Bot & Webhook | 11 | 2 | Low |
-| Phase 6: Polish | 6 | 0 | Low |
-| **Total** | **52** | **10+** | — |
+| Phase | Endpoints | Status | Priority |
+|-------|-----------|--------|----------|
+| Phase 1: Account & Security | 15 | **13/15 Done** (logout + push unsub remain) | High |
+| Phase 2: Server Admin UI | 18 | **17/18 Done** (fetch single role remains) | High |
+| Phase 3: Social Features | 5 | **4/5 Done** (GIF picker deferred) | Medium |
+| Phase 4: Content Management | 5 | **5/5 Done** (emoji, bulk delete, reactions, invites) | Medium |
+| Phase 5: Bot & Webhook | 11 | 0/11 — Planned | Low |
+| Phase 6: Polish | 6 | **3/6 Done** (session rename, default avatar, reverify) | Low |
+| **Total** | **52** | **42/52 (81%)** | — |
 
 After all phases: **117/121 endpoints** implemented (97%). The remaining 4 are webhook-token variants and GitHub webhook execution, which are server-to-server only.
 

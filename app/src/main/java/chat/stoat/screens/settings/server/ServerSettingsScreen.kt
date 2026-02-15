@@ -34,6 +34,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -262,11 +263,13 @@ fun ServerSettingsScreen(
     } ?: 0L
     val canManage = server?.owner == StoatAPI.selfId || permissions has PermissionBit.ManageServer
 
-    val serverInfoUpdated by derivedStateOf {
-        server?.let { s ->
-            (s.name ?: "") != viewModel.serverName ||
-                    (s.description ?: "") != viewModel.serverDescription
-        } ?: false
+    val serverInfoUpdated by remember(server, viewModel.serverName, viewModel.serverDescription) {
+        derivedStateOf {
+            server?.let { s ->
+                (s.name ?: "") != viewModel.serverName ||
+                        (s.description ?: "") != viewModel.serverDescription
+            } ?: false
+        }
     }
 
     Scaffold(

@@ -70,40 +70,49 @@ object ImageProcessor {
         uploadType: AutumnUploadType,
         cacheDir: File = context.cacheDir
     ): ProcessedImage? {
+        // Track all intermediate bitmaps for cleanup — recycle each as soon as
+        // possible to minimize peak memory (critical for large banners/backgrounds).
+        var bitmap: Bitmap? = null
+        var rotated: Bitmap? = null
+        var cropped: Bitmap? = null
+        var resized: Bitmap? = null
         try {
             // Step 1: Decode bitmap with downsampling for very large images
-            val bitmap = decodeSampledBitmap(context, uri, uploadType.maxDimension)
+            bitmap = decodeSampledBitmap(context, uri, uploadType.maxDimension)
                 ?: run {
                     Log.e(TAG, "Failed to decode bitmap from $uri")
                     return null
                 }
 
             // Step 2: Apply EXIF rotation
-            val rotated = applyExifRotation(context, uri, bitmap)
+            rotated = applyExifRotation(context, uri, bitmap)
+            if (rotated !== bitmap) { bitmap.recycle(); bitmap = null }
 
             // Step 3: Center-crop to target aspect ratio (if required)
-            val cropped = uploadType.targetAspectRatio?.let { ratio ->
-                centerCrop(rotated, ratio)
+            cropped = uploadType.targetAspectRatio?.let { ratio ->
+                centerCrop(rotated!!, ratio)
             } ?: rotated
+            if (cropped !== rotated) { rotated?.recycle(); rotated = null }
 
             // Step 4: Resize to max dimensions
-            val resized = resizeToMax(cropped, uploadType.maxDimension)
+            resized = resizeToMax(cropped!!, uploadType.maxDimension)
+            if (resized !== cropped) { cropped.recycle(); cropped = null }
 
             // Step 5: Compress as WebP with file size enforcement
             val outputFile = File(cacheDir, "processed_${System.currentTimeMillis()}.webp")
-            val compressed = compressToWebP(resized, outputFile, uploadType.maxBytes)
+            val compressed = compressToWebP(resized!!, outputFile, uploadType.maxBytes)
+
+            val finalWidth = resized!!.width
+            val finalHeight = resized!!.height
+
+            // Recycle the final bitmap before returning
+            resized!!.recycle(); resized = null
+
             if (!compressed) {
                 Log.e(TAG, "Failed to compress within ${uploadType.maxBytes} bytes")
-                // Clean up intermediate bitmaps
-                recycleSafe(bitmap, rotated, cropped, resized)
+                outputFile.delete()
                 return null
             }
-
-            val finalWidth = resized.width
-            val finalHeight = resized.height
-
-            // Clean up intermediate bitmaps
-            recycleSafe(bitmap, rotated, cropped, resized)
 
             return ProcessedImage(
                 file = outputFile,
@@ -112,9 +121,17 @@ object ImageProcessor {
                 sizeBytes = outputFile.length(),
                 mimeType = "image/webp"
             )
-        } catch (e: Exception) {
-            Log.e(TAG, "Image processing failed", e)
+        } catch (e: Throwable) {
+            // Catch Throwable (not just Exception) to handle OutOfMemoryError —
+            // large images (especially banners at 2048px) can OOM during processing.
+            Log.e(TAG, "Image processing failed: ${e.javaClass.simpleName}", e)
             return null
+        } finally {
+            // Ensure all intermediate bitmaps are freed even on error
+            listOfNotNull(bitmap, rotated, cropped, resized)
+                .distinct()
+                .filter { !it.isRecycled }
+                .forEach { it.recycle() }
         }
     }
 
@@ -143,8 +160,12 @@ object ImageProcessor {
     private fun calculateInSampleSize(width: Int, height: Int, maxDimension: Int): Int {
         var sampleSize = 1
         val largerDimension = maxOf(width, height)
-        // Double the sample size as long as the result is still bigger than target
-        while (largerDimension / (sampleSize * 2) >= maxDimension) {
+        // Downsample when decoded size would exceed 1.5x the target dimension.
+        // This prevents OOM on large camera photos (e.g. 4000x3000 at maxDim=2048
+        // would decode at full size = 48MB ARGB_8888) while preserving quality for
+        // images that are only slightly above the target.
+        val threshold = maxDimension * 3 / 2
+        while (largerDimension / sampleSize > threshold) {
             sampleSize *= 2
         }
         return sampleSize
@@ -203,24 +224,21 @@ object ImageProcessor {
         val (cropWidth, cropHeight) = if (srcRatio > targetRatio) {
             // Source is wider — crop horizontally
             val newWidth = (bitmap.height * targetRatio).roundToInt()
+                .coerceIn(1, bitmap.width)
             newWidth to bitmap.height
         } else {
             // Source is taller — crop vertically
             val newHeight = (bitmap.width / targetRatio).roundToInt()
+                .coerceIn(1, bitmap.height)
             bitmap.width to newHeight
         }
 
-        val x = (bitmap.width - cropWidth) / 2
-        val y = (bitmap.height - cropHeight) / 2
+        // Ensure crop region stays within bitmap bounds: x+w ≤ width, y+h ≤ height
+        val x = ((bitmap.width - cropWidth) / 2).coerceIn(0, bitmap.width - cropWidth)
+        val y = ((bitmap.height - cropHeight) / 2).coerceIn(0, bitmap.height - cropHeight)
 
         return try {
-            Bitmap.createBitmap(
-                bitmap,
-                x.coerceAtLeast(0),
-                y.coerceAtLeast(0),
-                cropWidth.coerceAtMost(bitmap.width),
-                cropHeight.coerceAtMost(bitmap.height)
-            )
+            Bitmap.createBitmap(bitmap, x, y, cropWidth, cropHeight)
         } catch (e: Exception) {
             Log.w(TAG, "Center crop failed, using original", e)
             bitmap
@@ -292,17 +310,4 @@ object ImageProcessor {
         return false
     }
 
-    /**
-     * Safely recycle bitmaps that are no longer needed.
-     * Skips duplicate references (e.g. when no crop was applied, cropped == original).
-     */
-    private fun recycleSafe(vararg bitmaps: Bitmap) {
-        val seen = mutableSetOf<Bitmap>()
-        for (bm in bitmaps) {
-            if (bm !in seen && !bm.isRecycled) {
-                bm.recycle()
-                seen.add(bm)
-            }
-        }
-    }
 }

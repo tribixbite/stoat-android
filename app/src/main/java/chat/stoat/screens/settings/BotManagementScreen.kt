@@ -3,6 +3,7 @@ package chat.stoat.screens.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -26,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,8 +39,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,14 +57,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import chat.stoat.R
+import chat.stoat.api.STOAT_FILES
 import chat.stoat.api.routes.bots.BotInfo
 import chat.stoat.api.routes.bots.OwnedBotsResponse
 import chat.stoat.api.routes.bots.createBot
 import chat.stoat.api.routes.bots.deleteBot
 import chat.stoat.api.routes.bots.editBot
+import chat.stoat.api.routes.bots.editBotUserProfile
 import chat.stoat.api.routes.bots.fetchOwnedBots
+import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
+import chat.stoat.api.routes.microservices.autumn.ImageProcessor
+import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
+import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.core.model.schemas.User
+import io.ktor.http.ContentType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -260,6 +272,13 @@ fun BotManagementScreen(navController: NavController) {
                                             if (it.id == updated.id) updated else it
                                         }
                                     )
+                                },
+                                onUserUpdated = { updatedUser ->
+                                    botsResponse = botsResponse?.copy(
+                                        users = botsResponse!!.users.map {
+                                            if (it.id == updatedUser.id) updatedUser else it
+                                        }
+                                    )
                                 }
                             )
                         }
@@ -276,19 +295,30 @@ private fun BotListItem(
     user: User?,
     context: Context,
     onDeleted: () -> Unit,
-    onUpdated: (BotInfo) -> Unit
+    onUpdated: (BotInfo) -> Unit,
+    onUserUpdated: (User) -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
-    // Editable state
+    // Editable state — bot properties
     var editName by remember(bot) { mutableStateOf(bot.name ?: "") }
     var editPublic by remember(bot) { mutableStateOf(bot.public ?: false) }
     var editAnalytics by remember(bot) { mutableStateOf(bot.analytics ?: false) }
     var editInteractionsUrl by remember(bot) { mutableStateOf(bot.interactionsUrl ?: "") }
     var editError by remember { mutableStateOf<String?>(null) }
+
+    // Editable state — bot user profile (requires bot token)
+    var editDescription by remember(user) { mutableStateOf(user?.profile?.content ?: "") }
+    var avatarModel by remember(user) {
+        mutableStateOf<Any?>(user?.avatar?.let { "$STOAT_FILES/avatars/${it.id}" })
+    }
+    var isAvatarUploading by remember { mutableStateOf(false) }
+    var avatarUploadProgress by remember { mutableFloatStateOf(0f) }
+    var isSavingProfile by remember { mutableStateOf(false) }
 
     // Delete confirmation dialog
     if (showDeleteDialog) {
@@ -486,6 +516,104 @@ private fun BotListItem(
 
                 Spacer(Modifier.height(12.dp))
 
+                // Avatar picker — uses bot token to upload
+                if (bot.token != null) {
+                    Text(
+                        stringResource(R.string.bot_management_avatar),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        InlineMediaPicker(
+                            currentModel = avatarModel,
+                            circular = true,
+                            useAvatarCircularity = true,
+                            mimeType = "image/*",
+                            canRemove = avatarModel != null,
+                            enabled = !isAvatarUploading,
+                            onPick = { uri ->
+                                avatarModel = uri
+                                isAvatarUploading = true
+                                avatarUploadProgress = 0f
+                                editError = null
+                                scope.launch {
+                                    try {
+                                        val processed = withContext(Dispatchers.Default) {
+                                            ImageProcessor.processForUpload(
+                                                context, uri, AutumnUploadType.AVATAR
+                                            )
+                                        } ?: throw Exception("Failed to process image")
+
+                                        val autumnId = uploadToAutumn(
+                                            processed.file,
+                                            "avatar.webp",
+                                            "avatars",
+                                            ContentType.Image.Any,
+                                            onProgress = { soFar, outOf ->
+                                                avatarUploadProgress = soFar.toFloat() / outOf.toFloat()
+                                            }
+                                        )
+                                        val updatedUser = withContext(Dispatchers.IO) {
+                                            editBotUserProfile(bot.token, avatar = autumnId)
+                                        }
+                                        processed.file.delete()
+                                        onUserUpdated(updatedUser)
+                                        avatarModel = "$STOAT_FILES/avatars/$autumnId"
+                                    } catch (e: Exception) {
+                                        editError = e.message
+                                    }
+                                    isAvatarUploading = false
+                                }
+                            },
+                            onRemove = {
+                                avatarModel = null
+                                editError = null
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) {
+                                            editBotUserProfile(
+                                                bot.token,
+                                                remove = listOf("Avatar")
+                                            )
+                                        }
+                                    } catch (e: Exception) {
+                                        editError = e.message
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    AnimatedVisibility(visible = isAvatarUploading) {
+                        LinearProgressIndicator(
+                            progress = { avatarUploadProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Description editor — uses bot token to PATCH /users/@me
+                    OutlinedTextField(
+                        value = editDescription,
+                        onValueChange = { editDescription = it },
+                        label = { Text(stringResource(R.string.bot_management_description)) },
+                        placeholder = { Text(stringResource(R.string.bot_management_description_hint)) },
+                        singleLine = false,
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+                }
+
                 if (editError != null) {
                     Text(
                         editError ?: "",
@@ -497,17 +625,39 @@ private fun BotListItem(
 
                 // Action buttons
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    // Save changes
-                    val hasChanges = editName != (bot.name ?: "") ||
+                    // Save changes — includes both bot properties and user profile
+                    val hasBotChanges = editName != (bot.name ?: "") ||
                             editPublic != (bot.public ?: false) ||
                             editAnalytics != (bot.analytics ?: false) ||
                             editInteractionsUrl != (bot.interactionsUrl ?: "")
+                    val hasProfileChanges = editDescription != (user?.profile?.content ?: "")
+                    val hasChanges = hasBotChanges || hasProfileChanges
 
                     TextButton(
-                        onClick = { isEditing = true },
-                        enabled = hasChanges && !isEditing && editName.length in 2..32
+                        onClick = {
+                            isEditing = true
+                            // Save profile changes (description) via bot token in parallel
+                            if (hasProfileChanges && bot.token != null) {
+                                isSavingProfile = true
+                                scope.launch {
+                                    try {
+                                        val updatedUser = withContext(Dispatchers.IO) {
+                                            editBotUserProfile(
+                                                bot.token,
+                                                bio = editDescription
+                                            )
+                                        }
+                                        onUserUpdated(updatedUser)
+                                    } catch (e: Exception) {
+                                        editError = e.message
+                                    }
+                                    isSavingProfile = false
+                                }
+                            }
+                        },
+                        enabled = hasChanges && !isEditing && !isSavingProfile && editName.length in 2..32
                     ) {
-                        if (isEditing) {
+                        if (isEditing || isSavingProfile) {
                             CircularProgressIndicator(
                                 modifier = Modifier.height(16.dp).width(16.dp),
                                 strokeWidth = 2.dp

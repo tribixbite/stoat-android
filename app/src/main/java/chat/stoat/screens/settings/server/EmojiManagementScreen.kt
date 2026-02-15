@@ -58,14 +58,18 @@ import chat.stoat.api.STOAT_FILES
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.routes.custom.createEmoji
 import chat.stoat.api.routes.custom.deleteEmoji
+import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
+import chat.stoat.api.routes.microservices.autumn.ImageProcessor
+import chat.stoat.api.routes.microservices.autumn.ProcessedImage
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.composables.generic.ListHeader
 import chat.stoat.core.model.schemas.Emoji
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import io.ktor.http.ContentType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalGlideComposeApi::class)
 @Composable
@@ -262,9 +266,11 @@ fun EmojiManagementScreen(
 }
 
 /**
- * Dialog for adding a new emoji. User picks an image, enters a name,
- * uploads to autumn/emojis, then creates the emoji via PUT.
+ * Dialog for adding a new emoji. User picks an image, sees a preview
+ * (processed to fit emoji constraints: 512px max, 500KB WebP),
+ * enters a name, then uploads to autumn/emojis.
  */
+@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 private fun AddEmojiDialog(
     context: Context,
@@ -275,15 +281,33 @@ private fun AddEmojiDialog(
     val scope = rememberCoroutineScope()
     var emojiName by remember { mutableStateOf("") }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var processedImage by remember { mutableStateOf<ProcessedImage?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableFloatStateOf(0f) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // File picker launcher
+    // File picker launcher — processes image immediately after selection
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
-        selectedUri = uri
+        if (uri != null) {
+            selectedUri = uri
+            isProcessing = true
+            error = null
+            processedImage = null
+            scope.launch {
+                val result = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.EMOJI)
+                }
+                if (result != null) {
+                    processedImage = result
+                } else {
+                    error = "Failed to process image"
+                }
+                isProcessing = false
+            }
+        }
     }
 
     AlertDialog(
@@ -307,21 +331,41 @@ private fun AddEmojiDialog(
                 ) {
                     Button(
                         onClick = { launcher.launch("image/*") },
-                        enabled = !isUploading
+                        enabled = !isUploading && !isProcessing
                     ) {
                         Text(stringResource(R.string.emoji_pick_image))
                     }
-                    if (selectedUri != null) {
-                        Icon(
-                            painter = painterResource(R.drawable.icn_check_24dp),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            stringResource(R.string.emoji_image_selected),
-                            style = MaterialTheme.typography.bodySmall
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
                         )
                     }
+                }
+
+                // Image preview with dimensions and file size
+                processedImage?.let { img ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        GlideImage(
+                            model = img.file,
+                            contentDescription = "Emoji preview",
+                            modifier = Modifier
+                                .size(96.dp)
+                                .padding(4.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    Text(
+                        "${img.width}×${img.height} · ${img.sizeBytes / 1024}KB · WebP",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
 
                 AnimatedVisibility(visible = isUploading) {
@@ -346,39 +390,29 @@ private fun AddEmojiDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val uri = selectedUri ?: return@Button
+                    val img = processedImage ?: return@Button
                     if (emojiName.isBlank()) return@Button
 
                     isUploading = true
                     error = null
                     scope.launch {
                         try {
-                            // Copy file to cache for upload
-                            val mFile = File(context.cacheDir, uri.lastPathSegment ?: "emoji")
-                            mFile.outputStream().use { output ->
-                                context.contentResolver.openInputStream(uri)?.use { input ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            val mime = context.contentResolver.getType(uri)
-
-                            // Upload to autumn/emojis
                             val autumnId = uploadToAutumn(
-                                mFile,
-                                uri.lastPathSegment ?: "emoji",
+                                img.file,
+                                "emoji.webp",
                                 "emojis",
-                                ContentType.parse(mime ?: "image/*"),
+                                ContentType.Image.Any,
                                 onProgress = { soFar, outOf ->
                                     uploadProgress = soFar.toFloat() / outOf.toFloat()
                                 }
                             )
 
-                            // Create emoji via API
                             val newEmoji = createEmoji(
                                 emojiId = autumnId,
                                 name = emojiName,
                                 serverId = serverId
                             )
+                            img.file.delete()
                             onCreated(newEmoji)
                             Toast.makeText(context, context.getString(R.string.emoji_created), Toast.LENGTH_SHORT).show()
                         } catch (e: Exception) {
@@ -387,7 +421,7 @@ private fun AddEmojiDialog(
                         isUploading = false
                     }
                 },
-                enabled = !isUploading && emojiName.isNotBlank() && selectedUri != null
+                enabled = !isUploading && !isProcessing && emojiName.isNotBlank() && processedImage != null
             ) {
                 Text(stringResource(R.string.emoji_add_button))
             }

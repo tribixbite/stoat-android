@@ -83,80 +83,90 @@ class MemberListSheetViewModel @Inject constructor(
             ).members
             val channel = StoatAPI.channelCache[channelId] ?: return@launch
 
-            val categories = mutableMapOf<String, List<Member>>()
+            // Compute categorization off main thread — large servers have 1000+ members
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                val categories = mutableMapOf<String, List<Member>>()
 
-            val offlineCategoryName = context.getString(R.string.status_offline)
-            val defaultCategoryName = context.getString(R.string.status_online)
+                val offlineCategoryName = context.getString(R.string.status_offline)
+                val defaultCategoryName = context.getString(R.string.status_online)
 
-            memberList.forEach { member ->
-                val user = StoatAPI.userCache[member.id!!.user] ?: run {
-                    Log.w(
-                        "MemberListSheet",
-                        "User ${member.id!!.user} found in member list of server $serverId but not in user cache"
+                memberList.forEach { member ->
+                    val user = StoatAPI.userCache[member.id!!.user] ?: run {
+                        Log.w(
+                            "MemberListSheet",
+                            "User ${member.id!!.user} found in member list of server $serverId but not in user cache"
+                        )
+                        return@forEach
+                    }
+
+                    if (user.online == false) {
+                        categories[offlineCategoryName] =
+                            (categories[offlineCategoryName] ?: listOf()) + member
+                        return@forEach
+                    }
+
+                    val highestHoistedRole =
+                        Roles.resolveHighestRole(serverId, member.id!!.user, hoisted = true)
+
+                    val category = if (highestHoistedRole != null) {
+                        highestHoistedRole.name ?: context.getString(R.string.unknown)
+                    } else {
+                        defaultCategoryName
+                    }
+
+                    if (!Roles.permissionFor(channel, user, member)
+                            .hasPermission(PermissionBit.ViewChannel)
+                    ) {
+                        return@forEach
+                    }
+
+                    categories[category] = (categories[category] ?: listOf()) + member
+                }
+
+                // Build flat item list
+                val items = mutableListOf<MemberListSheetItem>()
+
+                // Hoisted roles
+                Roles.inOrder(serverId) { it.hoist == true }.forEach { role ->
+                    val members = categories[role.name] ?: return@forEach
+                    items.add(MemberListSheetItem.CategoryItem(role.name ?: "", members.size))
+                    members.forEach { member ->
+                        items.add(MemberListSheetItem.MemberItem(member))
+                    }
+                }
+
+                // Online
+                if (!categories[defaultCategoryName].isNullOrEmpty()) {
+                    items.add(
+                        MemberListSheetItem.CategoryItem(
+                            defaultCategoryName,
+                            categories[defaultCategoryName]?.size ?: 0
+                        )
                     )
-                    return@forEach
+                    categories[defaultCategoryName]?.forEach { member ->
+                        items.add(MemberListSheetItem.MemberItem(member))
+                    }
                 }
 
-                if (user.online == false) {
-                    categories[offlineCategoryName] =
-                        (categories[offlineCategoryName] ?: listOf()) + member
-                    return@forEach
+                // Offline
+                if (!categories[offlineCategoryName].isNullOrEmpty()) {
+                    items.add(
+                        MemberListSheetItem.CategoryItem(
+                            offlineCategoryName,
+                            categories[offlineCategoryName]?.size ?: 0
+                        )
+                    )
+                    categories[offlineCategoryName]?.forEach { member ->
+                        items.add(MemberListSheetItem.MemberItem(member))
+                    }
                 }
 
-                val highestHoistedRole =
-                    Roles.resolveHighestRole(serverId, member.id!!.user, hoisted = true)
-
-                val category = if (highestHoistedRole != null) {
-                    highestHoistedRole.name ?: context.getString(R.string.unknown)
-                } else {
-                    defaultCategoryName
-                }
-
-                if (!Roles.permissionFor(channel, user, member)
-                        .hasPermission(PermissionBit.ViewChannel)
-                ) {
-                    return@forEach
-                }
-
-                categories[category] = (categories[category] ?: listOf()) + member
+                items
             }
 
+            // Update compose state on main thread
             fullItemList.clear()
-
-            // Hoisted roles
-            Roles.inOrder(serverId) { it.hoist == true }.forEach { role ->
-                val members = categories[role.name] ?: return@forEach
-                fullItemList.add(MemberListSheetItem.CategoryItem(role.name ?: "", members.size))
-                members.forEach { member ->
-                    fullItemList.add(MemberListSheetItem.MemberItem(member))
-                }
-            }
-
-            // Online
-            if (!categories[defaultCategoryName].isNullOrEmpty()) {
-                fullItemList.add(
-                    MemberListSheetItem.CategoryItem(
-                        defaultCategoryName,
-                        categories[defaultCategoryName]?.size ?: 0
-                    )
-                )
-                categories[defaultCategoryName]?.forEach { member ->
-                    fullItemList.add(MemberListSheetItem.MemberItem(member))
-                }
-            }
-
-            // Offline
-            if (!categories[offlineCategoryName].isNullOrEmpty()) {
-                fullItemList.add(
-                    MemberListSheetItem.CategoryItem(
-                        offlineCategoryName,
-                        categories[offlineCategoryName]?.size ?: 0
-                    )
-                )
-                categories[offlineCategoryName]?.forEach { member ->
-                    fullItemList.add(MemberListSheetItem.MemberItem(member))
-                }
-            }
+            fullItemList.addAll(result)
         }
     }
 

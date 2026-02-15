@@ -60,21 +60,18 @@ suspend fun uploadToAutumn(
         }
     }
 
-    try {
-        val autumnId = StoatJson.decodeFromString(AutumnId.serializer(), response.bodyAsText())
-        return autumnId.id
-    } catch (e: Exception) {
-        try {
-            val error = StoatJson.decodeFromString(AutumnError.serializer(), response.bodyAsText())
-            throw Exception(error.type)
-        } catch (e: Exception) {
-            if (response.status == HttpStatusCode.TooManyRequests) {
-                throw HitRateLimitException()
-            }
-            if (response.status == HttpStatusCode.PayloadTooLarge) {
-                throw Exception("File too large")
-            }
-            throw Exception("Unknown error")
-        }
+    val body = response.bodyAsText()
+
+    if (response.status == HttpStatusCode.TooManyRequests) {
+        throw HitRateLimitException()
     }
+    if (response.status == HttpStatusCode.PayloadTooLarge) {
+        throw Exception("File too large")
+    }
+    if (response.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(AutumnError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${response.status.value}")
+    }
+
+    return StoatJson.decodeFromString(AutumnId.serializer(), body).id
 }

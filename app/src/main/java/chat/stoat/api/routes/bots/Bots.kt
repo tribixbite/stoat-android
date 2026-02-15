@@ -1,5 +1,6 @@
 package chat.stoat.api.routes.bots
 
+import chat.stoat.api.StoatAPI
 import chat.stoat.api.StoatAPIError
 import chat.stoat.api.StoatHttp
 import chat.stoat.api.StoatJson
@@ -7,6 +8,7 @@ import chat.stoat.api.api
 import chat.stoat.core.model.schemas.User
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -15,6 +17,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonElement
 
 /** Full bot object returned by the API */
 @Serializable
@@ -163,6 +169,59 @@ suspend fun inviteBot(botId: String, serverId: String? = null, groupId: String? 
         val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
         throw Exception(error?.type ?: "HTTP ${res.status.value}: $responseBody")
     }
+}
+
+/**
+ * Edit the bot's user profile (avatar, bio/description) by authenticating
+ * as the bot itself. The PATCH /bots/{id} endpoint only supports name/public/analytics/
+ * interactions_url — avatar and description are on the bot's User object, requiring
+ * the bot's own token to PATCH /users/@me.
+ */
+suspend fun editBotUserProfile(
+    botToken: String,
+    avatar: String? = null,
+    bio: String? = null,
+    remove: List<String>? = null
+): User {
+    val bodyMap = mutableMapOf<String, JsonElement>()
+
+    if (avatar != null) {
+        bodyMap["avatar"] = StoatJson.encodeToJsonElement(String.serializer(), avatar)
+    }
+
+    if (bio != null) {
+        bodyMap["profile"] = StoatJson.encodeToJsonElement(
+            MapSerializer(String.serializer(), String.serializer()),
+            mapOf("content" to bio)
+        )
+    }
+
+    if (remove != null) {
+        bodyMap["remove"] = StoatJson.encodeToJsonElement(
+            ListSerializer(String.serializer()),
+            remove
+        )
+    }
+
+    val res = StoatHttp.patch("/users/@me".api()) {
+        // Override the session token interceptor by setting it explicitly to the bot token
+        header(StoatAPI.TOKEN_HEADER_NAME, botToken)
+        contentType(ContentType.Application.Json)
+        setBody(
+            StoatJson.encodeToString(
+                MapSerializer(String.serializer(), JsonElement.serializer()),
+                bodyMap
+            )
+        )
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(User.serializer(), responseBody)
 }
 
 /** Fetch public bot info for invite page. */

@@ -55,6 +55,8 @@ import chat.stoat.api.StoatAPI
 import chat.stoat.api.internals.PermissionBit
 import chat.stoat.api.internals.Roles
 import chat.stoat.api.internals.has
+import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
+import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.routes.server.editServer
 import chat.stoat.composables.generic.InlineMediaPicker
@@ -63,8 +65,9 @@ import chat.stoat.core.model.schemas.Server
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.http.ContentType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -130,27 +133,25 @@ class ServerSettingsViewModel @Inject constructor(
             return
         }
 
-        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "icon")
-        mFile.outputStream().use { output ->
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                input.copyTo(output)
-            }
-        }
-        val mime = context.contentResolver.getType(uri)
-
         viewModelScope.launch {
             iconIsUploading = true
             try {
+                // Process image: center-crop to 1:1, resize to 1024px, compress as WebP
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.ICON)
+                } ?: throw Exception("Failed to process image")
+
                 val id = uploadToAutumn(
-                    mFile,
-                    uri.lastPathSegment ?: "icon",
+                    processed.file,
+                    "icon.webp",
                     "icons",
-                    ContentType.parse(mime ?: "image/*"),
+                    ContentType.Image.Any,
                     onProgress = { soFar, outOf ->
                         iconUploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
                 editServer(initialServer?.id ?: "", icon = id)
+                processed.file.delete()
                 iconIsUploading = false
             } catch (e: Exception) {
                 uploadError = e.message
@@ -192,27 +193,25 @@ class ServerSettingsViewModel @Inject constructor(
             return
         }
 
-        val mFile = File(context.cacheDir, uri.lastPathSegment ?: "banner")
-        mFile.outputStream().use { output ->
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                input.copyTo(output)
-            }
-        }
-        val mime = context.contentResolver.getType(uri)
-
         viewModelScope.launch {
             bannerIsUploading = true
             try {
+                // Process image: center-crop to 5:2, resize to 2048px, compress as WebP
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.BANNER)
+                } ?: throw Exception("Failed to process image")
+
                 val id = uploadToAutumn(
-                    mFile,
-                    uri.lastPathSegment ?: "banner",
+                    processed.file,
+                    "banner.webp",
                     "banners",
-                    ContentType.parse(mime ?: "image/*"),
+                    ContentType.Image.Any,
                     onProgress = { soFar, outOf ->
                         bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
                 editServer(initialServer?.id ?: "", banner = id)
+                processed.file.delete()
                 bannerIsUploading = false
             } catch (e: Exception) {
                 uploadError = e.message

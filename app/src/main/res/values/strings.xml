@@ -1237,6 +1237,10 @@
     <string name="bot_management_delete">Delete Bot</string>
     <string name="bot_management_delete_confirm">Are you sure you want to permanently delete this bot? This cannot be undone.</string>
     <string name="bot_management_invite_to">Invite to Server</string>
+    <string name="bot_management_description">Description</string>
+    <string name="bot_management_description_hint">Describe your bot…</string>
+    <string name="bot_management_avatar">Avatar</string>
+    <string name="bot_management_avatar_uploading">Uploading avatar…</string>
 
     <!-- Webhook management -->
     <string name="webhook_management_title">Webhooks</string>

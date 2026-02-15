@@ -497,7 +497,7 @@ fun ChatRouterScreen(
 
     LaunchedEffect(Unit) {
         while (true) {
-            ActionChannel.receive().let { action ->
+            try { ActionChannel.receive().let { action ->
                 when (action) {
                     is Action.OpenUserSheet -> {
                         userContextSheetTarget = action.userId
@@ -572,6 +572,8 @@ fun ChatRouterScreen(
                         }
                     }
                 }
+            } } catch (e: Exception) {
+                Log.e("ChatRouter", "ActionChannel handler error", e)
             }
         }
     }

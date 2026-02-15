@@ -266,6 +266,35 @@ Prevents duplicate message sends from rapid tapping.
 - **Search submit button** properly triggers search on keyboard action
 - **Reduced HTTP retry** from 5 to 2 for server errors: 502 Bad Gateway caused ~62s exponential backoff hangs
 
+## Performance Optimizations
+
+### Eliminate Double Deserialization (All API Routes)
+Every API route was parsing responses twice — first attempting `decodeFromString(StoatAPIError)` which throws `SerializationException` on every successful response, then parsing the actual type. Fixed across 16 route files to check HTTP status code first, only parsing error body on non-2xx responses. Eliminates ~50-100ms cumulative overhead per screen from redundant parse + exception throw/catch on every API call.
+
+- **Files fixed**: User.kt, Server.kt, Channel.kt, Bots.kt, Webhooks.kt, DirectMessaging.kt, Relationships.kt, GroupDM.kt, Voice.kt, Reporting.kt, Login.kt, Register.kt, Invites.kt, Onboarding.kt
+
+### Parallel Startup Sequence
+App launch made 4 sequential API calls: `canReachStoat()` → `checkSessionToken()` → `needsOnboarding()` → `loginAs()`. Pre-startup also ran sequentially: `Experiments.hydrate()` → `healthCheck()` → `updateGeoState()`.
+
+- **Health check + geo update** now run in parallel via `coroutineScope { launch {} launch {} }`
+- **Reachability + token validation** now run in parallel via `coroutineScope { async {} async {} }`
+- **Estimated savings**: 200-400ms at app launch
+
+### Fix runBlocking on Main Thread
+WebSocket ping used `mainHandler.post(Runnable { runBlocking { RealtimeSocket.sendPing() } })` every 30 seconds, blocking the main thread and causing UI jank. Replaced with `CoroutineScope(Dispatchers.IO)` coroutine loop.
+
+### Parallel Webhook Fetches
+`WebhookManagementScreen` looped through text channels sequentially, making N serial API calls (~200ms each). Replaced with `async/awaitAll` pattern — all channels fetched concurrently. Estimated savings: 800-1800ms on servers with many channels.
+
+### Remove Redundant Member Fetch
+`ChannelScreenViewModel.switchChannel()` called `ensureSelfHasMember()` then `denyMessageFieldIfNeeded()` sequentially, but the latter already fetches the member internally. Removed the redundant call, saving ~200ms per channel switch.
+
+### Parallel User Info Sheet Fetches
+User fetch and profile fetch in `UserInfoSheet` ran sequentially. Wrapped in `coroutineScope { launch {} launch {} }` to run in parallel. Saves ~200ms on user info sheet open.
+
+### Chucker Interceptor Optimization
+`ChuckerInterceptor` with `alwaysReadResponseBody(true)` and `maxContentLength(250_000L)` was intercepting and buffering every HTTP response body. Changed to `alwaysReadResponseBody(false)` and `maxContentLength(50_000L)` — Chucker only reads body when the collector UI needs it, not on every request.
+
 ## Documentation
 
 Comprehensive technical documentation added (not present in upstream):
@@ -475,3 +504,5 @@ All changes from upstream divergence point:
 | `99730c3` | feat | Bot management and webhook CRUD (Phase 5) |
 | `4a8d96a` | docs | Update roadmap — Phase 5 complete, 96/96 delta routes (100%) |
 | `9abb26a` | feat | Finish remaining stubs and add missing endpoints (Phase 6) |
+| `5717ca1` | docs | Update roadmap — Phase 2+6 complete, all stubs resolved |
+| `9542704` | perf | Eliminate double deserialization and parallelize startup |

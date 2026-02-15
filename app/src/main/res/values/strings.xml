@@ -1255,4 +1255,22 @@
     <!-- Server settings additions -->
     <string name="server_settings_bots">Bots</string>
     <string name="server_settings_webhooks">Webhooks</string>
+
+    <!-- Voice controls -->
+    <string name="voice_toggle_mute">Toggle microphone</string>
+    <string name="voice_toggle_video">Toggle camera</string>
+    <string name="voice_screen_share">Screen share</string>
+
+    <!-- User flags -->
+    <string name="user_flags_title">Flags</string>
+    <string name="user_flag_suspended">Suspended</string>
+    <string name="user_flag_deleted">Deleted</string>
+    <string name="user_flag_banned">Banned</string>
+    <string name="user_flag_spam">Spam</string>
+
+    <!-- Password reset -->
+    <string name="password_reset_title">Reset Password</string>
+    <string name="password_reset_email_hint">Enter the email for your account</string>
+    <string name="password_reset_sent">Password reset email sent. Check your inbox.</string>
+    <string name="password_reset_request">Send Reset Email</string>
 </resources>

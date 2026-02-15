@@ -87,6 +87,19 @@ infix fun Long?.has(flag: UserBadges): Boolean {
     return this and flag.value == flag.value
 }
 
+/** User flags bitmask — moderation-relevant account states. */
+enum class UserFlags(val value: Long) {
+    Suspended(1L shl 0),
+    Deleted(1L shl 1),
+    Banned(1L shl 2),
+    Spam(1L shl 3),
+}
+
+infix fun Long?.hasFlag(flag: UserFlags): Boolean {
+    if (this == null) return false
+    return this and flag.value == flag.value
+}
+
 @Serializable
 @Parcelize
 data class Bot(

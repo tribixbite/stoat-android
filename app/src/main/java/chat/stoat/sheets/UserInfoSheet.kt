@@ -50,6 +50,8 @@ import chat.stoat.api.settings.FeatureFlags
 import chat.stoat.composables.chat.RoleListEntry
 import chat.stoat.composables.chat.UserBadgeList
 import chat.stoat.composables.chat.UserBadgeRow
+import chat.stoat.composables.chat.UserFlagList
+import chat.stoat.composables.chat.UserFlagRow
 import chat.stoat.composables.generic.NonIdealState
 import chat.stoat.composables.generic.UserAvatar
 import chat.stoat.composables.markdown.RichMarkdown
@@ -318,6 +320,22 @@ fun UserInfoSheet(
                     }
                 ) {
                     user.badges?.let { UserBadgeList(badges = it) }
+                }
+            }
+        }
+
+        // User flags — shown as warning chips for moderation-relevant flags
+        if ((user.flags ?: 0) > 0) {
+            item(key = "flags") {
+                SheetTile(
+                    header = {
+                        Text(stringResource(R.string.user_flags_title))
+                    },
+                    contentPreview = {
+                        UserFlagRow(flags = user.flags ?: 0)
+                    }
+                ) {
+                    UserFlagList(flags = user.flags ?: 0)
                 }
             }
         }

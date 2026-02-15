@@ -97,6 +97,43 @@ suspend fun resendVerification(email: String, captcha: String? = null): String? 
     else "HTTP ${response.status.value}: ${response.bodyAsText()}"
 }
 
+// --- Password Reset ---
+
+/** Request a password reset email. No auth required. */
+suspend fun sendPasswordReset(email: String, captcha: String? = null): String? {
+    @Serializable
+    data class Body(val email: String, val captcha: String? = null)
+
+    val response = StoatHttp.post("/auth/account/reset_password".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(email, captcha)))
+    }
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Confirm a password reset with the token from the email. No auth required. */
+suspend fun confirmPasswordReset(token: String, password: String, removeSessions: Boolean = false): String? {
+    @Serializable
+    data class Body(val token: String, val password: String, val remove_sessions: Boolean = false)
+
+    val response = StoatHttp.patch("/auth/account/reset_password".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(token, password, removeSessions)))
+    }
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+// --- Email Verification ---
+
+/** Confirm email verification with the code from the email. No auth required. */
+suspend fun confirmEmailVerification(code: String): String? {
+    val response = StoatHttp.post("/auth/account/verify/$code".api())
+    return if (response.status.isSuccess()) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
 // --- Session Management ---
 
 @Serializable

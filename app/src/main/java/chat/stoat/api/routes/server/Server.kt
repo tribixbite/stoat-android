@@ -391,6 +391,20 @@ suspend fun editRole(
 }
 
 /**
+ * Fetch a single role by ID from a server.
+ */
+suspend fun fetchRole(serverId: String, roleId: String): Role {
+    val response = StoatHttp.get("/servers/$serverId/roles/$roleId".api()).bodyAsText()
+
+    try {
+        val error = StoatJson.decodeFromString(StoatAPIError.serializer(), response)
+        throw Exception(error.type)
+    } catch (_: SerializationException) {}
+
+    return StoatJson.decodeFromString(Role.serializer(), response)
+}
+
+/**
  * Delete a role from the server.
  * Requires ManageRole permission.
  */

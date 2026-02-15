@@ -306,6 +306,20 @@ private fun annotateText(
                     }
                 }
 
+                RSMElementTypes.MASS_MENTION -> {
+                    // @everyone / @here — styled as a bold highlighted mention
+                    val contents = node.getTextInNode(sourceText).toString()
+                    pushStyle(
+                        SpanStyle(
+                            color = state.colors.clickable,
+                            background = state.colors.clickableBackground,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    append(contents)
+                    pop()
+                }
+
                 RSMElementTypes.CUSTOM_EMOTE -> {
                     val contents = node.getTextInNode(sourceText).toString()
                     val emoteId = contents.removeSurrounding(":", ":")

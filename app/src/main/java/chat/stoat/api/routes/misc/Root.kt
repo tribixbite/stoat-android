@@ -4,6 +4,8 @@ import chat.stoat.api.StoatHttp
 import chat.stoat.api.api
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -62,4 +64,12 @@ data class LiveKitNode(
 
 suspend fun getRootRoute(): Root {
     return StoatHttp.get("/".api()).body()
+}
+
+/** Acknowledge the platform's Terms of Service / privacy policy.
+ *  Called once after account creation or when policy updates. */
+suspend fun acknowledgePolicies(): String? {
+    val response = StoatHttp.post("/policy/acknowledge".api())
+    return if (response.status.value in 200..299) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
 }

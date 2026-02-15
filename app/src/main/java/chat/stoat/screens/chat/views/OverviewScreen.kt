@@ -352,12 +352,11 @@ fun OverviewScreen(
                         item(key = "feedback") {
                             OverviewScreenLink(
                                 onClick = {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.comingsoon_toast),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    // navController.navigate("feedback")
+                                    val intent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://github.com/tribixbite/stoat-android/issues")
+                                    )
+                                    context.startActivity(intent)
                                 },
                                 backgroundColour = MaterialTheme.colorScheme.primary,
                                 foregroundColour = MaterialTheme.colorScheme.onPrimary,

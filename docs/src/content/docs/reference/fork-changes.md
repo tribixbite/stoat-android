@@ -390,6 +390,7 @@ Prevents duplicate message sends from rapid tapping.
 - **MemberListSheet off-main-thread** — member categorization/sorting for large servers (1000+ members) moved to `Dispatchers.Default` to avoid main thread blocking
 - **Safe attachment aspect ratio** — image/video attachments with missing metadata dimensions no longer crash with `NullPointerException`; defaults to 1:1 aspect ratio via `safeAspectRatio()` helper instead of 4 chained `!!` assertions
 - **Null-safety audit across 9 files** — replaced ~30 force-unwrap (`!!`) assertions with null-safe patterns (smart casts, safe-call chains, early returns). Fixes potential NPE crashes in: MFA login navigation, member list rendering, message embed sizing, masquerade display, reaction info sheet, invite activity, user info sheet, permission calculation, and WebSocket message append handling
+- **Collection crash prevention** — replaced `.first()` calls with `.firstOrNull()` on API data (DM recipients, server channels, changelogs), fixed empty-string `.first()` in avatar/icon placeholders, made changelog index handle empty/missing data gracefully, broadened `catch (Error)` to `catch (Exception)` for network failures
 
 ## Performance Optimizations
 

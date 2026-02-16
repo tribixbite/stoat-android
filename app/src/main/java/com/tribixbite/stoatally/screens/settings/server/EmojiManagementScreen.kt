@@ -58,8 +58,10 @@ import com.tribixbite.stoatally.api.STOAT_FILES
 import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.custom.createEmoji
 import com.tribixbite.stoatally.api.routes.custom.deleteEmoji
+import com.tribixbite.stoatally.api.routes.microservices.autumn.AnimatedImageUtils
 import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
+import com.tribixbite.stoatally.api.routes.microservices.autumn.NormalizedCropRect
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ProcessedImage
 import com.tribixbite.stoatally.api.routes.microservices.autumn.uploadToAutumn
 import com.tribixbite.stoatally.composables.generic.ImageCropDialog
@@ -283,19 +285,21 @@ private fun AddEmojiDialog(
     var emojiName by remember { mutableStateOf("") }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var pendingCropUri by remember { mutableStateOf<Uri?>(null) }
+    var isAnimatedImage by remember { mutableStateOf(false) }
     var processedImage by remember { mutableStateOf<ProcessedImage?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableFloatStateOf(0f) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // File picker launcher — shows crop dialog instead of processing immediately
+    // File picker launcher — detect animation, then show crop dialog
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             error = null
             processedImage = null
+            isAnimatedImage = AnimatedImageUtils.isAnimated(context, uri)
             pendingCropUri = uri
         }
     }
@@ -305,18 +309,53 @@ private fun AddEmojiDialog(
         ImageCropDialog(
             uri = pendingCropUri!!,
             aspectRatio = 1f,
-            onConfirm = { croppedBitmap ->
-                val cropUri = pendingCropUri
+            onConfirm = { croppedBitmap, normalizedRect ->
+                val cropUri = pendingCropUri!!
+                val animated = isAnimatedImage
                 pendingCropUri = null
                 selectedUri = cropUri
                 isProcessing = true
                 scope.launch {
                     val result = withContext(Dispatchers.Default) {
-                        ImageProcessor.processForUploadBitmap(
-                            croppedBitmap,
-                            AutumnUploadType.EMOJI,
-                            context.cacheDir
-                        )
+                        if (animated) {
+                            // Try pass-through first (animated GIF under size limit, no crop needed)
+                            val isFullFrame = normalizedRect.left < 0.01f &&
+                                normalizedRect.top < 0.01f &&
+                                normalizedRect.width > 0.98f &&
+                                normalizedRect.height > 0.98f
+                            val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, cropUri)) {
+                                ImageProcessor.passThruAnimatedGif(context, cropUri, AutumnUploadType.EMOJI, context.cacheDir)
+                            } else null
+
+                            if (passThru != null) {
+                                passThru
+                            } else {
+                                // Extract frames, crop, resize, re-encode as GIF
+                                val frames = AnimatedImageUtils.extractFrames(
+                                    context, cropUri,
+                                    maxDimension = AutumnUploadType.EMOJI.maxDimension
+                                )
+                                if (frames.isNotEmpty()) {
+                                    val gifResult = ImageProcessor.processAnimatedFrames(
+                                        frames, AutumnUploadType.EMOJI,
+                                        cropNormalized = normalizedRect,
+                                        cacheDir = context.cacheDir
+                                    )
+                                    // Clean up frames
+                                    frames.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+                                    gifResult
+                                } else {
+                                    // Fallback: animated extraction failed, use static WebP
+                                    ImageProcessor.processForUploadBitmap(
+                                        croppedBitmap, AutumnUploadType.EMOJI, context.cacheDir
+                                    )
+                                }
+                            }
+                        } else {
+                            ImageProcessor.processForUploadBitmap(
+                                croppedBitmap, AutumnUploadType.EMOJI, context.cacheDir
+                            )
+                        }
                     }
                     if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
                     if (result != null) {
@@ -380,8 +419,9 @@ private fun AddEmojiDialog(
                             contentScale = ContentScale.Fit
                         )
                     }
+                    val formatLabel = if (img.mimeType == "image/gif") "GIF" else "WebP"
                     Text(
-                        "${img.width}×${img.height} · ${img.sizeBytes / 1024}KB · WebP",
+                        "${img.width}×${img.height} · ${img.sizeBytes / 1024}KB · $formatLabel",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
@@ -418,11 +458,16 @@ private fun AddEmojiDialog(
                     error = null
                     scope.launch {
                         try {
+                            // Use correct filename and content type based on format
+                            val isGif = img.mimeType == "image/gif"
+                            val fileName = if (isGif) "emoji.gif" else "emoji.webp"
+                            val ct = if (isGif) ContentType.Image.GIF else ContentType.Image.Any
+
                             val autumnId = uploadToAutumn(
                                 img.file,
-                                "emoji.webp",
+                                fileName,
                                 "emojis",
-                                ContentType.Image.Any,
+                                ct,
                                 onProgress = { soFar, outOf ->
                                     uploadProgress = soFar.toFloat() / outOf.toFloat()
                                 }

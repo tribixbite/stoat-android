@@ -10,6 +10,7 @@ import android.os.Build
 import android.util.Log
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
 /**
@@ -21,14 +22,15 @@ enum class AutumnUploadType(
     val maxBytes: Long,
     val maxDimension: Int,
     val targetAspectRatio: Float?, // null = no forced crop
-    val description: String
+    val description: String,
+    val supportsAnimation: Boolean = false // server preserves GIF animation for this tag
 ) {
-    AVATAR("avatars", 4_000_000L, 1024, 1f, "Avatar"),
-    ICON("icons", 2_500_000L, 1024, 1f, "Server icon"),
-    BANNER("banners", 6_000_000L, 2048, 2.5f, "Server banner"), // ~5:2 aspect
-    EMOJI("emojis", 500_000L, 512, 1f, "Custom emoji"),
-    BACKGROUND("backgrounds", 6_000_000L, 2048, null, "Profile background"),
-    ATTACHMENT("attachments", 20_000_000L, 4096, null, "Attachment");
+    AVATAR("avatars", 4_000_000L, 1024, 1f, "Avatar"), // server strips animation
+    ICON("icons", 2_500_000L, 1024, 1f, "Server icon"), // server strips animation
+    BANNER("banners", 6_000_000L, 2048, 2.32f, "Server banner", supportsAnimation = true),
+    EMOJI("emojis", 500_000L, 512, 1f, "Custom emoji", supportsAnimation = true),
+    BACKGROUND("backgrounds", 6_000_000L, 2048, 2.32f, "Profile background", supportsAnimation = true),
+    ATTACHMENT("attachments", 20_000_000L, 4096, null, "Attachment", supportsAnimation = true);
 
     companion object {
         fun fromTag(tag: String): AutumnUploadType? = entries.find { it.tag == tag }
@@ -318,6 +320,143 @@ object ImageProcessor {
     }
 
     /**
+     * Process animated frames into a GIF file for upload. Applies optional crop
+     * (via normalized rect) and resize to each frame, then encodes as GIF89a.
+     *
+     * @param frames Extracted animation frames with delays
+     * @param uploadType Target upload type (determines size limits)
+     * @param cropNormalized Normalized crop rect (0..1), or null for full frame
+     * @param cacheDir Directory for output file
+     * @return ProcessedImage with mimeType="image/gif", or null on failure
+     */
+    fun processAnimatedFrames(
+        frames: List<AnimFrame>,
+        uploadType: AutumnUploadType,
+        cropNormalized: NormalizedCropRect? = null,
+        cacheDir: File
+    ): ProcessedImage? {
+        if (frames.isEmpty()) return null
+
+        try {
+            val firstFrame = frames[0].bitmap
+            val srcW = firstFrame.width
+            val srcH = firstFrame.height
+
+            // Apply crop to determine output dimensions
+            val cropX: Int
+            val cropY: Int
+            val cropW: Int
+            val cropH: Int
+            if (cropNormalized != null) {
+                cropX = (cropNormalized.left * srcW).roundToInt().coerceIn(0, srcW - 1)
+                cropY = (cropNormalized.top * srcH).roundToInt().coerceIn(0, srcH - 1)
+                cropW = (cropNormalized.width * srcW).roundToInt().coerceIn(1, srcW - cropX)
+                cropH = (cropNormalized.height * srcH).roundToInt().coerceIn(1, srcH - cropY)
+            } else {
+                cropX = 0; cropY = 0; cropW = srcW; cropH = srcH
+            }
+
+            // Determine final dimensions after resize
+            val scale = if (maxOf(cropW, cropH) > uploadType.maxDimension) {
+                uploadType.maxDimension.toFloat() / maxOf(cropW, cropH)
+            } else 1f
+            val outW = (cropW * scale).roundToInt().coerceAtLeast(1)
+            val outH = (cropH * scale).roundToInt().coerceAtLeast(1)
+
+            val outputFile = File(cacheDir, "animated_${System.currentTimeMillis()}.gif")
+            val fos = FileOutputStream(outputFile)
+            val encoder = GifEncoder(fos, outW, outH, repeat = 0)
+
+            for (frame in frames) {
+                // Crop the frame
+                val cropped = if (cropNormalized != null) {
+                    val fx = (cropNormalized.left * frame.bitmap.width).roundToInt()
+                        .coerceIn(0, frame.bitmap.width - 1)
+                    val fy = (cropNormalized.top * frame.bitmap.height).roundToInt()
+                        .coerceIn(0, frame.bitmap.height - 1)
+                    val fw = (cropNormalized.width * frame.bitmap.width).roundToInt()
+                        .coerceIn(1, frame.bitmap.width - fx)
+                    val fh = (cropNormalized.height * frame.bitmap.height).roundToInt()
+                        .coerceIn(1, frame.bitmap.height - fy)
+                    Bitmap.createBitmap(frame.bitmap, fx, fy, fw, fh)
+                } else {
+                    frame.bitmap
+                }
+
+                // Resize if needed — GifEncoder handles scaling, but we do it
+                // explicitly for better quality (bilinear vs nearest-neighbor)
+                val resized = if (cropped.width != outW || cropped.height != outH) {
+                    Bitmap.createScaledBitmap(cropped, outW, outH, true)
+                } else {
+                    cropped
+                }
+
+                encoder.addFrame(resized, frame.delayMs)
+
+                // Clean up intermediates
+                if (resized !== cropped) resized.recycle()
+                if (cropped !== frame.bitmap) cropped.recycle()
+            }
+
+            encoder.finish()
+            fos.close()
+
+            // Check file size
+            val fileSize = outputFile.length()
+            if (fileSize > uploadType.maxBytes) {
+                Log.w(TAG, "Animated GIF $fileSize bytes exceeds ${uploadType.maxBytes} limit")
+                outputFile.delete()
+                return null
+            }
+
+            return ProcessedImage(
+                file = outputFile,
+                width = outW,
+                height = outH,
+                sizeBytes = fileSize,
+                mimeType = "image/gif"
+            )
+        } catch (e: Throwable) {
+            Log.e(TAG, "Animated frame processing failed", e)
+            return null
+        }
+    }
+
+    /**
+     * Try to pass through an animated GIF directly (no re-encoding) if it's
+     * already under the size limit and no crop is needed.
+     */
+    fun passThruAnimatedGif(
+        context: Context,
+        uri: Uri,
+        uploadType: AutumnUploadType,
+        cacheDir: File
+    ): ProcessedImage? {
+        val fileSize = AnimatedImageUtils.getFileSize(context, uri)
+        if (fileSize <= 0 || fileSize > uploadType.maxBytes) return null
+
+        val outputFile = File(cacheDir, "passthru_${System.currentTimeMillis()}.gif")
+        if (!AnimatedImageUtils.copyUriToFile(context, uri, outputFile)) {
+            outputFile.delete()
+            return null
+        }
+
+        // Get dimensions from first frame
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, opts)
+        }
+
+        return ProcessedImage(
+            file = outputFile,
+            width = opts.outWidth.coerceAtLeast(1),
+            height = opts.outHeight.coerceAtLeast(1),
+            sizeBytes = outputFile.length(),
+            mimeType = "image/gif"
+        )
+    }
+
+    /**
      * Compress bitmap to WebP format within the given byte limit.
      * Uses iterative quality reduction: starts at quality 90, steps down
      * by 10 until file fits or quality hits 10.
@@ -363,3 +502,15 @@ object ImageProcessor {
     }
 
 }
+
+/**
+ * Normalized crop rectangle with values in 0..1 range, relative to source
+ * image dimensions. Used to apply the same crop region to all frames of
+ * an animated image.
+ */
+data class NormalizedCropRect(
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float
+)

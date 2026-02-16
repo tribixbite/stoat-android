@@ -56,8 +56,10 @@ import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.internals.PermissionBit
 import com.tribixbite.stoatally.api.internals.Roles
 import com.tribixbite.stoatally.api.internals.has
+import com.tribixbite.stoatally.api.routes.microservices.autumn.AnimatedImageUtils
 import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
+import com.tribixbite.stoatally.api.routes.microservices.autumn.NormalizedCropRect
 import com.tribixbite.stoatally.api.routes.microservices.autumn.uploadToAutumn
 import com.tribixbite.stoatally.api.routes.server.editServer
 import com.tribixbite.stoatally.composables.generic.ImageCropDialog
@@ -91,6 +93,7 @@ class ServerSettingsViewModel @Inject constructor(
 
     var pendingIconCropUri by mutableStateOf<Uri?>(null)
     var pendingBannerCropUri by mutableStateOf<Uri?>(null)
+    var isAnimatedBanner by mutableStateOf(false)
 
     var uploadError by mutableStateOf<String?>(null)
     var updateError by mutableStateOf<String?>(null)
@@ -161,36 +164,85 @@ class ServerSettingsViewModel @Inject constructor(
 
     /**
      * Process a pre-cropped bitmap and upload as server banner.
+     * Handles animated images: extracts frames, applies crop, encodes as GIF.
+     * Static images are encoded as WebP.
      */
-    fun processAndUploadBanner(croppedBitmap: android.graphics.Bitmap) {
+    fun processAndUploadBanner(
+        croppedBitmap: android.graphics.Bitmap,
+        cropRect: NormalizedCropRect
+    ) {
         uploadError = null
         bannerUploadProgress = 0f
         bannerIsUploading = true
 
+        val uri = pendingBannerCropUri
+        val animated = isAnimatedBanner && uri != null
+
         viewModelScope.launch {
             try {
-                val processed = withContext(Dispatchers.Default) {
-                    ImageProcessor.processForUploadBitmap(
-                        croppedBitmap, AutumnUploadType.BANNER, context.cacheDir
-                    )
-                } ?: throw Exception("Failed to process image")
+                val result = withContext(Dispatchers.Default) {
+                    if (animated) {
+                        // Try pass-through first (animated GIF under size limit, no crop)
+                        val isFullFrame = cropRect.left < 0.02f && cropRect.top < 0.02f &&
+                            cropRect.width > 0.96f && cropRect.height > 0.96f
+                        val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
+                            ImageProcessor.passThruAnimatedGif(
+                                context, uri, AutumnUploadType.BANNER, context.cacheDir
+                            )
+                        } else null
+
+                        if (passThru != null) {
+                            passThru
+                        } else {
+                            // Extract frames, crop, resize, re-encode as GIF
+                            val frames = AnimatedImageUtils.extractFrames(
+                                context, uri!!,
+                                maxDimension = AutumnUploadType.BANNER.maxDimension
+                            )
+                            if (frames.isNotEmpty()) {
+                                val gifResult = ImageProcessor.processAnimatedFrames(
+                                    frames, AutumnUploadType.BANNER,
+                                    cropNormalized = cropRect,
+                                    cacheDir = context.cacheDir
+                                )
+                                frames.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+                                gifResult
+                            } else {
+                                // Fallback: animated extraction failed, use static WebP
+                                ImageProcessor.processForUploadBitmap(
+                                    croppedBitmap, AutumnUploadType.BANNER, context.cacheDir
+                                )
+                            }
+                        }
+                    } else {
+                        ImageProcessor.processForUploadBitmap(
+                            croppedBitmap, AutumnUploadType.BANNER, context.cacheDir
+                        )
+                    }
+                }
                 if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
 
+                if (result == null) throw Exception("Failed to process image")
+
+                val isGif = result.mimeType == "image/gif"
+                val fileName = if (isGif) "banner.gif" else "banner.webp"
+                val ct = if (isGif) ContentType.Image.GIF else ContentType.Image.Any
+
                 val id = uploadToAutumn(
-                    processed.file, "banner.webp", "banners", ContentType.Image.Any,
+                    result.file, fileName, "banners", ct,
                     onProgress = { soFar, outOf ->
                         bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
                 editServer(initialServer?.id ?: "", banner = id)
-                processed.file.delete()
-                // Update banner model to show uploaded image
+                result.file.delete()
                 bannerModel = "$STOAT_FILES/banners/$id"
             } catch (e: Exception) {
                 uploadError = e.message
                 bannerUploadProgress = 0f
             }
             bannerIsUploading = false
+            isAnimatedBanner = false
         }
     }
 
@@ -433,7 +485,7 @@ fun ServerSettingsScreen(
                             ImageCropDialog(
                                 uri = viewModel.pendingIconCropUri!!,
                                 aspectRatio = 1f,
-                                onConfirm = { croppedBitmap ->
+                                onConfirm = { croppedBitmap, _ ->
                                     viewModel.pendingIconCropUri = null
                                     viewModel.processAndUploadIcon(croppedBitmap)
                                 },
@@ -469,6 +521,8 @@ fun ServerSettingsScreen(
                                         else -> null
                                     }
                                     if (uri != null) {
+                                        viewModel.isAnimatedBanner =
+                                            AnimatedImageUtils.isAnimated(viewModel.context, uri)
                                         viewModel.pendingBannerCropUri = uri
                                     }
                                 },
@@ -481,14 +535,14 @@ fun ServerSettingsScreen(
                             )
                         }
 
-                        // Banner crop dialog (5:2 aspect ratio)
+                        // Banner crop dialog (232:100 aspect ratio, matching web frontend)
                         if (viewModel.pendingBannerCropUri != null) {
                             ImageCropDialog(
                                 uri = viewModel.pendingBannerCropUri!!,
-                                aspectRatio = 2.5f,
-                                onConfirm = { croppedBitmap ->
+                                aspectRatio = 2.32f,
+                                onConfirm = { croppedBitmap, cropRect ->
                                     viewModel.pendingBannerCropUri = null
-                                    viewModel.processAndUploadBanner(croppedBitmap)
+                                    viewModel.processAndUploadBanner(croppedBitmap, cropRect)
                                 },
                                 onDismiss = { viewModel.pendingBannerCropUri = null }
                             )

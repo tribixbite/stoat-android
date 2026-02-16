@@ -55,6 +55,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
+import com.tribixbite.stoatally.api.routes.microservices.autumn.NormalizedCropRect
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ProcessedImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -92,7 +93,8 @@ private val OVERLAY_COLOR = Color.Black.copy(alpha = 0.6f)
  * @param uri Source image URI from picker
  * @param aspectRatio Width/height ratio to enforce (1f = square, 2.5f = banner)
  * @param maxDecodeSize Max dimension for in-memory preview bitmap (prevents OOM)
- * @param onConfirm Called with the cropped bitmap when user confirms
+ * @param onConfirm Called with the cropped bitmap and normalized crop rect when user confirms.
+ *   The normalized rect (0..1 values) can be used to apply the same crop to animated frames.
  * @param onDismiss Called when user cancels
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,7 +103,7 @@ fun ImageCropDialog(
     uri: Uri,
     aspectRatio: Float,
     maxDecodeSize: Int = 2048,
-    onConfirm: (Bitmap) -> Unit,
+    onConfirm: (Bitmap, NormalizedCropRect) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -164,7 +166,14 @@ fun ImageCropDialog(
                                     val h = cropRect.height.roundToInt()
                                         .coerceIn(1, bmp.height - y)
                                     val cropped = Bitmap.createBitmap(bmp, x, y, w, h)
-                                    onConfirm(cropped)
+                                    // Compute normalized crop rect (0..1) for animated frame processing
+                                    val normRect = NormalizedCropRect(
+                                        left = x.toFloat() / bmp.width,
+                                        top = y.toFloat() / bmp.height,
+                                        width = w.toFloat() / bmp.width,
+                                        height = h.toFloat() / bmp.height
+                                    )
+                                    onConfirm(cropped, normRect)
                                 }
                             },
                             enabled = bmp != null,
@@ -538,7 +547,7 @@ fun CropAndProcess(
         ImageCropDialog(
             uri = pendingUri,
             aspectRatio = ratio,
-            onConfirm = { croppedBitmap ->
+            onConfirm = { croppedBitmap, _ ->
                 onDismiss() // Close dialog immediately
                 scope.launch {
                     val result = withContext(Dispatchers.Default) {

@@ -49,8 +49,10 @@ import androidx.navigation.NavController
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.STOAT_FILES
 import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.api.routes.microservices.autumn.AnimatedImageUtils
 import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
+import com.tribixbite.stoatally.api.routes.microservices.autumn.NormalizedCropRect
 import com.tribixbite.stoatally.api.routes.microservices.autumn.uploadToAutumn
 import com.tribixbite.stoatally.api.routes.user.fetchUserProfile
 import com.tribixbite.stoatally.api.routes.user.patchSelf
@@ -76,6 +78,8 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     var pendingProfile by mutableStateOf<Profile?>(null)
     var backgroundModel by mutableStateOf<Any?>(null)
     var pendingAvatarCropUri by mutableStateOf<Uri?>(null)
+    var pendingBackgroundCropUri by mutableStateOf<Uri?>(null)
+    var isAnimatedBackground by mutableStateOf(false)
     var uploadProgress by mutableFloatStateOf(0f)
     var uploadError by mutableStateOf<String?>(null)
     var bioError by mutableStateOf<String?>(null)
@@ -174,33 +178,78 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
         }
     }
 
-    fun saveNewBackground() {
+    /**
+     * Process a pre-cropped bitmap and upload as profile background.
+     * Handles animated images: extracts frames, applies crop, encodes as GIF.
+     * Static images are encoded as WebP.
+     */
+    fun processAndUploadBackground(
+        croppedBitmap: android.graphics.Bitmap,
+        cropRect: NormalizedCropRect
+    ) {
         uploadError = null
+        uploadProgress = 0f
 
-        val uri = when (val model = backgroundModel) {
-            is Uri -> model
-            is String -> Uri.parse(model)
-            else -> return
-        }
+        val uri = pendingBackgroundCropUri
+        val animated = isAnimatedBackground && uri != null
 
         viewModelScope.launch {
             try {
-                // Process image: resize, compress as WebP (no forced aspect ratio for backgrounds)
-                val processed = withContext(Dispatchers.Default) {
-                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.BACKGROUND)
-                } ?: throw Exception("Failed to process image")
+                val result = withContext(Dispatchers.Default) {
+                    if (animated) {
+                        // Try pass-through first (animated GIF under size limit, no crop)
+                        val isFullFrame = cropRect.left < 0.02f && cropRect.top < 0.02f &&
+                            cropRect.width > 0.96f && cropRect.height > 0.96f
+                        val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
+                            ImageProcessor.passThruAnimatedGif(
+                                context, uri, AutumnUploadType.BACKGROUND, context.cacheDir
+                            )
+                        } else null
+
+                        if (passThru != null) {
+                            passThru
+                        } else {
+                            // Extract frames, crop, resize, re-encode as GIF
+                            val frames = AnimatedImageUtils.extractFrames(
+                                context, uri!!,
+                                maxDimension = AutumnUploadType.BACKGROUND.maxDimension
+                            )
+                            if (frames.isNotEmpty()) {
+                                val gifResult = ImageProcessor.processAnimatedFrames(
+                                    frames, AutumnUploadType.BACKGROUND,
+                                    cropNormalized = cropRect,
+                                    cacheDir = context.cacheDir
+                                )
+                                frames.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+                                gifResult
+                            } else {
+                                // Fallback: animated extraction failed, use static WebP
+                                ImageProcessor.processForUploadBitmap(
+                                    croppedBitmap, AutumnUploadType.BACKGROUND, context.cacheDir
+                                )
+                            }
+                        }
+                    } else {
+                        ImageProcessor.processForUploadBitmap(
+                            croppedBitmap, AutumnUploadType.BACKGROUND, context.cacheDir
+                        )
+                    }
+                }
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                if (result == null) throw Exception("Failed to process image")
+
+                val isGif = result.mimeType == "image/gif"
+                val fileName = if (isGif) "background.gif" else "background.webp"
+                val ct = if (isGif) ContentType.Image.GIF else ContentType.Image.Any
 
                 val id = uploadToAutumn(
-                    processed.file,
-                    "background.webp",
-                    "backgrounds",
-                    ContentType.Image.Any,
+                    result.file, fileName, "backgrounds", ct,
                     onProgress = { soFar, outOf ->
                         uploadProgress = soFar.toFloat() / outOf.toFloat()
                     }
                 )
-                processed.file.delete()
-
+                result.file.delete()
                 patchSelf(background = id)
             } catch (e: Exception) {
                 uploadError = e.message
@@ -213,12 +262,13 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
                 currentProfile = profile
                 pendingProfile = profile
 
-                profile.background?.id?.let {
-                    "$STOAT_FILES/backgrounds/${it}"
+                profile.background?.id?.let { bgId ->
+                    "$STOAT_FILES/backgrounds/$bgId"
                 }
             }
 
             uploadProgress = 0f
+            isAnimatedBackground = false
         }
     }
 
@@ -388,7 +438,7 @@ fun ProfileSettingsScreen(
                                 ImageCropDialog(
                                     uri = viewModel.pendingAvatarCropUri!!,
                                     aspectRatio = 1f,
-                                    onConfirm = { croppedBitmap ->
+                                    onConfirm = { croppedBitmap, _ ->
                                         viewModel.pendingAvatarCropUri = null
                                         viewModel.processAndUploadAvatar(croppedBitmap)
                                     },
@@ -410,15 +460,37 @@ fun ProfileSettingsScreen(
 
                             InlineMediaPicker(
                                 currentModel = viewModel.backgroundModel,
-                                onPick = {
-                                    viewModel.backgroundModel = it.toString()
-                                    viewModel.saveNewBackground()
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model.toString())
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.isAnimatedBackground =
+                                            AnimatedImageUtils.isAnimated(viewModel.context, uri)
+                                        viewModel.pendingBackgroundCropUri = uri
+                                    }
                                 },
                                 canRemove = true,
                                 onRemove = {
                                     viewModel.removeBackground()
                                 }
                             )
+
+                            // Background crop dialog (232:100 aspect, matching web frontend)
+                            if (viewModel.pendingBackgroundCropUri != null) {
+                                ImageCropDialog(
+                                    uri = viewModel.pendingBackgroundCropUri!!,
+                                    aspectRatio = 2.32f,
+                                    onConfirm = { croppedBitmap, cropRect ->
+                                        viewModel.pendingBackgroundCropUri = null
+                                        viewModel.processAndUploadBackground(croppedBitmap, cropRect)
+                                    },
+                                    onDismiss = { viewModel.pendingBackgroundCropUri = null }
+                                )
+                            }
                         }
                     }
                     Column(

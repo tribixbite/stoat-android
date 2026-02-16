@@ -573,7 +573,7 @@ private fun BotListItem(
                         ImageCropDialog(
                             uri = pendingAvatarCropUri!!,
                             aspectRatio = 1f,
-                            onConfirm = { croppedBitmap ->
+                            onConfirm = { croppedBitmap, _ ->
                                 pendingAvatarCropUri = null
                                 avatarModel = croppedBitmap
                                 isAvatarUploading = true

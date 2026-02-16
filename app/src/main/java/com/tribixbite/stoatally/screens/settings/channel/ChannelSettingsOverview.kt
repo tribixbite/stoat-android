@@ -400,7 +400,7 @@ fun ChannelSettingsOverview(
                         ImageCropDialog(
                             uri = viewModel.pendingIconCropUri!!,
                             aspectRatio = 1f,
-                            onConfirm = { croppedBitmap ->
+                            onConfirm = { croppedBitmap, _ ->
                                 viewModel.pendingIconCropUri = null
                                 viewModel.processAndUploadIcon(croppedBitmap)
                             },

@@ -51,6 +51,13 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 
+/** Safe aspect ratio from metadata, defaulting to 1:1 if dimensions are null or zero. */
+private fun AutumnResource.safeAspectRatio(): Float {
+    val w = metadata?.width?.toFloat() ?: return 1f
+    val h = metadata?.height?.toFloat() ?: return 1f
+    return if (h > 0f) w / h else 1f
+}
+
 @Composable
 fun FileAttachment(attachment: AutumnResource) {
     val context = LocalContext.current
@@ -103,7 +110,7 @@ fun ImageAttachment(attachment: AutumnResource) {
             modifier = Modifier
                 .width(attachment.metadata?.width?.toInt()?.dp ?: maxWidth)
                 .aspectRatio(
-                    attachment.metadata!!.width!!.toFloat() / attachment.metadata!!.height!!.toFloat()
+                    attachment.safeAspectRatio()
                 )
                 .then(
                     if (hazeState != null) Modifier.hazeSource(state = hazeState)
@@ -117,7 +124,7 @@ fun ImageAttachment(attachment: AutumnResource) {
                     .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
                     .width(attachment.metadata?.width?.toInt()?.dp ?: maxWidth)
                     .aspectRatio(
-                        attachment.metadata!!.width!!.toFloat() / attachment.metadata!!.height!!.toFloat()
+                        attachment.safeAspectRatio()
                     )
                     .clickable { spoilerShown = true },
                 contentAlignment = Alignment.Center
@@ -165,7 +172,7 @@ fun VideoAttachment(attachment: AutumnResource) {
             modifier = Modifier
                 .width(attachment.metadata?.width?.toInt()?.dp ?: maxWidth)
                 .aspectRatio(
-                    attachment.metadata!!.width!!.toFloat() / attachment.metadata!!.height!!.toFloat()
+                    attachment.safeAspectRatio()
                 )
         ) {
             // Turns out that when you give Glide a video URL, you get a perfectly cromulent thumbnail.
@@ -175,7 +182,7 @@ fun VideoAttachment(attachment: AutumnResource) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(
-                        attachment.metadata!!.width!!.toFloat() / attachment.metadata!!.height!!.toFloat()
+                        attachment.safeAspectRatio()
                     ),
                 description = attachment.filename ?: "Video"
             )

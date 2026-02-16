@@ -205,7 +205,7 @@ fun GroupIcon(
                     .background(MaterialTheme.colorScheme.primary)
             ) {
                 Text(
-                    text = name.first().toString(),
+                    text = name.firstOrNull()?.toString() ?: "?",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.align(Alignment.Center)

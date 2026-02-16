@@ -50,17 +50,14 @@ object IndexHolder {
 
 class Changelogs(val context: Context, val kvStorage: KVStorage? = null) {
     suspend fun fetchChangelogIndex(): ChangelogIndex {
-        if (cachedIndex != null) {
-            return cachedIndex as ChangelogIndex
-        }
+        cachedIndex?.let { return it }
 
-        try {
+        return try {
             val response = StoatHttp.get("$STOAT_KJBOOK/changelogs.json")
-            cachedIndex =
-                StoatJson.decodeFromString(ChangelogIndex.serializer(), response.bodyAsText())
-            return cachedIndex as ChangelogIndex
-        } catch (e: Error) {
-            return ChangelogIndex()
+            StoatJson.decodeFromString(ChangelogIndex.serializer(), response.bodyAsText())
+                .also { cachedIndex = it }
+        } catch (e: Exception) {
+            ChangelogIndex()
         }
     }
 
@@ -68,7 +65,7 @@ class Changelogs(val context: Context, val kvStorage: KVStorage? = null) {
         try {
             val response = StoatHttp.get("$STOAT_KJBOOK/changelogs/$versionCode.json")
             return StoatJson.decodeFromString(Changelog.serializer(), response.bodyAsText())
-        } catch (e: Error) {
+        } catch (e: Exception) {
             return Changelog(
                 id = "",
                 slug = "",
@@ -90,12 +87,12 @@ class Changelogs(val context: Context, val kvStorage: KVStorage? = null) {
         }
     }
 
-    suspend fun getLatestChangelog(): ChangelogData {
-        return fetchChangelogIndex().changelogs.maxByOrNull { it.version.code }!!
+    suspend fun getLatestChangelog(): ChangelogData? {
+        return fetchChangelogIndex().changelogs.maxByOrNull { it.version.code }
     }
 
-    suspend fun getLatestChangelogCode(): String {
-        return getLatestChangelog().version.code.toString()
+    suspend fun getLatestChangelogCode(): String? {
+        return getLatestChangelog()?.version?.code?.toString()
     }
 
     suspend fun hasSeenCurrent(): Boolean {
@@ -105,7 +102,7 @@ class Changelogs(val context: Context, val kvStorage: KVStorage? = null) {
             )
         }
 
-        val latest = getLatestChangelog().version.code
+        val latest = getLatestChangelog()?.version?.code ?: return false
         val lastRead = kvStorage.get("latestChangelogRead")
 
         if (lastRead == null) {
@@ -124,7 +121,8 @@ class Changelogs(val context: Context, val kvStorage: KVStorage? = null) {
         }
 
         val index = fetchChangelogIndex()
-        val latest = index.changelogs.maxByOrNull { it.version.code }!!.version.code.toString()
+        val latest = index.changelogs.maxByOrNull { it.version.code }?.version?.code?.toString()
+            ?: return
         kvStorage.set("latestChangelogRead", latest)
     }
 }

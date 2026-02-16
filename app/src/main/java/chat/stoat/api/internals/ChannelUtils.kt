@@ -22,7 +22,7 @@ object ChannelUtils {
      */
     fun resolveName(channel: Channel): String? {
         return channel.name
-            ?: StoatAPI.userCache[channel.recipients?.first { u -> u != StoatAPI.selfId }]?.let {
+            ?: StoatAPI.userCache[channel.recipients?.firstOrNull { u -> u != StoatAPI.selfId }]?.let {
                 User.resolveDefaultName(
                     it
                 )

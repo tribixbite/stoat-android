@@ -23,7 +23,7 @@ fun IconPlaceholder(
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {
         Text(
-            text = name.first().uppercase(),
+            text = name.firstOrNull()?.uppercase() ?: "?",
             fontSize = fontSize,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface

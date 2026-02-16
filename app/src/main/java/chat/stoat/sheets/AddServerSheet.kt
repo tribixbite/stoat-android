@@ -465,7 +465,7 @@ fun AddServerSheet(onDismiss: () -> Unit) {
                                         val server = createServer(serverNameState.text.toString())
 
                                         // Backend should've already created a channel for us to go to
-                                        server.channels?.first()?.id?.let {
+                                        server.channels?.firstOrNull()?.id?.let {
                                             ActionChannel.send(
                                                 Action.ChatNavigate(
                                                     ChatRouterDestination.Channel(it)

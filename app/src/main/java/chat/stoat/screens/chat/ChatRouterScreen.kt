@@ -173,11 +173,14 @@ class ChatRouterViewModel @Inject constructor(
 
             try {
                 latestChangelogRead = changelogs.hasSeenCurrent()
-                latestChangelog = changelogs.getLatestChangelogCode()
-                latestChangelogBody =
-                    changelogs.fetchChangelogByVersionCode(latestChangelog.toLong()).rendered
-                if (!latestChangelogRead) {
-                    changelogs.markAsSeen()
+                val code = changelogs.getLatestChangelogCode()
+                if (code != null) {
+                    latestChangelog = code
+                    latestChangelogBody =
+                        changelogs.fetchChangelogByVersionCode(code.toLong()).rendered
+                    if (!latestChangelogRead) {
+                        changelogs.markAsSeen()
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

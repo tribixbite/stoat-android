@@ -73,6 +73,8 @@ import chat.stoat.api.internals.DirectMessages
 import chat.stoat.api.realtime.DisconnectionState
 import chat.stoat.api.realtime.RealtimeSocket
 import chat.stoat.api.routes.push.subscribePush
+import chat.stoat.push.PushManager
+import chat.stoat.push.PushMode
 import chat.stoat.callbacks.Action
 import chat.stoat.callbacks.ActionChannel
 import chat.stoat.composables.chat.DisconnectedNotice
@@ -232,10 +234,35 @@ class ChatRouterViewModel @Inject constructor(
                 val token = task.result
                 viewModelScope.launch {
                     kvStorage.set("fcmToken", token)
-                    val error = subscribePush(auth = token)
-                    kvStorage.set("pushRegistrationFailed", error != null)
-                    if (error != null) {
-                        Log.w("FCM", "Push registration failed: $error")
+
+                    // Register based on push mode
+                    val mode = PushMode.fromKey(kvStorage.get("pushMode"))
+                    when (mode) {
+                        PushMode.BOT_FCM -> {
+                            // Register with bot relay
+                            val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+                            val userId = StoatAPI.selfId
+                            val deviceId = getOrCreateDeviceId()
+                            if (userId != null) {
+                                val botError = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                                if (botError != null) {
+                                    Log.w("FCM", "Bot push registration failed: $botError")
+                                }
+                            }
+                            // Also subscribe with Stoat backend as fallback
+                            val error = subscribePush(auth = token)
+                            kvStorage.set("pushRegistrationFailed", error != null)
+                        }
+                        PushMode.BACKEND -> {
+                            val error = subscribePush(auth = token)
+                            kvStorage.set("pushRegistrationFailed", error != null)
+                            if (error != null) {
+                                Log.w("FCM", "Push registration failed: $error")
+                            }
+                        }
+                        PushMode.OFF -> {
+                            Log.d("FCM", "Push disabled, skipping registration")
+                        }
                     }
                 }
             }
@@ -244,11 +271,18 @@ class ChatRouterViewModel @Inject constructor(
 
     /**
      * Ensure push is registered on every app resume.
-     * Handles: previous failure retry, first-time registration after
-     * user enabled notifications in system settings, and token refresh.
+     * Routes to bot relay or backend based on user's push mode preference.
      */
     fun retryPushRegistrationIfNeeded() {
         viewModelScope.launch {
+            val mode = PushMode.fromKey(kvStorage.get("pushMode"))
+
+            // Skip if push is disabled
+            if (mode == PushMode.OFF) {
+                Log.d("FCM", "Push disabled by user, skipping registration")
+                return@launch
+            }
+
             // Skip if Firebase is placeholder/unconfigured
             try {
                 val options = com.google.firebase.FirebaseApp.getInstance().options
@@ -267,63 +301,94 @@ class ChatRouterViewModel @Inject constructor(
                 return@launch
             }
 
-            // Check if we already have a stored token
+            // Get or fetch FCM token
             val existingToken = kvStorage.get("fcmToken")
             val previouslyFailed = kvStorage.getBoolean("pushRegistrationFailed") == true
 
-            if (existingToken != null && !previouslyFailed) {
-                // Token exists and last registration succeeded — re-subscribe to be safe
-                // (server may have lost our subscription, or token may have rotated)
-                Log.d("FCM", "Re-subscribing with existing token")
-                val error = subscribePush(auth = existingToken)
-                if (error != null) {
-                    Log.w("FCM", "Push re-subscription failed: $error")
-                    kvStorage.set("pushRegistrationFailed", true)
-                } else {
-                    Log.d("FCM", "Push re-subscription succeeded")
+            when {
+                existingToken != null -> {
+                    // Register with appropriate provider
+                    registerTokenWithProvider(mode, existingToken, isRetry = previouslyFailed)
                 }
-                return@launch
-            }
-
-            if (existingToken != null && previouslyFailed) {
-                // Retry with existing token
-                Log.d("FCM", "Retrying push registration with stored token")
-                val error = subscribePush(auth = existingToken)
-                if (error == null) {
-                    kvStorage.set("pushRegistrationFailed", false)
-                    Log.d("FCM", "Push registration retry succeeded")
-                } else {
-                    Log.w("FCM", "Push registration retry failed: $error")
-                }
-                return@launch
-            }
-
-            // No token stored yet — fetch one from Firebase and subscribe
-            Log.d("FCM", "No FCM token stored, fetching from Firebase")
-            try {
-                FirebaseMessaging.getInstance().token
-            } catch (e: Exception) {
-                Log.e("FCM", "Firebase token fetch threw exception", e)
-                return@launch
-            }.addOnCompleteListener { task ->
-                if (!task.isSuccessful) {
-                    Log.w("FCM", "FCM token fetch failed", task.exception)
-                    task.exception?.let { Sentry.captureException(it) }
-                    return@addOnCompleteListener
-                }
-                val token = task.result
-                viewModelScope.launch {
-                    kvStorage.set("fcmToken", token)
-                    val error = subscribePush(auth = token)
-                    kvStorage.set("pushRegistrationFailed", error != null)
-                    if (error != null) {
-                        Log.w("FCM", "Initial push registration failed: $error")
-                    } else {
-                        Log.d("FCM", "Initial push registration succeeded")
+                else -> {
+                    // No token stored — fetch from Firebase
+                    Log.d("FCM", "No FCM token stored, fetching from Firebase")
+                    try {
+                        FirebaseMessaging.getInstance().token
+                    } catch (e: Exception) {
+                        Log.e("FCM", "Firebase token fetch threw exception", e)
+                        return@launch
+                    }.addOnCompleteListener { task ->
+                        if (!task.isSuccessful) {
+                            Log.w("FCM", "FCM token fetch failed", task.exception)
+                            task.exception?.let { Sentry.captureException(it) }
+                            return@addOnCompleteListener
+                        }
+                        val token = task.result
+                        viewModelScope.launch {
+                            kvStorage.set("fcmToken", token)
+                            registerTokenWithProvider(mode, token, isRetry = false)
+                        }
                     }
                 }
             }
         }
+    }
+
+    /** Register a token with the appropriate push provider based on mode */
+    private suspend fun registerTokenWithProvider(
+        mode: PushMode,
+        token: String,
+        isRetry: Boolean,
+    ) {
+        when (mode) {
+            PushMode.BOT_FCM -> {
+                // Register with bot relay
+                val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+                val userId = StoatAPI.selfId
+                val deviceId = getOrCreateDeviceId()
+                if (userId != null) {
+                    val botError = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                    if (botError != null) {
+                        Log.w("FCM", "Bot push registration failed: $botError")
+                    } else {
+                        Log.d("FCM", "Bot push registration succeeded")
+                    }
+                }
+                // Also subscribe with Stoat backend as fallback
+                val error = subscribePush(auth = token)
+                kvStorage.set("pushRegistrationFailed", error != null)
+                if (error == null) {
+                    Log.d("FCM", "Backend push re-subscription succeeded")
+                }
+            }
+            PushMode.BACKEND -> {
+                val logPrefix = if (isRetry) "Retrying" else "Re-subscribing"
+                Log.d("FCM", "$logPrefix push registration with backend")
+                val error = subscribePush(auth = token)
+                if (error == null) {
+                    kvStorage.set("pushRegistrationFailed", false)
+                    Log.d("FCM", "Push registration succeeded")
+                } else {
+                    kvStorage.set("pushRegistrationFailed", true)
+                    Log.w("FCM", "Push registration failed: $error")
+                }
+            }
+            PushMode.OFF -> {
+                // Should not reach here (checked above), but handle gracefully
+                Log.d("FCM", "Push disabled, skipping")
+            }
+        }
+    }
+
+    /** Get or create a stable device UUID for push registration */
+    private suspend fun getOrCreateDeviceId(): String {
+        var deviceId = kvStorage.get("pushDeviceId")
+        if (deviceId == null) {
+            deviceId = java.util.UUID.randomUUID().toString()
+            kvStorage.set("pushDeviceId", deviceId)
+        }
+        return deviceId
     }
 
     fun markNotificationsRejected() {

@@ -10,9 +10,15 @@ import androidx.core.app.Person
 import chat.stoat.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -20,6 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,12 +37,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -50,10 +60,13 @@ import chat.stoat.api.routes.push.subscribePush
 import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.composables.generic.ListHeader
 import chat.stoat.persistence.KVStorage
+import chat.stoat.push.PushManager
+import chat.stoat.push.PushMode
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.sentry.Sentry
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -70,6 +83,18 @@ class NotificationSettingsViewModel @Inject constructor(
     var firebaseUnconfigured by mutableStateOf(false)
         private set
 
+    // Push mode state
+    var pushMode by mutableStateOf(PushMode.BOT_FCM)
+        private set
+    var botUrl by mutableStateOf(PushManager.DEFAULT_BOT_URL)
+        private set
+    var botRegistered by mutableStateOf(false)
+        private set
+    var botRegistrationError by mutableStateOf<String?>(null)
+        private set
+    var isSwitchingMode by mutableStateOf(false)
+        private set
+
     init {
         viewModelScope.launch {
             // Detect placeholder google-services.json
@@ -81,14 +106,121 @@ class NotificationSettingsViewModel @Inject constructor(
                 firebaseUnconfigured = true
             }
 
-            if (firebaseUnconfigured) {
+            // Load push mode and bot URL from storage
+            pushMode = PushMode.fromKey(kvStorage.get("pushMode"))
+            botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+
+            if (firebaseUnconfigured && pushMode == PushMode.BACKEND) {
                 lastError = "Replace app/google-services.json with real Firebase config"
                 return@launch
             }
 
+            // Check existing registration state
             val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
             val hasToken = kvStorage.get("fcmToken") != null
             fcmRegistered = hasToken && !failed
+
+            // Check bot registration status
+            if (pushMode == PushMode.BOT_FCM) {
+                val deviceId = getOrCreateDeviceId()
+                val status = PushManager.checkStatus(botUrl, deviceId)
+                botRegistered = status.registered
+                if (status.error != null) {
+                    botRegistrationError = status.error
+                }
+            }
+        }
+    }
+
+    /** Switch push notification delivery mode */
+    fun switchPushMode(newMode: PushMode) {
+        if (newMode == pushMode) return
+        isSwitchingMode = true
+        botRegistrationError = null
+
+        viewModelScope.launch {
+            // Unregister from bot if we were using it
+            if (pushMode == PushMode.BOT_FCM) {
+                val deviceId = getOrCreateDeviceId()
+                PushManager.unregister(botUrl, deviceId)
+                botRegistered = false
+            }
+
+            // Store new mode
+            pushMode = newMode
+            kvStorage.set("pushMode", newMode.key)
+
+            // Register with new mode
+            when (newMode) {
+                PushMode.BOT_FCM -> registerWithBot()
+                PushMode.BACKEND -> retryFcmRegistration()
+                PushMode.OFF -> {
+                    Log.d("NotificationSettings", "Push disabled by user")
+                }
+            }
+            isSwitchingMode = false
+        }
+    }
+
+    /** Save the bot URL and re-register if in bot mode */
+    fun saveBotUrl(url: String) {
+        viewModelScope.launch {
+            botUrl = url.trimEnd('/')
+            kvStorage.set("pushBotUrl", botUrl)
+            if (pushMode == PushMode.BOT_FCM) {
+                registerWithBot()
+            }
+        }
+    }
+
+    /** Register FCM token with the bot relay server */
+    fun registerWithBot() {
+        isRetrying = true
+        botRegistrationError = null
+
+        if (firebaseUnconfigured) {
+            botRegistrationError = "Firebase not configured — cannot get FCM token"
+            isRetrying = false
+            return
+        }
+
+        try {
+            FirebaseMessaging.getInstance().token
+        } catch (e: Exception) {
+            botRegistrationError = "Firebase error: ${e.message}"
+            isRetrying = false
+            return
+        }.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("NotificationSettings", "FCM token fetch failed", task.exception)
+                task.exception?.let { Sentry.captureException(it) }
+                botRegistrationError = "FCM token failed: ${task.exception?.message}"
+                isRetrying = false
+                return@addOnCompleteListener
+            }
+
+            val token = task.result
+            viewModelScope.launch {
+                kvStorage.set("fcmToken", token)
+                val userId = StoatAPI.selfId ?: run {
+                    botRegistrationError = "Not logged in"
+                    isRetrying = false
+                    return@launch
+                }
+                val deviceId = getOrCreateDeviceId()
+
+                val error = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                botRegistered = error == null
+                botRegistrationError = error
+
+                // Also subscribe with Stoat backend as fallback
+                subscribePush(auth = token)
+
+                isRetrying = false
+                if (error == null) {
+                    Log.d("NotificationSettings", "Bot push registration succeeded")
+                }
+            }
         }
     }
 
@@ -135,6 +267,16 @@ class NotificationSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             SyncedSettings.resetNotifications()
         }
+    }
+
+    /** Get or create a stable device UUID for push registration */
+    private suspend fun getOrCreateDeviceId(): String {
+        var deviceId = kvStorage.get("pushDeviceId")
+        if (deviceId == null) {
+            deviceId = UUID.randomUUID().toString()
+            kvStorage.set("pushDeviceId", deviceId)
+        }
+        return deviceId
     }
 }
 
@@ -236,44 +378,84 @@ fun NotificationSettingsScreen(
                 }
             )
 
-            // FCM registration status
+            // Push Provider selection
             ListHeader {
-                Text(stringResource(R.string.settings_notifications_fcm_status))
+                Text("Push Provider")
             }
 
-            ListItem(
-                headlineContent = {
-                    Text(
-                        if (viewModel.firebaseUnconfigured) {
-                            stringResource(R.string.settings_notifications_fcm_unconfigured)
-                        } else if (!notificationsEnabled) {
-                            stringResource(R.string.settings_notifications_permission_denied)
-                        } else if (viewModel.fcmRegistered) {
-                            stringResource(R.string.settings_notifications_fcm_registered)
-                        } else {
-                            stringResource(R.string.settings_notifications_fcm_not_registered)
-                        }
-                    )
-                },
-                supportingContent = {
-                    if (viewModel.firebaseUnconfigured) {
-                        Text(
-                            text = viewModel.lastError ?: stringResource(R.string.settings_notifications_fcm_unconfigured_hint),
-                            color = MaterialTheme.colorScheme.error
+            Column(Modifier.selectableGroup()) {
+                // Bot FCM relay option
+                PushModeOption(
+                    mode = PushMode.BOT_FCM,
+                    description = "FCM via stoatcord-bot relay",
+                    selected = viewModel.pushMode == PushMode.BOT_FCM,
+                    enabled = !viewModel.isSwitchingMode,
+                    onSelect = { viewModel.switchPushMode(PushMode.BOT_FCM) }
+                )
+
+                // Backend option (disabled with explanation)
+                PushModeOption(
+                    mode = PushMode.BACKEND,
+                    description = "Direct from Stoat server (currently unavailable)",
+                    selected = viewModel.pushMode == PushMode.BACKEND,
+                    enabled = false,
+                    onSelect = {}
+                )
+
+                // Off option
+                PushModeOption(
+                    mode = PushMode.OFF,
+                    description = "Disable push notifications",
+                    selected = viewModel.pushMode == PushMode.OFF,
+                    enabled = !viewModel.isSwitchingMode,
+                    onSelect = { viewModel.switchPushMode(PushMode.OFF) }
+                )
+            }
+
+            // Bot URL field (only when bot mode selected)
+            if (viewModel.pushMode == PushMode.BOT_FCM) {
+                var editingUrl by mutableStateOf(viewModel.botUrl)
+
+                ListItem(
+                    headlineContent = {
+                        OutlinedTextField(
+                            value = editingUrl,
+                            onValueChange = { editingUrl = it },
+                            label = { Text("Bot URL") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    } else if (!notificationsEnabled) {
-                        Text(stringResource(R.string.settings_notifications_grant_first))
-                    } else if (viewModel.lastError != null) {
-                        Text(
-                            text = viewModel.lastError!!,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                },
-                trailingContent = {
-                    if (!viewModel.firebaseUnconfigured) {
+                    },
+                    trailingContent = {
                         TextButton(
-                            onClick = { viewModel.retryFcmRegistration() },
+                            onClick = { viewModel.saveBotUrl(editingUrl) },
+                            enabled = editingUrl != viewModel.botUrl && editingUrl.isNotBlank()
+                        ) {
+                            Text("Save")
+                        }
+                    }
+                )
+
+                // Bot registration status
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            if (viewModel.botRegistered) "Registered with bot"
+                            else if (viewModel.isRetrying) "Registering..."
+                            else "Not registered"
+                        )
+                    },
+                    supportingContent = {
+                        if (viewModel.botRegistrationError != null) {
+                            Text(
+                                text = viewModel.botRegistrationError!!,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    trailingContent = {
+                        TextButton(
+                            onClick = { viewModel.registerWithBot() },
                             enabled = !viewModel.isRetrying && notificationsEnabled
                         ) {
                             Text(
@@ -284,17 +466,79 @@ fun NotificationSettingsScreen(
                                 }
                             )
                         }
+                    },
+                    leadingContent = {
+                        SettingsIcon {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_chat_24dp),
+                                contentDescription = null,
+                            )
+                        }
                     }
-                },
-                leadingContent = {
-                    SettingsIcon {
-                        Icon(
-                            painter = painterResource(R.drawable.icn_chat_24dp),
-                            contentDescription = null,
-                        )
-                    }
+                )
+            }
+
+            // Legacy FCM status (for backend mode)
+            if (viewModel.pushMode == PushMode.BACKEND) {
+                ListHeader {
+                    Text(stringResource(R.string.settings_notifications_fcm_status))
                 }
-            )
+
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            if (viewModel.firebaseUnconfigured) {
+                                stringResource(R.string.settings_notifications_fcm_unconfigured)
+                            } else if (!notificationsEnabled) {
+                                stringResource(R.string.settings_notifications_permission_denied)
+                            } else if (viewModel.fcmRegistered) {
+                                stringResource(R.string.settings_notifications_fcm_registered)
+                            } else {
+                                stringResource(R.string.settings_notifications_fcm_not_registered)
+                            }
+                        )
+                    },
+                    supportingContent = {
+                        if (viewModel.firebaseUnconfigured) {
+                            Text(
+                                text = viewModel.lastError ?: stringResource(R.string.settings_notifications_fcm_unconfigured_hint),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else if (!notificationsEnabled) {
+                            Text(stringResource(R.string.settings_notifications_grant_first))
+                        } else if (viewModel.lastError != null) {
+                            Text(
+                                text = viewModel.lastError!!,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    trailingContent = {
+                        if (!viewModel.firebaseUnconfigured) {
+                            TextButton(
+                                onClick = { viewModel.retryFcmRegistration() },
+                                enabled = !viewModel.isRetrying && notificationsEnabled
+                            ) {
+                                Text(
+                                    if (viewModel.isRetrying) {
+                                        stringResource(R.string.search_messages_loading)
+                                    } else {
+                                        stringResource(R.string.settings_notifications_fcm_retry)
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = {
+                        SettingsIcon {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_chat_24dp),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                )
+            }
 
             // Muted servers summary
             ListHeader {
@@ -485,6 +729,49 @@ fun NotificationSettingsScreen(
                 modifier = Modifier.clickable {
                     viewModel.resetNotificationSettings()
                 }
+            )
+        }
+    }
+}
+
+/** Radio button row for push mode selection */
+@Composable
+private fun PushModeOption(
+    mode: PushMode,
+    description: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClick = onSelect,
+            )
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null, // handled by selectable
+            enabled = enabled,
+        )
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(
+                text = mode.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
             )
         }
     }

@@ -23,6 +23,8 @@ import chat.stoat.api.StoatJson
 import chat.stoat.api.internals.ULID
 import chat.stoat.api.routes.push.subscribePush
 import chat.stoat.api.settings.NotificationSettingsProvider
+import chat.stoat.push.PushManager
+import chat.stoat.push.PushMode
 import chat.stoat.core.model.schemas.Message
 import chat.stoat.core.model.schemas.User
 import chat.stoat.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
@@ -53,11 +55,44 @@ class HandlerService : FirebaseMessagingService() {
         Log.d("HandlerService", "FCM token refreshed, subscribing to push")
         serviceScope.launch {
             try {
-                val error = subscribePush(auth = token)
-                if (error != null) {
-                    Log.w("HandlerService", "Push subscription failed during onNewToken: $error")
-                } else {
-                    Log.d("HandlerService", "Push subscription registered via onNewToken")
+                // Store the new token
+                val kvStorage = chat.stoat.persistence.KVStorage(applicationContext)
+                kvStorage.set("fcmToken", token)
+
+                // Check push mode and register accordingly
+                val mode = PushMode.fromKey(kvStorage.get("pushMode"))
+                when (mode) {
+                    PushMode.BOT_FCM -> {
+                        // Register with bot relay
+                        val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+                        val userId = chat.stoat.api.StoatAPI.selfId
+                        var deviceId = kvStorage.get("pushDeviceId")
+                        if (deviceId == null) {
+                            deviceId = java.util.UUID.randomUUID().toString()
+                            kvStorage.set("pushDeviceId", deviceId)
+                        }
+                        if (userId != null) {
+                            val botError = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                            if (botError != null) {
+                                Log.w("HandlerService", "Bot push registration failed: $botError")
+                            } else {
+                                Log.d("HandlerService", "Bot push registration succeeded via onNewToken")
+                            }
+                        }
+                        // Also subscribe with backend as fallback
+                        subscribePush(auth = token)
+                    }
+                    PushMode.BACKEND -> {
+                        val error = subscribePush(auth = token)
+                        if (error != null) {
+                            Log.w("HandlerService", "Push subscription failed during onNewToken: $error")
+                        } else {
+                            Log.d("HandlerService", "Push subscription registered via onNewToken")
+                        }
+                    }
+                    PushMode.OFF -> {
+                        Log.d("HandlerService", "Push disabled, skipping onNewToken registration")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("HandlerService", "Error in onNewToken push subscription", e)

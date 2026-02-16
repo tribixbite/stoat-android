@@ -582,3 +582,4 @@ All changes from upstream divergence point:
 | `d43a168` | fix | ANR on settings navigation (ActionChannel CancellationException loop), notification settings threading |
 | `77e5eda` | fix | UnifiedPush WAKE\_LOCK permission (override maxSdkVersion=25), Glide main-thread crash, ULID validation guard |
 | `c44886b` | fix | Show error with retry button when message fetch fails instead of infinite shimmer |
+| `83b1580` | fix | Channels not marking as read when last message was deleted (#62) |

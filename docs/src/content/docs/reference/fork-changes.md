@@ -287,6 +287,22 @@ Prevents duplicate message sends from rapid tapping.
 - On some devices, system back gesture could visually dismiss the sheet while `showEarlyAccessSpark` remained `true`, leaving an invisible scrim blocking all touch input
 - Now `onDismissRequest` properly calls `dismissEarlyAccessSpark()` so back press works as expected
 
+### Send Button Active During Upload (Upstream #33)
+- **Send button now shows `CircularProgressIndicator`** while message is being uploaded/sent
+- Users can still type in the message field, but can't double-send
+- Matches the loading indicator pattern used across all other action buttons
+
+### @Mention Autocomplete in DMs (Upstream #52)
+- **Fixed @mention autocomplete** to work in DMs and group DMs
+- Now matches on both `username` and `displayName` (previously only `username`)
+- Typing bare `@` in a DM/group shows all participants as suggestions
+- Same fix applied to Saved Messages channel
+
+### Friends List Not Refreshing (Upstream #39)
+- **All relationship API responses now update the local user cache** immediately
+- Previously, `friendUser()`, `acceptFriendRequest()`, `unfriendUser()`, `blockUser()`, `unblockUser()` discarded the API response — the UI only updated when a WebSocket event arrived (or not at all if the socket was slow)
+- Now parses the response `User` object and writes to `StoatAPI.userCache`, triggering instant Compose recomposition
+
 ### Spoiler Text (Upstream #54)
 - **Implemented `||spoiler||` syntax** — double-pipe delimiters render as hidden text
 - New `SpoilerParser` sequential parser recognizes `||..||` in the markdown pipeline
@@ -608,3 +624,7 @@ All changes from upstream divergence point:
 | `52b85a0` | fix | Registration double-tap guard prevents duplicate signup emails (#30) |
 | `2362e9e` | fix | Group creation double-tap guard (#30) |
 | `e48f41d` | feat | Notification tap navigates to relevant channel (cold start + foreground) |
+| `9e26d75` | fix | Send button shows progress indicator during upload/send (#33) |
+| `0eeafeb` | fix | @mention autocomplete matches displayName in DMs and groups (#52) |
+| `50f7a72` | fix | Friends list updates immediately after relationship changes (#39) |
+| `4f275fa` | fix | CatchUpScreen uses actual newest message ID from channel cache |

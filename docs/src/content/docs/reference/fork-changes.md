@@ -580,3 +580,4 @@ All changes from upstream divergence point:
 | `3b08e36` | feat | Push notification relay via stoatcord-bot (FCM + mode selector) |
 | `d57c734` | feat | UnifiedPush support (connector 3.2.0, StoatPushService, distributor picker) |
 | `d43a168` | fix | ANR on settings navigation (ActionChannel CancellationException loop), notification settings threading |
+| `77e5eda` | fix | UnifiedPush WAKE\_LOCK permission (override maxSdkVersion=25), Glide main-thread crash, ULID validation guard |

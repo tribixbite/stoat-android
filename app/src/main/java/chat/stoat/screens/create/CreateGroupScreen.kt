@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +57,8 @@ class CreateGroupScreenViewModel : ViewModel() {
     var friendSearchQuery by mutableStateOf("")
     var friendsFilteredBySearch = mutableStateListOf<String>()
     var error by mutableStateOf<String?>(null)
+    var isCreating by mutableStateOf(false)
+        private set
 
     fun updateFriendSearchQuery(query: String) {
         friendSearchQuery = query
@@ -78,20 +82,23 @@ class CreateGroupScreenViewModel : ViewModel() {
     }
 
     fun createGroup(popBackStack: () -> Unit) {
+        if (isCreating) return // Guard against double-tap (#30)
         if (groupMembers.size > MAX_ADDABLE_PEOPLE_IN_GROUP) {
             error = "Too many members, maximum is $MAX_ADDABLE_PEOPLE_IN_GROUP"
             return
         }
 
-        try {
-            error = null
-            viewModelScope.launch {
+        isCreating = true
+        error = null
+        viewModelScope.launch {
+            try {
                 val channel = createGroupDM(groupName, groupMembers)
                 popBackStack()
                 channel.id?.let { ActionChannel.send(Action.SwitchChannel(it)) }
+            } catch (e: Exception) {
+                error = e.message
             }
-        } catch (e: Exception) {
-            error = e.message
+            isCreating = false
         }
     }
 }
@@ -134,11 +141,21 @@ fun CreateGroupScreen(
                 enter = scaleIn(animationSpec = StoatTweenFloat),
                 exit = scaleOut(animationSpec = StoatTweenFloat)
             ) {
-                FloatingActionButton(onClick = { viewModel.createGroup(navController::popBackStack) }) {
-                    Icon(
-                        painter = painterResource(R.drawable.icn_check_24dp),
-                        contentDescription = stringResource(R.string.create_group_action)
-                    )
+                FloatingActionButton(
+                    onClick = { if (!viewModel.isCreating) viewModel.createGroup(navController::popBackStack) }
+                ) {
+                    if (viewModel.isCreating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_check_24dp),
+                            contentDescription = stringResource(R.string.create_group_action)
+                        )
+                    }
                 }
             }
         }

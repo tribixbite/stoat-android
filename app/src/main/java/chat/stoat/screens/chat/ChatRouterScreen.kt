@@ -515,13 +515,13 @@ fun ChatRouterScreen(
     }
 
     val currentServer = remember(viewModel.currentDestination) {
-        when (viewModel.currentDestination) {
+        when (val dest = viewModel.currentDestination) {
             is ChatRouterDestination.Channel -> {
-                StoatAPI.channelCache[(viewModel.currentDestination as ChatRouterDestination.Channel).channelId]?.server
+                StoatAPI.channelCache[dest.channelId]?.server
             }
 
             is ChatRouterDestination.NoCurrentChannel -> {
-                (viewModel.currentDestination as ChatRouterDestination.NoCurrentChannel).serverId
+                dest.serverId
             }
 
             else -> null

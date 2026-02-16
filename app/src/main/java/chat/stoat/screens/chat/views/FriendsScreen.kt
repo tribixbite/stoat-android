@@ -313,7 +313,7 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
         var contents by rememberSaveable { mutableStateOf<UserQRContents?>(null) }
 
         LaunchedEffect(qrResult) {
-            when (qrResult) {
+            when (val result = qrResult) {
                 is QRResult.QRUserCanceled -> {
                     // Silently dismiss ourselves.
                     qrResult = null
@@ -321,7 +321,7 @@ fun FriendsScreen(topNav: NavController, useDrawer: Boolean, onDrawerClicked: ()
 
                 is QRResult.QRSuccess -> {
                     contents =
-                        UserQR.fromUri((qrResult as QRResult.QRSuccess).content.rawValue ?: "")
+                        UserQR.fromUri(result.content.rawValue ?: "")
                 }
 
                 else -> {

@@ -100,9 +100,9 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     fun saveNewPfp() {
         uploadError = null
 
-        val uri = when (pfpModel) {
-            is Uri -> pfpModel as Uri
-            is String -> Uri.parse(pfpModel as String)
+        val uri = when (val model = pfpModel) {
+            is Uri -> model
+            is String -> Uri.parse(model)
             else -> return
         }
 
@@ -142,9 +142,9 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     fun saveNewBackground() {
         uploadError = null
 
-        val uri = when (backgroundModel) {
-            is Uri -> backgroundModel as Uri
-            is String -> Uri.parse(backgroundModel as String)
+        val uri = when (val model = backgroundModel) {
+            is Uri -> model
+            is String -> Uri.parse(model)
             else -> return
         }
 

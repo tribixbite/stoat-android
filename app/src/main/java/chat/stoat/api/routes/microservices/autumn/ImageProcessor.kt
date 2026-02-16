@@ -89,24 +89,27 @@ object ImageProcessor {
             if (rotated !== bitmap) { bitmap.recycle(); bitmap = null }
 
             // Step 3: Center-crop to target aspect ratio (if required)
+            val rotatedBmp = rotated ?: return null
             cropped = uploadType.targetAspectRatio?.let { ratio ->
-                centerCrop(rotated!!, ratio)
-            } ?: rotated
+                centerCrop(rotatedBmp, ratio)
+            } ?: rotatedBmp
             if (cropped !== rotated) { rotated?.recycle(); rotated = null }
 
             // Step 4: Resize to max dimensions
-            resized = resizeToMax(cropped!!, uploadType.maxDimension)
-            if (resized !== cropped) { cropped.recycle(); cropped = null }
+            val croppedBmp = cropped ?: return null
+            resized = resizeToMax(croppedBmp, uploadType.maxDimension)
+            if (resized !== cropped) { cropped?.recycle(); cropped = null }
 
             // Step 5: Compress as WebP with file size enforcement
+            val resizedBmp = resized ?: return null
             val outputFile = File(cacheDir, "processed_${System.currentTimeMillis()}.webp")
-            val compressed = compressToWebP(resized!!, outputFile, uploadType.maxBytes)
+            val compressed = compressToWebP(resizedBmp, outputFile, uploadType.maxBytes)
 
-            val finalWidth = resized!!.width
-            val finalHeight = resized!!.height
+            val finalWidth = resizedBmp.width
+            val finalHeight = resizedBmp.height
 
             // Recycle the final bitmap before returning
-            resized!!.recycle(); resized = null
+            resizedBmp.recycle(); resized = null
 
             if (!compressed) {
                 Log.e(TAG, "Failed to compress within ${uploadType.maxBytes} bytes")

@@ -388,6 +388,7 @@ Prevents duplicate message sends from rapid tapping.
 - **Autumn upload double body read** — `uploadToAutumn()` was calling `bodyAsText()` twice (once for success, once for error). Now reads body once and checks status code
 - **ActionChannel crash protection** — receive loop in ChatRouterScreen now wrapped in try-catch; a single action handler exception no longer kills the entire action dispatch loop
 - **MemberListSheet off-main-thread** — member categorization/sorting for large servers (1000+ members) moved to `Dispatchers.Default` to avoid main thread blocking
+- **Safe attachment aspect ratio** — image/video attachments with missing metadata dimensions no longer crash with `NullPointerException`; defaults to 1:1 aspect ratio via `safeAspectRatio()` helper instead of 4 chained `!!` assertions
 
 ## Performance Optimizations
 
@@ -657,3 +658,4 @@ All changes from upstream divergence point:
 | `7894fd4` | fix | Type-specific system message colors, verify permission calculation |
 | `a7c3636` | fix | Handle missing WebSocket frame types for real-time cache sync |
 | `32353e7` | feat | Inline text file preview in message attachments |
+| `e7dec5c` | fix | Prevent NullPointerException crash on image/video with missing dimensions |

@@ -14,7 +14,7 @@ kotlin {
     }
 }
 android {
-    namespace = "chat.stoat.core.model"
+    namespace = "com.tribixbite.stoatally.core.model"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

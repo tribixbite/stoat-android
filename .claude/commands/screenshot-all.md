@@ -2,7 +2,7 @@ Walk through every reachable app screen via ADB and capture screenshots for visu
 
 ## Prerequisites
 - ADB connected (`adb devices` shows device)
-- App installed (`chat.revolt.debug`)
+- App installed (`com.tribixbite.stoatally.debug`)
 - Screenshots saved to `~/storage/shared/DCIM/Screenshots/stoat-audit/`
 
 ## Screen List

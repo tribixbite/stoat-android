@@ -33,7 +33,7 @@ The Stoatcord Bot is a Discord application that provides:
 
 ## Open Source
 
-Stoat for Android is open-source software. The source code is available at [github.com/tribixbite/stoat-android](https://github.com/tribixbite/stoat-android) under the project's license terms. Contributions are welcome per the project's contributing guidelines.
+Stoat for Android is open-source software. The source code is available at [github.com/tribixbite/stoatally](https://github.com/tribixbite/stoatally) under the project's license terms. Contributions are welcome per the project's contributing guidelines.
 
 ## Availability
 
@@ -74,4 +74,4 @@ These terms are governed by applicable law. Any disputes shall be resolved throu
 
 ## Contact
 
-For questions about these terms, open an issue at [github.com/tribixbite/stoat-android](https://github.com/tribixbite/stoat-android/issues) or contact the project maintainer.
+For questions about these terms, open an issue at [github.com/tribixbite/stoatally](https://github.com/tribixbite/stoatally/issues) or contact the project maintainer.

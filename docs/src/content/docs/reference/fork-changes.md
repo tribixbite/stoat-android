@@ -4,7 +4,7 @@ description: Features, bug fixes, and improvements in the tribixbite fork that a
 template: doc
 ---
 
-This page documents all features, bug fixes, and improvements added in the [tribixbite/stoat-android](https://github.com/tribixbite/stoat-android) fork that are **not present** in the upstream [stoatchat/for-android](https://github.com/stoatchat/for-android) repository.
+This page documents all features, bug fixes, and improvements added in the [tribixbite/stoatally](https://github.com/tribixbite/stoatally) fork that are **not present** in the upstream [stoatchat/for-android](https://github.com/stoatchat/for-android) repository.
 
 ## New Features
 
@@ -103,7 +103,7 @@ Automated build and release system.
 - SDK 36 + build-tools 35.0.0 setup
 
 ### Image Processing Pipeline
-Automatic image optimization for all uploads, ensuring compatibility with Autumn file server limits. See [`docs/specs/autumn-image-upload.md`](/stoat-android/specs/autumn-image-upload/) for the full server protocol spec.
+Automatic image optimization for all uploads, ensuring compatibility with Autumn file server limits. See [`docs/specs/autumn-image-upload.md`](/stoatally/specs/autumn-image-upload/) for the full server protocol spec.
 
 - **ImageProcessor utility** (`ImageProcessor.kt`) — handles complete image preparation pipeline
 - **EXIF rotation** — reads EXIF orientation tag and applies rotation/flip before processing (many phone cameras embed rotation in metadata rather than pixel data)
@@ -432,17 +432,17 @@ User fetch and profile fetch in `UserInfoSheet` ran sequentially. Wrapped in `co
 
 Comprehensive technical documentation added (not present in upstream):
 
-- **[Feature Gap Analysis](/stoat-android/reference/fork-changes)** — tracks all 121 API endpoints, 121 implemented (100%)
-- **[Discord Parity Plan](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/discord-parity-plan.md)** — 6-phase plan for all 56 remaining endpoints
-- **[Backend Required Features](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)** — 39 Discord features impossible without API changes
-- **[Revolt API Reference](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/revolt-api-reference.md)** — exhaustive 113+ endpoint reference with schemas, rate limits, WebSocket events
-- **[API Discovery](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/api-discovery.md)** — DNS enumeration, domain map, infrastructure analysis
-- **[Message Search Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/message-search.md)** — search feature architecture and API integration
-- **[Notification Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/notifications.md)** — push notification system, FCM, mute controls
-- **[Build System Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/build-system.md)** — Termux ARM64 build process documentation
-- **[Antifeature Audit](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/audit-antifeatures.md)** — telemetry, privacy, UX findings
-- **[Search API Benchmarks](https://github.com/tribixbite/stoat-android/blob/dev/docs/search-api-benchmark.md)** — performance testing results
-- **[Discord Bridge Spec](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/discord-bridge.md)** — stoatcord-bot architecture, import wizard, bridge management
+- **[Feature Gap Analysis](/stoatally/reference/fork-changes)** — tracks all 121 API endpoints, 121 implemented (100%)
+- **[Discord Parity Plan](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/discord-parity-plan.md)** — 6-phase plan for all 56 remaining endpoints
+- **[Backend Required Features](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)** — 39 Discord features impossible without API changes
+- **[Revolt API Reference](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/revolt-api-reference.md)** — exhaustive 113+ endpoint reference with schemas, rate limits, WebSocket events
+- **[API Discovery](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/api-discovery.md)** — DNS enumeration, domain map, infrastructure analysis
+- **[Message Search Spec](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/message-search.md)** — search feature architecture and API integration
+- **[Notification Spec](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/notifications.md)** — push notification system, FCM, mute controls
+- **[Build System Spec](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/build-system.md)** — Termux ARM64 build process documentation
+- **[Antifeature Audit](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/audit-antifeatures.md)** — telemetry, privacy, UX findings
+- **[Search API Benchmarks](https://github.com/tribixbite/stoatally/blob/dev/docs/search-api-benchmark.md)** — performance testing results
+- **[Discord Bridge Spec](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/discord-bridge.md)** — stoatcord-bot architecture, import wizard, bridge management
 
 ## API Coverage Summary
 
@@ -466,7 +466,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth routes + voice end ring + experimental member query. All 6 phases complete including Discord bridge integration. Search result navigation now scrolls to the target message in-channel. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md)).
+Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth routes + voice end ring + experimental member query. All 6 phases complete including Discord bridge integration. Search result navigation now scrolls to the target message in-channel. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -566,7 +566,7 @@ Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth route
 | Members experimental query | `GET /servers/{id}/members_experimental_query` | **Done** |
 
 ### Not Achievable (Backend Limitations)
-39 features require backend API changes: threads/forums, scheduled events, stage channels, AutoMod, audit log, slash commands, interactive components, polls, stickers, screen sharing, rich presence, server templates, vanity URLs, per-user permission overrides, slow mode. Full list in [backend-required-features.md](https://github.com/tribixbite/stoat-android/blob/dev/docs/specs/backend-required-features.md).
+39 features require backend API changes: threads/forums, scheduled events, stage channels, AutoMod, audit log, slash commands, interactive components, polls, stickers, screen sharing, rich presence, server templates, vanity URLs, per-user permission overrides, slow mode. Full list in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md).
 
 ## Commit History
 

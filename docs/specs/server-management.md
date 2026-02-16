@@ -68,7 +68,7 @@ and member moderation (nickname, role assignment, kick, ban).
 | `POST /autumn/icons` | `→ uploadToAutumn()` |
 
 ## Permission Bits
-All from `chat.stoat.api.internals.PermissionBit`:
+All from `com.tribixbite.stoatally.api.internals.PermissionBit`:
 - `ManageServer` — edit server info
 - `ManageRole` — create/edit/delete roles
 - `ManageChannel` — create channels
@@ -166,7 +166,7 @@ All from `chat.stoat.api.internals.PermissionBit`:
 | `GET /users/{id}/mutual` | `api/routes/user/User.kt → fetchMutualFriendsAndServers()` |
 
 ## Permission Bits
-All from `chat.stoat.api.internals.PermissionBit`:
+All from `com.tribixbite.stoatally.api.internals.PermissionBit`:
 - `ManageServer` — edit server info, manage invites
 - `ManageRole` — create/edit/delete roles
 - `ManageChannel` — create channels

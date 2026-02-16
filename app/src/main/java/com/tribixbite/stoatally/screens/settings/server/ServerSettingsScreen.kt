@@ -1,0 +1,721 @@
+package com.tribixbite.stoatally.screens.settings.server
+
+import android.content.Context
+import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
+import com.tribixbite.stoatally.R
+import com.tribixbite.stoatally.activities.StoatTweenFloat
+import com.tribixbite.stoatally.api.STOAT_FILES
+import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.api.internals.PermissionBit
+import com.tribixbite.stoatally.api.internals.Roles
+import com.tribixbite.stoatally.api.internals.has
+import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
+import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
+import com.tribixbite.stoatally.api.routes.microservices.autumn.uploadToAutumn
+import com.tribixbite.stoatally.api.routes.server.editServer
+import com.tribixbite.stoatally.composables.generic.ImageCropDialog
+import com.tribixbite.stoatally.composables.generic.InlineMediaPicker
+import com.tribixbite.stoatally.composables.generic.ListHeader
+import com.tribixbite.stoatally.core.model.schemas.Server
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.ktor.http.ContentType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+
+@HiltViewModel
+class ServerSettingsViewModel @Inject constructor(
+    @ApplicationContext val context: Context
+) : ViewModel() {
+    var initialServer by mutableStateOf<Server?>(null)
+
+    var serverName by mutableStateOf("")
+    var serverDescription by mutableStateOf("")
+
+    var iconModel by mutableStateOf<Any?>(null)
+    var iconIsUploading by mutableStateOf(false)
+    var iconUploadProgress by mutableFloatStateOf(0f)
+
+    var bannerModel by mutableStateOf<Any?>(null)
+    var bannerIsUploading by mutableStateOf(false)
+    var bannerUploadProgress by mutableFloatStateOf(0f)
+
+    var pendingIconCropUri by mutableStateOf<Uri?>(null)
+    var pendingBannerCropUri by mutableStateOf<Uri?>(null)
+
+    var uploadError by mutableStateOf<String?>(null)
+    var updateError by mutableStateOf<String?>(null)
+
+    fun populateWithServer(serverId: String) {
+        val server = StoatAPI.serverCache[serverId]
+        initialServer = server
+        server?.let {
+            serverName = it.name ?: ""
+            serverDescription = it.description ?: ""
+            iconModel = it.icon?.let { icon -> "$STOAT_FILES/icons/${icon.id}" }
+            bannerModel = it.banner?.let { banner -> "$STOAT_FILES/banners/${banner.id}" }
+        }
+    }
+
+    private fun unsetIcon() {
+        iconIsUploading = true
+        iconUploadProgress = 0f
+        uploadError = null
+
+        initialServer?.id?.let { serverId ->
+            viewModelScope.launch {
+                try {
+                    editServer(serverId, remove = listOf("Icon"))
+                    iconModel = null
+                } catch (e: Exception) {
+                    updateError = e.message
+                }
+                iconIsUploading = false
+            }
+        } ?: run { iconIsUploading = false }
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as server icon.
+     */
+    fun processAndUploadIcon(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        iconUploadProgress = 0f
+        iconIsUploading = true
+
+        viewModelScope.launch {
+            try {
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.ICON, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "icon.webp", "icons", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        iconUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", icon = id)
+                processed.file.delete()
+                // Update icon model to show uploaded image
+                iconModel = "$STOAT_FILES/icons/$id"
+            } catch (e: Exception) {
+                uploadError = e.message
+                iconUploadProgress = 0f
+            }
+            iconIsUploading = false
+        }
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as server banner.
+     */
+    fun processAndUploadBanner(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        bannerUploadProgress = 0f
+        bannerIsUploading = true
+
+        viewModelScope.launch {
+            try {
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.BANNER, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "banner.webp", "banners", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", banner = id)
+                processed.file.delete()
+                // Update banner model to show uploaded image
+                bannerModel = "$STOAT_FILES/banners/$id"
+            } catch (e: Exception) {
+                uploadError = e.message
+                bannerUploadProgress = 0f
+            }
+            bannerIsUploading = false
+        }
+    }
+
+    fun pickIcon(newModel: Any?) {
+        iconModel = newModel
+        uploadError = null
+        iconUploadProgress = 0f
+
+        val uri = when (newModel) {
+            is Uri -> newModel
+            is String -> Uri.parse(newModel)
+            else -> null
+        } ?: run {
+            unsetIcon()
+            return
+        }
+
+        viewModelScope.launch {
+            iconIsUploading = true
+            try {
+                // Process image: center-crop to 1:1, resize to 1024px, compress as WebP
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.ICON)
+                } ?: throw Exception("Failed to process image")
+
+                val id = uploadToAutumn(
+                    processed.file,
+                    "icon.webp",
+                    "icons",
+                    ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        iconUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", icon = id)
+                processed.file.delete()
+                iconIsUploading = false
+            } catch (e: Exception) {
+                uploadError = e.message
+                iconUploadProgress = 0f
+                iconIsUploading = false
+            }
+        }
+    }
+
+    private fun unsetBanner() {
+        bannerIsUploading = true
+        bannerUploadProgress = 0f
+        uploadError = null
+
+        initialServer?.id?.let { serverId ->
+            viewModelScope.launch {
+                try {
+                    editServer(serverId, remove = listOf("Banner"))
+                    bannerModel = null
+                } catch (e: Exception) {
+                    updateError = e.message
+                }
+                bannerIsUploading = false
+            }
+        } ?: run { bannerIsUploading = false }
+    }
+
+    fun pickBanner(newModel: Any?) {
+        bannerModel = newModel
+        uploadError = null
+        bannerUploadProgress = 0f
+
+        val uri = when (newModel) {
+            is Uri -> newModel
+            is String -> Uri.parse(newModel)
+            else -> null
+        } ?: run {
+            unsetBanner()
+            return
+        }
+
+        viewModelScope.launch {
+            bannerIsUploading = true
+            try {
+                // Process image: center-crop to 5:2, resize to 2048px, compress as WebP
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.BANNER)
+                } ?: throw Exception("Failed to process image")
+
+                val id = uploadToAutumn(
+                    processed.file,
+                    "banner.webp",
+                    "banners",
+                    ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", banner = id)
+                processed.file.delete()
+                bannerIsUploading = false
+            } catch (e: Exception) {
+                uploadError = e.message
+                bannerUploadProgress = 0f
+                bannerIsUploading = false
+            }
+        }
+    }
+
+    fun updateServer() {
+        updateError = null
+        viewModelScope.launch {
+            try {
+                editServer(
+                    initialServer?.id ?: "",
+                    name = if (serverName != initialServer?.name) serverName else null,
+                    description = if (serverDescription != (initialServer?.description ?: "")) serverDescription else null
+                )
+                initialServer = initialServer?.copy(
+                    name = serverName,
+                    description = serverDescription
+                )
+            } catch (e: Exception) {
+                updateError = e.message
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ServerSettingsScreen(
+    navController: NavController,
+    serverId: String,
+    viewModel: ServerSettingsViewModel = hiltViewModel()
+) {
+    val server = StoatAPI.serverCache[serverId]
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+
+    LaunchedEffect(serverId) {
+        viewModel.populateWithServer(serverId)
+    }
+
+    // Check if user has ManageServer permission
+    val selfMember = StoatAPI.members.getMember(serverId, StoatAPI.selfId ?: "")
+    val permissions = server?.let { s ->
+        selfMember?.let { m -> Roles.permissionFor(s, m) }
+    } ?: 0L
+    val canManage = server?.owner == StoatAPI.selfId || permissions has PermissionBit.ManageServer
+
+    val serverInfoUpdated by remember(server, viewModel.serverName, viewModel.serverDescription) {
+        derivedStateOf {
+            server?.let { s ->
+                (s.name ?: "") != viewModel.serverName ||
+                        (s.description ?: "") != viewModel.serverDescription
+            } ?: false
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            LargeTopAppBar(
+                scrollBehavior = scrollBehavior,
+                title = {
+                    Text(
+                        text = stringResource(R.string.server_settings_title),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_arrow_back_24dp),
+                            contentDescription = stringResource(id = R.string.back)
+                        )
+                    }
+                },
+            )
+        },
+        floatingActionButton = {
+            if (canManage) {
+                AnimatedVisibility(
+                    visible = serverInfoUpdated,
+                    enter = scaleIn(animationSpec = StoatTweenFloat),
+                    exit = scaleOut(animationSpec = StoatTweenFloat)
+                ) {
+                    FloatingActionButton(onClick = { viewModel.updateServer() }) {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_check_24dp),
+                            contentDescription = stringResource(R.string.server_settings_save)
+                        )
+                    }
+                }
+            }
+        }
+    ) { pv ->
+        Box(
+            Modifier
+                .padding(pv)
+                .imePadding()
+        ) {
+            server?.let {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Server info section
+                    if (canManage) {
+                        ListHeader {
+                            Text(stringResource(R.string.server_settings_info))
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            InlineMediaPicker(
+                                currentModel = viewModel.iconModel,
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model)
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.pendingIconCropUri = uri
+                                    }
+                                },
+                                circular = true,
+                                mimeType = "image/*",
+                                canRemove = true,
+                                enabled = !viewModel.iconIsUploading,
+                                onRemove = { viewModel.pickIcon(null) },
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Icon crop dialog (1:1 aspect ratio)
+                        if (viewModel.pendingIconCropUri != null) {
+                            ImageCropDialog(
+                                uri = viewModel.pendingIconCropUri!!,
+                                aspectRatio = 1f,
+                                onConfirm = { croppedBitmap ->
+                                    viewModel.pendingIconCropUri = null
+                                    viewModel.processAndUploadIcon(croppedBitmap)
+                                },
+                                onDismiss = { viewModel.pendingIconCropUri = null }
+                            )
+                        }
+
+                        AnimatedVisibility(visible = viewModel.iconIsUploading) {
+                            LinearProgressIndicator(
+                                progress = { viewModel.iconUploadProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Banner picker — wider aspect ratio for banners
+                        ListHeader {
+                            Text(stringResource(R.string.server_settings_banner))
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            InlineMediaPicker(
+                                currentModel = viewModel.bannerModel,
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model)
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.pendingBannerCropUri = uri
+                                    }
+                                },
+                                circular = false,
+                                mimeType = "image/*",
+                                canRemove = true,
+                                enabled = !viewModel.bannerIsUploading,
+                                onRemove = { viewModel.pickBanner(null) },
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Banner crop dialog (5:2 aspect ratio)
+                        if (viewModel.pendingBannerCropUri != null) {
+                            ImageCropDialog(
+                                uri = viewModel.pendingBannerCropUri!!,
+                                aspectRatio = 2.5f,
+                                onConfirm = { croppedBitmap ->
+                                    viewModel.pendingBannerCropUri = null
+                                    viewModel.processAndUploadBanner(croppedBitmap)
+                                },
+                                onDismiss = { viewModel.pendingBannerCropUri = null }
+                            )
+                        }
+
+                        AnimatedVisibility(visible = viewModel.bannerIsUploading) {
+                            LinearProgressIndicator(
+                                progress = { viewModel.bannerUploadProgress },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        AnimatedVisibility(visible = viewModel.uploadError != null) {
+                            Text(
+                                viewModel.uploadError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        AnimatedVisibility(visible = viewModel.updateError != null) {
+                            Text(
+                                viewModel.updateError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        TextField(
+                            label = { Text(stringResource(R.string.server_settings_name)) },
+                            value = viewModel.serverName,
+                            onValueChange = { viewModel.serverName = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            singleLine = true
+                        )
+
+                        TextField(
+                            label = { Text(stringResource(R.string.server_settings_description)) },
+                            value = viewModel.serverDescription,
+                            onValueChange = { viewModel.serverDescription = it },
+                            modifier = Modifier
+                                .animateContentSize()
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            singleLine = false,
+                            minLines = 3
+                        )
+                    }
+
+                    // Management section — navigate to sub-screens
+                    ListHeader {
+                        Text(stringResource(R.string.server_settings_management))
+                    }
+
+                    // Default permissions (owner or ManagePermissions)
+                    if (canManage || permissions has PermissionBit.ManagePermissions) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_default_permissions)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_lock_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/permissions/default")
+                            }
+                        )
+                    }
+
+                    if (canManage || permissions has PermissionBit.ManageRole) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_roles)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_badge_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/roles")
+                            }
+                        )
+                    }
+
+                    if (canManage || permissions has PermissionBit.BanMembers) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_bans)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_gavel_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/bans")
+                            }
+                        )
+                    }
+
+                    // System messages — configure join/leave/kick/ban channels
+                    if (canManage) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_system_messages)) },
+                            supportingContent = { Text(stringResource(R.string.server_settings_system_messages_desc)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_notification_settings_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/system-messages")
+                            }
+                        )
+                    }
+
+                    if (canManage || permissions has PermissionBit.ManageChannel) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_create_channel)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_add_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/create-channel")
+                            }
+                        )
+
+                        // Discord channel import wizard
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_import_discord)) },
+                            supportingContent = { Text(stringResource(R.string.server_settings_import_discord_desc)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_download_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/import-discord")
+                            }
+                        )
+
+                        // Discord↔Stoat message bridge settings
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_bridge)) },
+                            supportingContent = { Text(stringResource(R.string.server_settings_bridge_desc)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/bridge-settings")
+                            }
+                        )
+                    }
+
+                    // Webhook management — requires ManageWebhooks
+                    if (canManage || permissions has PermissionBit.ManageWebhooks) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.server_settings_webhooks)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/webhooks")
+                            }
+                        )
+                    }
+
+                    // Emoji management — requires ManageCustomisation
+                    if (canManage || permissions has PermissionBit.ManageCustomisation) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.emoji_management_title)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_emoji_objects_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/emojis")
+                            }
+                        )
+                    }
+
+                    // Invite management — requires ManageServer
+                    if (canManage) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.invite_management_title)) },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_link_24dp),
+                                    contentDescription = null
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                navController.navigate("settings/server/$serverId/invites")
+                            }
+                        )
+                    }
+                }
+            } ?: run {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+            }
+        }
+    }
+}

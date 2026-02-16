@@ -15,7 +15,7 @@ If you do not follow these guidelines, your contribution may be rejected!
 ## Before You Start
 
 - Make sure you have read
-  the [Code of Conduct](https://github.com/tribixbite/stoat-android/blob/dev/CODE_OF_CONDUCT.md)
+  the [Code of Conduct](https://github.com/tribixbite/stoatally/blob/dev/CODE_OF_CONDUCT.md)
   before contributing. You must follow it at all times.
 
 Before you start contributing, you first need to know what to contribute. Based on that, you must
@@ -65,5 +65,5 @@ you are adding a feature, you must follow these guidelines:
 
 ## If you came this far...
 
-Let's get started! You may continue to the [Development Setup](/stoat-android/contributing/setup) guide to
+Let's get started! You may continue to the [Development Setup](/stoatally/contributing/setup) guide to
 set up your development environment.

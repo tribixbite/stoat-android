@@ -1,0 +1,414 @@
+package com.tribixbite.stoatally.api
+
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
+import com.tribixbite.stoatally.BuildConfig
+import com.tribixbite.stoatally.StoatApplication
+import com.tribixbite.stoatally.api.StoatAPI.initialize
+import com.tribixbite.stoatally.api.internals.Members
+import com.tribixbite.stoatally.api.realtime.DisconnectionState
+import com.tribixbite.stoatally.api.realtime.RealtimeSocket
+import com.tribixbite.stoatally.api.routes.user.fetchSelf
+import com.tribixbite.stoatally.core.model.util.ChannelVoiceState
+import com.tribixbite.stoatally.core.model.schemas.Emoji
+import com.tribixbite.stoatally.core.model.schemas.Message
+import com.tribixbite.stoatally.core.model.schemas.Server
+import com.tribixbite.stoatally.api.unreads.Unreads
+import com.tribixbite.stoatally.core.model.schemas.AutumnResource
+import com.tribixbite.stoatally.core.model.schemas.ChannelType
+import com.tribixbite.stoatally.core.model.schemas.User
+import com.tribixbite.stoatally.core.model.schemas.UserFlags
+import com.tribixbite.stoatally.core.model.schemas.hasFlag
+import com.tribixbite.stoatally.persistence.Database
+import com.tribixbite.stoatally.persistence.SqlStorage
+import com.chuckerteam.chucker.api.ChuckerCollector
+import com.chuckerteam.chucker.api.ChuckerInterceptor
+import com.chuckerteam.chucker.api.RetentionManager
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.DefaultRequest
+import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.request.header
+import io.ktor.serialization.kotlinx.json.json
+import io.sentry.Sentry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.newSingleThreadContext
+
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.cbor.Cbor
+import kotlinx.serialization.json.Json
+import java.net.SocketException
+import com.tribixbite.stoatally.core.model.schemas.Channel as ChannelSchema
+
+private const val USE_ALPHA_API = false
+
+val STOAT_BASE =
+    if (USE_ALPHA_API) "https://alpha.revolt.chat/api" else "https://api.stoat.chat/0.8"
+const val STOAT_SUPPORT = "https://support.stoat.chat"
+const val STOAT_MARKETING = "https://stoat.chat"
+val STOAT_FILES =
+    if (USE_ALPHA_API) "https://alpha.revolt.chat/autumn" else "https://cdn.stoatusercontent.com"
+val STOAT_PROXY =
+    if (USE_ALPHA_API) "https://alpha.revolt.chat/january" else "https://proxy.stoatusercontent.com"
+const val STOAT_WEB_APP = "https://stoat.chat"
+const val STOAT_INVITES = "https://stt.gg"
+val STOAT_WEBSOCKET =
+    if (USE_ALPHA_API) "wss://alpha.revolt.chat/ws" else "wss://events.stoat.chat"
+const val STOAT_KJBOOK = "https://stoatchat.github.io/for-android"
+
+fun String.api(): String {
+    return "$STOAT_BASE$this"
+}
+
+fun buildUserAgent(accessMethod: String = "Ktor"): String {
+    return "$accessMethod StoatForAndroid/${BuildConfig.VERSION_NAME} " +
+            "${BuildConfig.APPLICATION_ID} Android/${android.os.Build.VERSION.SDK_INT} " +
+            "(${android.os.Build.MANUFACTURER} ${android.os.Build.DEVICE}) Kotlin/${KotlinVersion.CURRENT}"
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+val StoatJson = Json {
+    ignoreUnknownKeys = true
+    explicitNulls = false
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+val StoatCbor = Cbor {
+    ignoreUnknownKeys = true
+}
+
+val StoatHttp = HttpClient(OkHttp) {
+    install(DefaultRequest)
+    install(ContentNegotiation) {
+        json(StoatJson)
+    }
+
+    install(WebSockets)
+
+    install(HttpTimeout) {
+        connectTimeoutMillis = 10_000
+        socketTimeoutMillis = 15_000
+        requestTimeoutMillis = 30_000
+    }
+
+    install(HttpRequestRetry) {
+        // Reduced from 5 retries: 502 Bad Gateway from events.stoat.chat causes
+        // exponential backoff hangs (~62s total). 2 retries = ~6s max, fails fast.
+        retryOnServerErrors(maxRetries = 2)
+        retryOnException(maxRetries = 2)
+
+        modifyRequest { request ->
+            request.headers.append("x-retry-count", retryCount.toString())
+        }
+
+        exponentialDelay()
+    }
+
+    install(Logging) { level = LogLevel.INFO }
+
+    val chuckerCollector = ChuckerCollector(
+        context = StoatApplication.instance,
+        showNotification = true,
+        retentionPeriod = RetentionManager.Period.ONE_DAY
+    )
+
+    val chuckerInterceptor = ChuckerInterceptor.Builder(StoatApplication.instance)
+        .collector(chuckerCollector)
+        .maxContentLength(50_000L) // Reduced from 250k — skip buffering large response bodies
+        .redactHeaders(StoatAPI.TOKEN_HEADER_NAME)
+        .alwaysReadResponseBody(false) // Only read body when collector needs it, not every request
+        .createShortcut(false)
+        .build()
+
+    engine {
+        addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .apply {
+                    if (chain.request().headers[StoatAPI.TOKEN_HEADER_NAME] == null) {
+                        header(StoatAPI.TOKEN_HEADER_NAME, StoatAPI.sessionToken)
+                    }
+                }
+                .build()
+            chain.proceed(request)
+        }
+        addInterceptor(chuckerInterceptor)
+    }
+
+    defaultRequest {
+        url(STOAT_BASE)
+        header("User-Agent", buildUserAgent())
+    }
+}
+
+val mainHandler = Handler(Looper.getMainLooper())
+
+object StoatAPI {
+    const val TOKEN_HEADER_NAME = "x-session-token"
+
+    val userCache = mutableStateMapOf<String, User>()
+    val serverCache = mutableStateMapOf<String, Server>()
+    val channelCache = mutableStateMapOf<String, ChannelSchema>()
+    val emojiCache = mutableStateMapOf<String, Emoji>()
+    val messageCache = mutableStateMapOf<String, Message>()
+    val voiceStateCache = mutableStateMapOf<String, ChannelVoiceState>()
+
+    val members = Members()
+
+    val unreads = Unreads()
+
+    var selfId: String? = null
+
+    var sessionToken: String = ""
+        private set
+    var sessionId: String = ""
+        private set
+
+    @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
+    val realtimeContext = newSingleThreadContext("RealtimeContext")
+    val wsFrameChannel = MutableSharedFlow<Any>(
+        replay = 0,
+        extraBufferCapacity = Int.MAX_VALUE,
+    )
+
+    private var socketCoroutine: Job? = null
+
+    private var openForLocalHydration = true
+
+    fun setSessionHeader(token: String) {
+        sessionToken = token
+    }
+
+    fun setSessionId(id: String) {
+        sessionId = id
+    }
+
+    suspend fun loginAs(token: String) {
+        setSessionHeader(token)
+        fetchSelf()
+        startSocketOps()
+        unreads.sync()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    suspend fun connectWS() {
+        socketCoroutine = CoroutineScope(Dispatchers.IO).launch {
+            try {
+                withContext(realtimeContext) {
+                    try {
+                        RealtimeSocket.connect(sessionToken)
+                    } catch (e: SocketException) {
+                        Log.d("RevoltAPI", "Socket closed, probably no big deal /// " + e.message)
+                    } catch (e: Exception) {
+                        Log.e("RevoltAPI", "WebSocket error", e)
+                    }
+                }
+            } catch (e: Exception) {
+                try {
+                    if (e is InterruptedException) {
+                        Log.d("RevoltAPI", "Socket interrupted")
+                    } else {
+                        Log.e("RevoltAPI", "WebSocket error", e)
+                    }
+                } catch (e: Exception) {
+                    Sentry.captureMessage("Error in socket error handling: $e")
+                }
+            }
+            // Always mark as disconnected when connect() returns — whether
+            // via normal close (server timeout) or exception. This ensures
+            // the ON_RESUME lifecycle handler in ChatRouterScreen will
+            // detect the drop and trigger reconnection.
+            RealtimeSocket.updateDisconnectionState(DisconnectionState.Disconnected)
+            Log.d("RevoltAPI", "WebSocket session ended, marked as Disconnected")
+        }
+    }
+
+    private suspend fun startSocketOps() {
+        connectWS()
+
+        // Send a ping every roughly 30 seconds else the socket dies
+        // Same interval as the web clients (/revolt.js)
+        // Note: This will run even if the socket is closed (sendPing will just exit early)
+        // Uses coroutine on IO dispatcher instead of runBlocking on main thread to avoid UI jank
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                try {
+                    withContext(realtimeContext) {
+                        RealtimeSocket.sendPing()
+                    }
+                } catch (_: Exception) { }
+            }
+        }
+    }
+
+    suspend fun initialize() {
+        if (sessionToken != "") {
+            fetchSelf()
+        }
+    }
+
+    /**
+     * Returns true if the user is logged in and the current user has been fetched at least once.
+     * Call [initialize] to fetch the current user first, else this will return false.
+     */
+    fun isLoggedIn(): Boolean {
+        return selfId != null
+    }
+
+    /**
+     * Clears the API client's state completely.
+     */
+    fun logout() {
+        selfId = null
+        sessionToken = ""
+        sessionId = ""
+
+        userCache.clear()
+        serverCache.clear()
+        channelCache.clear()
+        emojiCache.clear()
+        messageCache.clear()
+
+        members.clear()
+        unreads.clear()
+
+        socketCoroutine?.cancel()
+        mainHandler.removeCallbacksAndMessages(null)
+
+        clearPersistentCache()
+    }
+
+    /**
+     * Checks if a session token is valid and the user account is usable.
+     * Returns false if the token is invalid or the user is suspended/deleted/banned (#27).
+     */
+    suspend fun checkSessionToken(token: String): Boolean {
+        return try {
+            setSessionHeader(token)
+            val user = fetchSelf()
+            // Reject suspended/deleted/banned accounts — the server may still return
+            // the user object but the account is not usable (#27)
+            val flags = user.flags
+            if (flags hasFlag UserFlags.Suspended || flags hasFlag UserFlags.Deleted || flags hasFlag UserFlags.Banned) {
+                Log.w("RevoltAPI", "Session valid but user has flags=$flags (suspended/deleted/banned)")
+                false
+            } else {
+                true
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Hydrate caches from a local database.
+     */
+    fun hydrateFromPersistentCache() {
+        if (!openForLocalHydration) {
+            Log.w("RevoltAPI", "Hydration is closed, but was called")
+            // Stale data is worst case, let's track it even in prod
+            Sentry.captureMessage("Local hydration called twice or after real data was fetched")
+            return
+        }
+
+        val db = Database(SqlStorage.driver)
+
+        val channels = db.channelQueries.selectAll().executeAsList().map {
+            ChannelSchema(
+                id = it.id,
+                channelType = try {
+                    ChannelType.valueOf(it.channelType)
+                } catch (e: Exception) {
+                    null
+                },
+                user = it.userId,
+                name = it.name,
+                owner = it.owner,
+                description = it.description,
+                recipients = selfId?.let { selfId ->
+                    it.userId?.let { u -> listOf(u, selfId) }
+                } ?: it.userId?.let { u -> listOf(u) },
+                icon = AutumnResource(
+                    id = it.iconId,
+                ),
+                server = it.server,
+                lastMessageID = it.lastMessageId,
+                active = it.active == 1L,
+                nsfw = it.nsfw == 1L
+            )
+        }
+        channelCache.clear()
+        channelCache.putAll(channels.filter { it.id != null }.associateBy { it.id!! })
+
+        val servers = db.serverQueries.selectAll().executeAsList().map {
+            Server(
+                id = it.id,
+                owner = it.owner,
+                name = it.name,
+                description = it.description,
+                icon = AutumnResource(
+                    id = it.iconId,
+                ),
+                banner = AutumnResource(
+                    id = it.bannerId,
+                ),
+                flags = it.flags,
+                channels = channels
+                    .filter { c -> c.server == it.id }
+                    .mapNotNull { c -> c.id },
+            )
+        }
+        serverCache.clear()
+        serverCache.putAll(servers.filter { it.id != null }.associateBy { it.id!! })
+
+        openForLocalHydration = false
+    }
+
+    /**
+     * Clear the local caching database.
+     */
+    private fun clearPersistentCache() {
+        val db = Database(SqlStorage.driver)
+        db.serverQueries.clear()
+        db.channelQueries.clear()
+    }
+
+    /**
+     * Marks database as hydrated (after real data was fetched, for example).
+     */
+    fun closeHydration() {
+        openForLocalHydration = false
+    }
+}
+
+@Serializable
+data class StoatAPIError(val type: String)
+
+@Serializable
+data class RateLimitResponse(@SerialName("retry_after") val retryAfter: Int) {
+    fun toException(): HitRateLimitException {
+        return HitRateLimitException(retryAfter)
+    }
+}
+
+internal const val NO_RETRY_AFTER = Int.MIN_VALUE
+
+class HitRateLimitException(retryAfter: Int = NO_RETRY_AFTER) :
+    Exception(if (retryAfter == NO_RETRY_AFTER) "Hit rate limit" else "Hit rate limit, retry after ${retryAfter}ms")

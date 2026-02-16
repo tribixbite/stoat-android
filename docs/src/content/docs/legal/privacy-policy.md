@@ -74,4 +74,4 @@ We may update this privacy policy from time to time. Changes will be reflected i
 
 ## Contact
 
-For questions about this privacy policy, open an issue at [github.com/tribixbite/stoat-android](https://github.com/tribixbite/stoat-android/issues) or contact the project maintainer.
+For questions about this privacy policy, open an issue at [github.com/tribixbite/stoatally](https://github.com/tribixbite/stoatally/issues) or contact the project maintainer.

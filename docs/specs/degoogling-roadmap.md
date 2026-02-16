@@ -336,15 +336,15 @@ Categories:
   - Internet
 License: AGPL-3.0-only
 AuthorName: tribixbite
-SourceCode: https://github.com/tribixbite/stoat-android
-IssueTracker: https://github.com/tribixbite/stoat-android/issues
+SourceCode: https://github.com/tribixbite/stoatally
+IssueTracker: https://github.com/tribixbite/stoatally/issues
 
 AutoName: Stoat
 Description: |
   Native Android client for the Stoat (Revolt) chat platform.
 
 RepoType: git
-Repo: https://github.com/tribixbite/stoat-android.git
+Repo: https://github.com/tribixbite/stoatally.git
 
 Builds:
   - versionName: 1.3.9a

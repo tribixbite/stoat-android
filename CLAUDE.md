@@ -1,8 +1,8 @@
-# Stoat for Android — Build & Development Guide
+# Stoatally for Android — Build & Development Guide
 
 ## Project Overview
-Stoat is a native Android chat client (fork of Revolt) built with Kotlin + Jetpack Compose.
-- **Package**: `chat.revolt` (namespace: `chat.stoat`)
+Stoatally is a native Android chat client (fork of Revolt) built with Kotlin + Jetpack Compose.
+- **Package**: `com.tribixbite.stoatally`
 - **Version**: 1.3.9a (code: 001003409)
 - **SDK**: compile 36 / min 26 / target 36
 - **Stack**: Kotlin 2.2, Compose BOM 2025.03, Hilt, Ktor, SQLDelight, Firebase
@@ -43,7 +43,7 @@ NDK 27 host tools are x86_64 and don't run on ARM64.
 ## Architecture
 ```
 app/                    # Main Android app (Kotlin + Compose)
-  src/main/java/chat/stoat/
+  src/main/java/com/tribixbite/stoatally/
     activities/         # MainActivity, media viewers
     api/                # StoatAPI client, realtime WebSocket, routes
     composables/        # Reusable Compose components
@@ -90,7 +90,7 @@ When starting a new session, if told `go`:
 - NEVER open pull requests against upstream
 - NEVER interact with upstream repositories in any way
 - DO read upstream issues (e.g. https://github.com/stoatchat/for-android/issues) to identify bugs and feature requests to address in this fork
-- All work stays in this fork (tribixbite/stoat-android) only
+- All work stays in this fork (tribixbite/stoatally) only
 
 ## Notes
 - LiveKit voice/video is temporarily disabled (commented out in build.gradle.kts)

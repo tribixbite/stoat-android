@@ -24,7 +24,7 @@ Entry point for all builds. Handles:
   - Source: `app/src/main/cpp/stendal/stendal.cpp`
   - Depends on cmark (source expected at `app/src/main/cpp/external/cmark/`)
 - **finalmarkdown**: experimental renderer — no C++ source exists yet
-  - Kotlin interface only (`chat.stoat.ndk.FinalMarkdown`)
+  - Kotlin interface only (`com.tribixbite.stoatally.ndk.FinalMarkdown`)
   - Loading is optional; guarded by try/catch in `NativeLibraries.init()`
 - Both libraries load gracefully: app falls back to JBM (Kotlin markdown renderer)
   when native libs are unavailable

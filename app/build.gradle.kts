@@ -58,10 +58,10 @@ fun buildproperty(propertyName: String, fallbackEnv: String? = null): String? {
 
 android {
     compileSdk = libs.versions.compileSdk.get().toInt()
-    namespace = "chat.stoat"
+    namespace = "com.tribixbite.stoatally"
 
     defaultConfig {
-        applicationId = "chat.revolt"
+        applicationId = "com.tribixbite.stoatally"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = Integer.parseInt("001_003_409".replace("_", ""), 10)
@@ -304,7 +304,7 @@ aboutLibraries {
 sqldelight {
     databases {
         create("Database") {
-            packageName.set("chat.stoat.persistence")
+            packageName.set("com.tribixbite.stoatally.persistence")
         }
     }
 }

@@ -1,0 +1,530 @@
+package com.tribixbite.stoatally.api.routes.server
+
+import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.api.StoatAPIError
+import com.tribixbite.stoatally.api.StoatHttp
+import com.tribixbite.stoatally.api.StoatJson
+import com.tribixbite.stoatally.api.api
+import com.tribixbite.stoatally.core.model.schemas.Channel
+import com.tribixbite.stoatally.core.model.schemas.Member
+import com.tribixbite.stoatally.core.model.schemas.PermissionDescription
+import com.tribixbite.stoatally.core.model.schemas.Role
+import com.tribixbite.stoatally.core.model.schemas.Server
+import com.tribixbite.stoatally.core.model.schemas.ServerWithChannelObjects
+import com.tribixbite.stoatally.core.model.schemas.User
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
+import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonElement
+
+@Serializable
+data class FetchMembersResponse(
+    val members: List<Member>,
+    val users: List<User>
+)
+
+suspend fun ackServer(serverId: String) {
+    StoatHttp.put("/servers/$serverId/ack".api())
+}
+
+suspend fun fetchMembers(
+    serverId: String,
+    includeOffline: Boolean = false,
+    pure: Boolean = false
+): FetchMembersResponse {
+    val res = StoatHttp.get("/servers/$serverId/members".api()) {
+        parameter("exclude_offline", !includeOffline)
+    }
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Error(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val membersResponse =
+        StoatJson.decodeFromString(FetchMembersResponse.serializer(), body)
+
+    if (pure) {
+        return membersResponse
+    }
+
+    membersResponse.members.forEach { member ->
+        if (!StoatAPI.members.hasMember(serverId, member.id!!.user)) {
+            StoatAPI.members.setMember(serverId, member)
+        }
+    }
+
+    membersResponse.users.forEach { user ->
+        user.id?.let { StoatAPI.userCache.putIfAbsent(it, user) }
+    }
+
+    return membersResponse
+}
+
+suspend fun fetchMember(serverId: String, userId: String, pure: Boolean = false): Member {
+    val res = StoatHttp.get("/servers/$serverId/members/$userId".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val member = StoatJson.decodeFromString(Member.serializer(), body)
+
+    if (!pure) {
+        member.id?.let {
+            if (!StoatAPI.members.hasMember(serverId, it.user)) {
+                StoatAPI.members.setMember(serverId, member)
+            }
+        }
+    }
+
+    return member
+}
+
+/**
+ * Search server members by name (nickname or username).
+ * Experimental API — requires `experimental_api=true` query param.
+ */
+suspend fun queryMembers(serverId: String, query: String): FetchMembersResponse {
+    val res = StoatHttp.get("/servers/$serverId/members_experimental_query".api()) {
+        parameter("query", query)
+        parameter("experimental_api", true)
+    }
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val response = StoatJson.decodeFromString(FetchMembersResponse.serializer(), body)
+
+    response.members.forEach { member ->
+        member.id?.let {
+            if (!StoatAPI.members.hasMember(serverId, it.user)) {
+                StoatAPI.members.setMember(serverId, member)
+            }
+        }
+    }
+    response.users.forEach { user ->
+        user.id?.let { StoatAPI.userCache.putIfAbsent(it, user) }
+    }
+
+    return response
+}
+
+suspend fun leaveOrDeleteServer(serverId: String, leaveSilently: Boolean = false) {
+    StoatHttp.delete("/servers/$serverId".api()) {
+        parameter("leave_silently", leaveSilently)
+    }
+}
+
+@Serializable
+data class ServerCreationBody(
+    val name: String,
+    val description: String? = null,
+    val nsfw: Boolean = false
+)
+
+suspend fun createServer(
+    name: String,
+    description: String = "",
+    nsfw: Boolean = false
+): ServerWithChannelObjects {
+    val body = ServerCreationBody(name, description, nsfw)
+
+    val res = StoatHttp.post("/servers/create".api()) {
+        setBody(StoatJson.encodeToString(ServerCreationBody.serializer(), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(ServerWithChannelObjects.serializer(), responseBody)
+}
+
+// --- Server editing ---
+
+/**
+ * Edit server properties (name, description, icon, banner, etc).
+ * Requires ManageServer permission.
+ */
+suspend fun editServer(
+    serverId: String,
+    name: String? = null,
+    description: String? = null,
+    icon: String? = null,
+    banner: String? = null,
+    systemMessages: Map<String, String?>? = null,
+    remove: List<String>? = null
+) {
+    val body = mutableMapOf<String, JsonElement>()
+    if (name != null) body["name"] = StoatJson.encodeToJsonElement(String.serializer(), name)
+    if (description != null) body["description"] = StoatJson.encodeToJsonElement(String.serializer(), description)
+    if (icon != null) body["icon"] = StoatJson.encodeToJsonElement(String.serializer(), icon)
+    if (banner != null) body["banner"] = StoatJson.encodeToJsonElement(String.serializer(), banner)
+    if (systemMessages != null) body["system_messages"] = StoatJson.encodeToJsonElement(
+        MapSerializer(String.serializer(), String.serializer().nullable), systemMessages
+    )
+    if (remove != null) body["remove"] = StoatJson.encodeToJsonElement(ListSerializer(String.serializer()), remove)
+
+    val res = StoatHttp.patch("/servers/$serverId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(MapSerializer(String.serializer(), JsonElement.serializer()), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    // Update local cache
+    val updated = StoatJson.decodeFromString(Server.serializer(), responseBody)
+    StoatAPI.serverCache[serverId]?.let { existing ->
+        StoatAPI.serverCache[serverId] = existing.mergeWithPartial(updated)
+    }
+}
+
+// --- Moderation: Kick, Ban, Timeout ---
+
+/**
+ * Kick a member from the server.
+ * Requires KickMembers permission.
+ */
+suspend fun kickMember(serverId: String, userId: String) {
+    StoatHttp.delete("/servers/$serverId/members/$userId".api())
+    StoatAPI.members.removeMember(serverId, userId)
+}
+
+@Serializable
+data class BanBody(
+    val reason: String? = null
+)
+
+@Serializable
+data class ServerBan(
+    @SerialName("_id")
+    val id: BanId? = null,
+    val reason: String? = null
+)
+
+@Serializable
+data class BanId(
+    val server: String? = null,
+    val user: String? = null
+)
+
+@Serializable
+data class ServerBansResponse(
+    val bans: List<ServerBan>,
+    val users: List<User>
+)
+
+/**
+ * Ban a member from the server.
+ * Requires BanMembers permission.
+ */
+suspend fun banMember(serverId: String, userId: String, reason: String? = null) {
+    StoatHttp.put("/servers/$serverId/bans/$userId".api()) {
+        if (reason != null) {
+            contentType(ContentType.Application.Json)
+            setBody(StoatJson.encodeToString(BanBody.serializer(), BanBody(reason)))
+        }
+    }
+    StoatAPI.members.removeMember(serverId, userId)
+}
+
+/**
+ * Unban a user from the server.
+ * Requires BanMembers permission.
+ */
+suspend fun unbanMember(serverId: String, userId: String) {
+    StoatHttp.delete("/servers/$serverId/bans/$userId".api())
+}
+
+/**
+ * List all bans for a server.
+ * Requires BanMembers permission.
+ */
+suspend fun fetchBans(serverId: String): ServerBansResponse {
+    val response = StoatHttp.get("/servers/$serverId/bans".api()).bodyAsText()
+    return StoatJson.decodeFromString(ServerBansResponse.serializer(), response)
+}
+
+// --- Member editing (nickname, avatar, roles, timeout) ---
+
+@Serializable
+data class EditMemberBody(
+    val nickname: String? = null,
+    val avatar: String? = null,
+    val roles: List<String>? = null,
+    val timeout: String? = null, // ISO 8601 timestamp or null to clear
+    val remove: List<String>? = null // ["Nickname", "Avatar", "Timeout"]
+)
+
+/**
+ * Edit a server member's properties (nickname, avatar, roles, timeout).
+ * Requires ManageNicknames/AssignRoles/TimeoutMembers depending on field.
+ */
+suspend fun editMember(
+    serverId: String,
+    userId: String,
+    nickname: String? = null,
+    avatar: String? = null,
+    roles: List<String>? = null,
+    timeout: String? = null,
+    remove: List<String>? = null
+): Member {
+    val body = EditMemberBody(nickname, avatar, roles, timeout, remove)
+    val res = StoatHttp.patch("/servers/$serverId/members/$userId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(EditMemberBody.serializer(), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val member = StoatJson.decodeFromString(Member.serializer(), responseBody)
+    StoatAPI.members.setMember(serverId, member)
+    return member
+}
+
+// --- Channel creation in server ---
+
+@Serializable
+data class CreateChannelBody(
+    val name: String,
+    val type: String = "Text", // "Text" or "Voice"
+    val description: String? = null,
+    val nsfw: Boolean = false
+)
+
+/**
+ * Create a new channel in a server.
+ * Requires ManageChannel permission.
+ */
+suspend fun createChannel(
+    serverId: String,
+    name: String,
+    type: String = "Text",
+    description: String? = null,
+    nsfw: Boolean = false
+): Channel {
+    val body = CreateChannelBody(name, type, description, nsfw)
+    val res = StoatHttp.post("/servers/$serverId/channels".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(CreateChannelBody.serializer(), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    val channel = StoatJson.decodeFromString(Channel.serializer(), responseBody)
+    channel.id?.let { StoatAPI.channelCache[it] = channel }
+    return channel
+}
+
+// --- Role management ---
+
+@Serializable
+data class CreateRoleBody(
+    val name: String,
+    val rank: Double? = null
+)
+
+@Serializable
+data class CreateRoleResponse(
+    val id: String,
+    val role: Role
+)
+
+/**
+ * Create a new role on a server.
+ * Requires ManageRole permission.
+ */
+suspend fun createRole(serverId: String, name: String, rank: Double? = null): CreateRoleResponse {
+    val body = CreateRoleBody(name, rank)
+    val res = StoatHttp.post("/servers/$serverId/roles".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(CreateRoleBody.serializer(), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(CreateRoleResponse.serializer(), responseBody)
+}
+
+@Serializable
+data class EditRoleBody(
+    val name: String? = null,
+    val colour: String? = null,
+    val hoist: Boolean? = null,
+    val rank: Double? = null,
+    val remove: List<String>? = null // ["Colour"]
+)
+
+/**
+ * Edit a role's properties.
+ * Requires ManageRole permission.
+ */
+suspend fun editRole(
+    serverId: String,
+    roleId: String,
+    name: String? = null,
+    colour: String? = null,
+    hoist: Boolean? = null,
+    rank: Double? = null,
+    remove: List<String>? = null
+): Role {
+    val body = EditRoleBody(name, colour, hoist, rank, remove)
+    val res = StoatHttp.patch("/servers/$serverId/roles/$roleId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(EditRoleBody.serializer(), body))
+    }
+    val responseBody = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), responseBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(Role.serializer(), responseBody)
+}
+
+/**
+ * Fetch a single role by ID from a server.
+ */
+suspend fun fetchRole(serverId: String, roleId: String): Role {
+    val res = StoatHttp.get("/servers/$serverId/roles/$roleId".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(Role.serializer(), body)
+}
+
+/**
+ * Delete a role from the server.
+ * Requires ManageRole permission.
+ */
+suspend fun deleteRole(serverId: String, roleId: String) {
+    StoatHttp.delete("/servers/$serverId/roles/$roleId".api())
+}
+
+/**
+ * Set default role permissions for a server.
+ * PUT /servers/{serverId}/permissions/default
+ * Body: { "permissions": Long }
+ */
+suspend fun setDefaultPermissions(
+    serverId: String,
+    permissions: Long
+) {
+    @Serializable
+    data class Body(val permissions: Long)
+
+    StoatHttp.put("/servers/$serverId/permissions/default".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(Body.serializer(), Body(permissions)))
+    }
+}
+
+/**
+ * Set permission overrides for a role on a server.
+ * Requires ManagePermissions permission.
+ */
+suspend fun setServerPermissions(
+    serverId: String,
+    roleId: String,
+    allow: Long,
+    deny: Long
+) {
+    val body = PermissionDescription(a = allow, d = deny)
+    StoatHttp.put("/servers/$serverId/permissions/$roleId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(PermissionDescription.serializer(), body))
+    }
+}
+
+/**
+ * Set permission overrides for a role on a channel.
+ * Requires ManagePermissions permission.
+ */
+suspend fun setChannelPermissions(
+    channelId: String,
+    roleId: String,
+    allow: Long,
+    deny: Long
+) {
+    val body = PermissionDescription(a = allow, d = deny)
+    StoatHttp.put("/channels/$channelId/permissions/$roleId".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(StoatJson.encodeToString(PermissionDescription.serializer(), body))
+    }
+}
+
+// --- Invite Management ---
+
+@Serializable
+data class ServerInvite(
+    @SerialName("_id")
+    val id: String,
+    val server: String? = null,
+    val creator: String? = null,
+    val channel: String? = null
+)
+
+/** Fetch all invites for a server. Requires ManageServer permission. */
+suspend fun fetchServerInvites(serverId: String): List<ServerInvite> {
+    val response = StoatHttp.get("/servers/$serverId/invites".api()).bodyAsText()
+    return StoatJson.decodeFromString(
+        ListSerializer(ServerInvite.serializer()),
+        response
+    )
+}
+
+/** Delete an invite by code. */
+suspend fun deleteInvite(inviteCode: String): String? {
+    val response = StoatHttp.delete("/invites/$inviteCode".api())
+    return if (response.status.value in 200..299) null
+    else "HTTP ${response.status.value}: ${response.bodyAsText()}"
+}
+
+/** Create a channel invite. Returns the invite object. */
+suspend fun createChannelInvite(channelId: String): ServerInvite {
+    val response = StoatHttp.post("/channels/$channelId/invites".api()).bodyAsText()
+    return StoatJson.decodeFromString(ServerInvite.serializer(), response)
+}

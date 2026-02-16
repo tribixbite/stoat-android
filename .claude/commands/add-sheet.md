@@ -4,7 +4,7 @@ Steps:
 1. Create or modify files in `app/src/main/java/chat/stoat/sheets/`
 2. Follow the existing bottom sheet pattern:
    - Use `ModalBottomSheet` with `rememberModalBottomSheetState`
-   - Use `SheetButton` from `chat.stoat.composables.generic` for action items
+   - Use `SheetButton` from `com.tribixbite.stoatally.composables.generic` for action items
    - Use `Icon` with `painterResource` for leading icons
    - Handle dismiss with coroutineScope and the sheet state
    - Check permissions using `Roles.permissionFor()` and `has PermissionBit.X`

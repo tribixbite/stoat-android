@@ -18,7 +18,7 @@
 
 ## What is this?
 
-This is an **unofficial fork** of the [Stoat for Android](https://github.com/stoatchat/for-android) client with additional features, bug fixes, and improvements not present in the official app. See the [Fork Changes](https://tribixbite.github.io/stoat-android/reference/fork-changes/) page for a full list of differences.
+This is an **unofficial fork** of the [Stoat for Android](https://github.com/stoatchat/for-android) client with additional features, bug fixes, and improvements not present in the official app. See the [Fork Changes](https://tribixbite.github.io/stoatally/reference/fork-changes/) page for a full list of differences.
 
 Key additions over upstream:
 - **Message search** with filters (per-channel and server-wide)
@@ -43,8 +43,8 @@ Key additions over upstream:
 
 ### This Fork
 
-- [Fork Documentation & Changes](https://tribixbite.github.io/stoat-android/)
-- [Feature Gap Analysis](https://tribixbite.github.io/stoat-android/reference/fork-changes/)
+- [Fork Documentation & Changes](https://tribixbite.github.io/stoatally/)
+- [Feature Gap Analysis](https://tribixbite.github.io/stoatally/reference/fork-changes/)
 
 ### Official Stoat
 

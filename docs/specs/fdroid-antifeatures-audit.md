@@ -1,7 +1,7 @@
 # F-Droid Compatibility & Anti-Features Audit
 
 **Date**: 2026-02-15
-**Scope**: Stoat for Android (`chat.stoat`, this fork), alexjyong/android ("Refork"), Clerotri (React Native client)
+**Scope**: Stoat for Android (`com.tribixbite.stoatally`, this fork), alexjyong/android ("Refork"), Clerotri (React Native client)
 **Verdict**: Stoat is **not eligible** for F-Droid in its current form. The barriers are dependency choices, not architectural limitations.
 
 ---

@@ -84,6 +84,7 @@ Granular notification management beyond upstream.
 - **Notification filtering** — HandlerService checks mute state before displaying
 - **Notification Settings screen** — permission status, push provider selection, FCM registration status with retry, muted server/channel lists (showing names from cache), unmute buttons, reset
 - **Placeholder detection** — detects placeholder `google-services.json` at runtime and shows "Not available" instead of misleading retry loop
+- **Notification tap → channel navigation** — tapping a notification opens the app directly to the relevant channel instead of just launching the home screen. Handles both cold start (via kvStorage destination) and foreground (via ActionChannel) cases. (`e48f41d`)
 
 ### Termux ARM64 Build System
 Complete native Android build toolchain for ARM64 devices — enables building the app directly on Android phones.
@@ -606,3 +607,4 @@ All changes from upstream divergence point:
 | `d2beeaa` | fix | Login double-tap guard, loading state, session ID bug (was storing token as ID) |
 | `52b85a0` | fix | Registration double-tap guard prevents duplicate signup emails (#30) |
 | `2362e9e` | fix | Group creation double-tap guard (#30) |
+| `e48f41d` | feat | Notification tap navigates to relevant channel (cold start + foreground) |

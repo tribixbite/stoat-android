@@ -65,7 +65,9 @@ import chat.stoat.push.PushMode
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.sentry.Sentry
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.unifiedpush.android.connector.UnifiedPush
 import java.util.UUID
 import javax.inject.Inject
@@ -108,49 +110,65 @@ class NotificationSettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Detect placeholder google-services.json
-            try {
-                val options = com.google.firebase.FirebaseApp.getInstance().options
-                firebaseUnconfigured = options.projectId == "stoat-local-dev"
-                        || options.gcmSenderId == "000000000000"
-            } catch (_: Exception) {
-                firebaseUnconfigured = true
+            // All IO work runs on background thread; state updates happen on Main
+            val isUnconfigured = withContext(Dispatchers.IO) {
+                try {
+                    val options = com.google.firebase.FirebaseApp.getInstance().options
+                    options.projectId == "stoat-local-dev"
+                            || options.gcmSenderId == "000000000000"
+                } catch (_: Exception) {
+                    true
+                }
             }
+            firebaseUnconfigured = isUnconfigured
 
             // Load push mode and bot URL from storage
-            pushMode = PushMode.fromKey(kvStorage.get("pushMode"))
-            botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+            val storedMode = withContext(Dispatchers.IO) { kvStorage.get("pushMode") }
+            val storedUrl = withContext(Dispatchers.IO) { kvStorage.get("pushBotUrl") }
+            pushMode = PushMode.fromKey(storedMode)
+            botUrl = storedUrl ?: PushManager.DEFAULT_BOT_URL
 
-            if (firebaseUnconfigured && pushMode == PushMode.BACKEND) {
+            if (isUnconfigured && pushMode == PushMode.BACKEND) {
                 lastError = "Replace app/google-services.json with real Firebase config"
                 return@launch
             }
 
             // Check existing registration state
-            val failed = kvStorage.getBoolean("pushRegistrationFailed") == true
-            val hasToken = kvStorage.get("fcmToken") != null
+            val failed = withContext(Dispatchers.IO) { kvStorage.getBoolean("pushRegistrationFailed") == true }
+            val hasToken = withContext(Dispatchers.IO) { kvStorage.get("fcmToken") != null }
             fcmRegistered = hasToken && !failed
 
-            // Check bot registration status
+            // Check bot registration status (network call — may time out)
             if (pushMode == PushMode.BOT_FCM) {
-                val deviceId = getOrCreateDeviceId()
-                val status = PushManager.checkStatus(botUrl, deviceId)
-                botRegistered = status.registered
-                if (status.error != null) {
-                    botRegistrationError = status.error
+                try {
+                    val deviceId = withContext(Dispatchers.IO) { getOrCreateDeviceId() }
+                    val status = withContext(Dispatchers.IO) { PushManager.checkStatus(botUrl, deviceId) }
+                    botRegistered = status.registered
+                    if (status.error != null) {
+                        botRegistrationError = status.error
+                    }
+                } catch (e: Exception) {
+                    botRegistrationError = "Connection failed: ${e.message}"
                 }
             }
 
             // Load UnifiedPush state
-            upEndpoint = kvStorage.get("upEndpoint")
-            upRegistrationError = kvStorage.get("upRegistrationError")
+            val storedEndpoint = withContext(Dispatchers.IO) { kvStorage.get("upEndpoint") }
+            val storedUpError = withContext(Dispatchers.IO) { kvStorage.get("upRegistrationError") }
+            upEndpoint = storedEndpoint
+            upRegistrationError = storedUpError
         }
     }
 
     /** Refresh available UP distributors — call from composable with context */
     fun refreshDistributors(context: android.content.Context) {
-        availableDistributors = UnifiedPush.getDistributors(context)
-        selectedDistributor = UnifiedPush.getSavedDistributor(context)?.ifEmpty { null }
+        try {
+            availableDistributors = UnifiedPush.getDistributors(context)
+            selectedDistributor = UnifiedPush.getSavedDistributor(context)?.ifEmpty { null }
+        } catch (e: Exception) {
+            Log.e("NotificationSettings", "Failed to query UP distributors", e)
+            availableDistributors = emptyList()
+        }
     }
 
     /** Switch push notification delivery mode */
@@ -164,14 +182,16 @@ class NotificationSettingsViewModel @Inject constructor(
             // Unregister from previous mode
             when (pushMode) {
                 PushMode.BOT_FCM -> {
-                    val deviceId = getOrCreateDeviceId()
-                    PushManager.unregister(botUrl, deviceId)
+                    withContext(Dispatchers.IO) {
+                        val deviceId = getOrCreateDeviceId()
+                        PushManager.unregister(botUrl, deviceId)
+                    }
                     botRegistered = false
                 }
                 PushMode.UNIFIED_PUSH -> {
                     // Unregister from UP distributor
                     context?.let { UnifiedPush.unregister(it) }
-                    kvStorage.remove("upEndpoint")
+                    withContext(Dispatchers.IO) { kvStorage.remove("upEndpoint") }
                     upEndpoint = null
                 }
                 else -> {}
@@ -179,7 +199,7 @@ class NotificationSettingsViewModel @Inject constructor(
 
             // Store new mode
             pushMode = newMode
-            kvStorage.set("pushMode", newMode.key)
+            withContext(Dispatchers.IO) { kvStorage.set("pushMode", newMode.key) }
 
             // Register with new mode
             when (newMode) {
@@ -218,7 +238,7 @@ class NotificationSettingsViewModel @Inject constructor(
     fun saveBotUrl(url: String) {
         viewModelScope.launch {
             botUrl = url.trimEnd('/')
-            kvStorage.set("pushBotUrl", botUrl)
+            withContext(Dispatchers.IO) { kvStorage.set("pushBotUrl", botUrl) }
             if (pushMode == PushMode.BOT_FCM) {
                 registerWithBot()
             }

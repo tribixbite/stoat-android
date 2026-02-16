@@ -652,7 +652,9 @@ fun ChatRouterScreen(
                         }
                     }
                 }
-            } } catch (e: Exception) {
+            } } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e // Rethrow cancellation to properly end the coroutine
+            } catch (e: Exception) {
                 Log.e("ChatRouter", "ActionChannel handler error", e)
             }
         }

@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -61,6 +62,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -167,6 +172,7 @@ sealed class ChannelScreenItem {
         ChannelScreenItem()
 
     data object Loading : ChannelScreenItem()
+    data class FetchError(val message: String) : ChannelScreenItem()
 }
 
 sealed class ChannelScreenActivePane {
@@ -762,6 +768,7 @@ fun ChannelScreen(
                                             is ChannelScreenItem.DateDivider -> item.instant.toEpochMilliseconds()
                                             is ChannelScreenItem.LoadTrigger -> index
                                             is ChannelScreenItem.Loading -> index
+                                            is ChannelScreenItem.FetchError -> "FetchError"
                                         }
                                     },
                                     contentType = { index ->
@@ -774,6 +781,7 @@ fun ChannelScreen(
                                             is ChannelScreenItem.DateDivider -> "DateDivider"
                                             is ChannelScreenItem.LoadTrigger -> "LoadTrigger"
                                             is ChannelScreenItem.Loading -> "Loading"
+                                            is ChannelScreenItem.FetchError -> "FetchError"
                                         }
                                     }
                                 ) { index ->
@@ -892,6 +900,38 @@ fun ChannelScreen(
                                                 MessageSkeleton(MessageSkeletonVariant.One)
                                                 MessageSkeleton(MessageSkeletonVariant.Two)
                                                 MessageSkeleton(MessageSkeletonVariant.Three)
+                                            }
+                                        }
+
+                                        is ChannelScreenItem.FetchError -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(32.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Warning,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(48.dp)
+                                                )
+                                                Text(
+                                                    text = item.message,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                                OutlinedButton(onClick = { viewModel.retryLoadMessages() }) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Refresh,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text("Retry")
+                                                }
                                             }
                                         }
                                     }

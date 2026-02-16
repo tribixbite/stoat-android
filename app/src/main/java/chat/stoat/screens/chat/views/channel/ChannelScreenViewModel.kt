@@ -555,8 +555,25 @@ class ChannelScreenViewModel @Inject constructor(
                     }
                 } catch (e: Exception) {
                     Log.e("ChannelScreenViewModel", "Failed to fetch messages", e)
+                    // Show error with retry only on initial load (shimmer state)
+                    if (!didInitialChannelFetch) {
+                        val errorMsg = when (e) {
+                            is java.net.SocketTimeoutException -> "Connection timed out"
+                            is java.io.IOException -> "Network error"
+                            else -> e.message ?: "Failed to load messages"
+                        }
+                        items = mutableStateListOf(ChannelScreenItem.FetchError(errorMsg))
+                    }
                 }
             }
+        }
+    }
+
+    /** Retry loading messages after a fetch error */
+    fun retryLoadMessages() {
+        channel?.id?.let {
+            items = mutableStateListOf(ChannelScreenItem.Loading)
+            loadMessages(50, markLastAsRead = true)
         }
     }
 

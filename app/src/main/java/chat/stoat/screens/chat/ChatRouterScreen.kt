@@ -957,7 +957,9 @@ fun ChatRouterScreen(
             sheetGesturesEnabled = false,
             dragHandle = {},
             onDismissRequest = {
-                // Only dismiss using button in sheet
+                // System back press or gesture can force-dismiss the sheet on some devices.
+                // If that happens, actually dismiss to prevent zombie scrim blocking input (#63).
+                viewModel.dismissEarlyAccessSpark()
             }
         ) {
             EarlyAccessSheet(

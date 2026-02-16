@@ -93,16 +93,13 @@ object Roles {
 
                 var calculated = permissionFor(server, chMember)
 
-                if (channel.defaultPermissions != null) {
-                    calculated =
-                        calculated or channel.defaultPermissions!!.a and channel.defaultPermissions!!.d.inv()
+                channel.defaultPermissions?.let { perms ->
+                    calculated = calculated or perms.a and perms.d.inv()
                 }
 
-                if (chMember.roles?.isNotEmpty() == true) {
-                    chMember.roles!!.forEach { roleId ->
-                        val override = channel.rolePermissions?.get(roleId) ?: return@forEach
-                        calculated = calculated or override.a and override.d.inv()
-                    }
+                chMember.roles?.forEach { roleId ->
+                    val override = channel.rolePermissions?.get(roleId) ?: return@forEach
+                    calculated = calculated or override.a and override.d.inv()
                 }
 
                 if (chMember.timeoutTimestamp()?.let { it > Clock.System.now() } == true) {

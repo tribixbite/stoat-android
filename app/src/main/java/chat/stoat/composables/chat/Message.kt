@@ -97,8 +97,9 @@ import chat.stoat.core.model.schemas.Message as MessageSchema
 
 @Composable
 fun authorColour(message: MessageSchema): Brush {
-    return if (message.masquerade?.colour != null) {
-        BrushCompat.parseColour(message.masquerade!!.colour!!)
+    val masqColour = message.masquerade?.colour
+    return if (masqColour != null) {
+        BrushCompat.parseColour(masqColour)
     } else {
         val defaultColour = Brush.solidColor(LocalContentColor.current)
 
@@ -129,9 +130,7 @@ fun displayNameInChannel(userId: String, channelId: String): String {
 
 @Composable
 fun authorName(message: MessageSchema): String {
-    if (message.masquerade?.name != null) {
-        return message.masquerade!!.name!!
-    }
+    message.masquerade?.name?.let { return it }
 
     val serverId =
         StoatAPI.channelCache[message.channel]?.server
@@ -147,9 +146,7 @@ fun authorName(message: MessageSchema): String {
 
 @Composable
 fun authorAvatarUrl(message: MessageSchema): String? {
-    if (message.masquerade?.avatar != null) {
-        return asJanuaryProxyUrl(message.masquerade!!.avatar!!)
-    }
+    message.masquerade?.avatar?.let { return asJanuaryProxyUrl(it) }
 
     val serverId =
         StoatAPI.channelCache[message.channel]?.server ?: return null
@@ -558,7 +555,11 @@ fun Message(
                                                                 ?: maxWidth
                                                         )
                                                         .aspectRatio(
-                                                            embed.width!!.toFloat() / embed.height!!.toFloat()
+                                                            run {
+                                                                val w = embed.width?.toFloat() ?: 1f
+                                                                val h = embed.height?.toFloat() ?: 1f
+                                                                if (h > 0f) w / h else 1f
+                                                            }
                                                         ),
                                                     description = null
                                                 )

@@ -303,7 +303,7 @@ object RealtimeSocket {
                     "Received message append frame for ${messageAppendFrame.id} in channel ${messageAppendFrame.channel}."
                 )
 
-                var message = StoatAPI.messageCache[messageAppendFrame.id]
+                val message = StoatAPI.messageCache[messageAppendFrame.id]
 
                 if (message == null) {
                     Log.d(
@@ -313,11 +313,14 @@ object RealtimeSocket {
                     return
                 }
 
-                messageAppendFrame.append.embeds?.let {
-                    message = message!!.copy(embeds = message!!.embeds?.plus(it) ?: it)
+                val newEmbeds = messageAppendFrame.append.embeds
+                val updated = if (newEmbeds != null) {
+                    message.copy(embeds = message.embeds?.plus(newEmbeds) ?: newEmbeds)
+                } else {
+                    message
                 }
 
-                StoatAPI.messageCache[messageAppendFrame.id] = message!!
+                StoatAPI.messageCache[messageAppendFrame.id] = updated
 
                 StoatAPI.wsFrameChannel.emit(messageAppendFrame)
             }

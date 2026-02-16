@@ -512,15 +512,18 @@ class ChannelScreenViewModel @Inject constructor(
 
                         it.messages?.forEach { message ->
                             addUserIfUnknown(message.author ?: return@forEach)
-                            if (!StoatAPI.messageCache.containsKey(message.id)) {
-                                StoatAPI.messageCache[message.id!!] = message
+                            val msgId = message.id ?: return@forEach
+                            if (!StoatAPI.messageCache.containsKey(msgId)) {
+                                StoatAPI.messageCache[msgId] = message
                             }
                             messages.add(message)
                         }
 
                         it.members?.forEach { member ->
-                            if (!StoatAPI.members.hasMember(member.id!!.server, member.id!!.user)) {
-                                StoatAPI.members.setMember(member.id!!.server, member)
+                            val server = member.id?.server ?: return@forEach
+                            val user = member.id?.user ?: return@forEach
+                            if (!StoatAPI.members.hasMember(server, user)) {
+                                StoatAPI.members.setMember(server, member)
                             }
                         }
 

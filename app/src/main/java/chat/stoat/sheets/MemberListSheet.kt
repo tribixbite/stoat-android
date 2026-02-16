@@ -91,10 +91,11 @@ class MemberListSheetViewModel @Inject constructor(
                 val defaultCategoryName = context.getString(R.string.status_online)
 
                 memberList.forEach { member ->
-                    val user = StoatAPI.userCache[member.id!!.user] ?: run {
+                    val memberId = member.id?.user ?: return@forEach
+                    val user = StoatAPI.userCache[memberId] ?: run {
                         Log.w(
                             "MemberListSheet",
-                            "User ${member.id!!.user} found in member list of server $serverId but not in user cache"
+                            "User $memberId found in member list of server $serverId but not in user cache"
                         )
                         return@forEach
                     }
@@ -106,7 +107,7 @@ class MemberListSheetViewModel @Inject constructor(
                     }
 
                     val highestHoistedRole =
-                        Roles.resolveHighestRole(serverId, member.id!!.user, hoisted = true)
+                        Roles.resolveHighestRole(serverId, memberId, hoisted = true)
 
                     val category = if (highestHoistedRole != null) {
                         highestHoistedRole.name ?: context.getString(R.string.unknown)
@@ -312,7 +313,7 @@ fun MemberListSheet(
                 viewModel.fullItemList.filter { item ->
                     when (item) {
                         is MemberListSheetItem.MemberItem -> {
-                            val user = StoatAPI.userCache[item.member.id!!.user]
+                            val user = item.member.id?.user?.let { StoatAPI.userCache[it] }
                             val nickname = item.member.nickname?.lowercase()
                             val username = user?.username?.lowercase()
                             val displayName = user?.displayName?.lowercase()
@@ -387,47 +388,53 @@ fun MemberListSheet(
                         )
                     }
 
-                    is MemberListSheetItem.MemberItem -> item(key = item.member.id!!.user) {
-                        MemberListItem(
-                            user = StoatAPI.userCache[item.member.id!!.user],
-                            member = item.member,
-                            serverId = serverId,
-                            userId = item.member.id!!.user,
-                            modifier = Modifier
-                                .combinedClickable(
+                    is MemberListSheetItem.MemberItem -> {
+                        val uid = item.member.id?.user ?: return@forEachIndexed
+                        item(key = uid) {
+                            MemberListItem(
+                                user = StoatAPI.userCache[uid],
+                                member = item.member,
+                                serverId = serverId,
+                                userId = uid,
+                                modifier = Modifier
+                                    .combinedClickable(
+                                        onClick = {
+                                            userInfoSheetTarget = uid
+                                            showUserInfoSheet = true
+                                        },
+                                        onClickLabel = stringResource(R.string.user_info_sheet_open),
+                                        onLongClick = {
+                                            memberContextSheetTarget = uid
+                                            showMemberContextSheet = true
+                                        },
+                                        onLongClickLabel = stringResource(R.string.member_context_sheet_open)
+                                    )
+                            )
+                        }
+                    }
+
+                    is MemberListSheetItem.UserItem -> {
+                        val uid = item.user.id ?: return@forEachIndexed
+                        item(key = uid) {
+                            MemberListItem(
+                                user = item.user,
+                                member = null,
+                                serverId = serverId,
+                                userId = uid,
+                                modifier = Modifier.combinedClickable(
                                     onClick = {
-                                        userInfoSheetTarget = item.member.id!!.user
+                                        userInfoSheetTarget = uid
                                         showUserInfoSheet = true
                                     },
                                     onClickLabel = stringResource(R.string.user_info_sheet_open),
                                     onLongClick = {
-                                        memberContextSheetTarget = item.member.id!!.user
+                                        memberContextSheetTarget = uid
                                         showMemberContextSheet = true
                                     },
                                     onLongClickLabel = stringResource(R.string.member_context_sheet_open)
                                 )
                         )
                     }
-
-                    is MemberListSheetItem.UserItem -> item(key = item.user.id!!) {
-                        MemberListItem(
-                            user = item.user,
-                            member = null,
-                            serverId = serverId,
-                            userId = item.user.id!!,
-                            modifier = Modifier.combinedClickable(
-                                onClick = {
-                                    userInfoSheetTarget = item.user.id!!
-                                    showUserInfoSheet = true
-                                },
-                                onClickLabel = stringResource(R.string.user_info_sheet_open),
-                                onLongClick = {
-                                    memberContextSheetTarget = item.user.id!!
-                                    showMemberContextSheet = true
-                                },
-                                onLongClickLabel = stringResource(R.string.member_context_sheet_open)
-                            )
-                        )
                     }
                 }
             }

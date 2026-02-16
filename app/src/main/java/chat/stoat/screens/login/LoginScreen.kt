@@ -174,13 +174,12 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
     LaunchedEffect(viewModel.navigateTo) {
         when (viewModel.navigateTo) {
             "mfa" -> {
-                navController.navigate(
-                    "login/mfa/${viewModel.mfaResponse!!.mfaSpec!!.ticket}/${
-                        viewModel.mfaResponse!!.mfaSpec!!.allowedMethods.joinToString(
-                            ","
-                        )
-                    }"
-                )
+                val spec = viewModel.mfaResponse?.mfaSpec
+                if (spec != null) {
+                    navController.navigate(
+                        "login/mfa/${spec.ticket}/${spec.allowedMethods.joinToString(",")}"
+                    )
+                }
             }
 
             "home" -> {

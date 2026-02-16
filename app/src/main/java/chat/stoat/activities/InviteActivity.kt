@@ -204,9 +204,10 @@ fun InviteScreen(
                                 .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            if (invite?.serverIcon != null) {
+                            val icon = invite?.serverIcon
+                            if (icon != null) {
                                 RemoteImage(
-                                    url = "$STOAT_FILES/icons/${invite.serverIcon!!.id}/${invite.serverIcon!!.filename}",
+                                    url = "$STOAT_FILES/icons/${icon.id}/${icon.filename}",
                                     allowAnimation = false,
                                     description = viewModel.inviteResult?.value?.serverName
                                         ?: stringResource(id = R.string.unknown),

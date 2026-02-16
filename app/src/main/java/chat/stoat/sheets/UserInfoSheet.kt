@@ -347,7 +347,8 @@ fun UserInfoSheet(
             }
         }
 
-        if (user.status?.text != null) {
+        val statusText = user.status?.text
+        if (statusText != null) {
             item(key = "status") {
                 SheetTile(
                     header = {
@@ -355,7 +356,7 @@ fun UserInfoSheet(
                     },
                     contentPreview = {
                         Text(
-                            text = user.status!!.text!!,
+                            text = statusText,
                             fontSize = 14.sp,
                             maxLines = 5,
                             overflow = TextOverflow.Ellipsis
@@ -363,15 +364,16 @@ fun UserInfoSheet(
                     }
                 ) {
                     Text(
-                        text = user.status!!.text!!,
+                        text = statusText,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
         }
 
-        if (user.bot != null) {
-            val resolvedOwner = user.bot!!.owner?.let { StoatAPI.userCache[it] }
+        val bot = user.bot
+        if (bot != null) {
+            val resolvedOwner = bot.owner?.let { StoatAPI.userCache[it] }
 
             item(key = "bot-owner") {
                 SheetTile(

@@ -319,8 +319,10 @@ fun ReactionInfoSheet(messageId: String, emoji: String, onDismiss: () -> Unit) {
         items(items = reactionsForEmoji) { reaction ->
             val userOrNull = StoatAPI.userCache[reaction]
             val user = userOrNull ?: User.getPlaceholder(reaction)
-            val member = if (channel.server != null && user.id != null) {
-                StoatAPI.members.getMember(channel.server!!, user.id!!)
+            val serverId = channel.server
+            val userId = user.id
+            val member = if (serverId != null && userId != null) {
+                StoatAPI.members.getMember(serverId, userId)
             } else {
                 null
             }

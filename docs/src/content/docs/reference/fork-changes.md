@@ -34,7 +34,7 @@ Server moderation features with full UI, only API stubs existed upstream.
 ### Server Management (Full UI + API)
 Complete server administration screens with permission-gated access.
 
-- **Server Settings screen** — edit name, description, icon upload (interactive crop to 1:1, resize to 1024px, WebP), banner upload (interactive crop to 5:2, resize to 2048px, WebP) via InlineMediaPicker with crop dialog, progress bar and Autumn upload
+- **Server Settings screen** — edit name, description, icon upload (interactive crop to 1:1, resize to 1024px, WebP), banner upload (interactive crop to 232:100, resize to 2048px, WebP or animated GIF) via InlineMediaPicker with crop dialog, progress bar and Autumn upload
 - **Role Management screen** — create, edit (name, colour with hex preview, hoist toggle, rank editing), delete roles
 - **Ban Management screen** — view ban list with reasons, unban with confirmation
 - **Create Channel screen** — Text/Voice type selection, name, description, NSFW toggle (passes `nsfw` param to API)
@@ -107,16 +107,18 @@ Automatic image optimization for all uploads, ensuring compatibility with Autumn
 
 - **ImageProcessor utility** (`ImageProcessor.kt`) — handles complete image preparation pipeline
 - **EXIF rotation** — reads EXIF orientation tag and applies rotation/flip before processing (many phone cameras embed rotation in metadata rather than pixel data)
-- **Interactive crop dialog** — full-screen drag-to-crop UI with ratio-locked corner resize handles and body repositioning. Shown after image pick for all upload types with forced aspect ratios (emoji 1:1, icons 1:1, banners 5:2, avatars 1:1). Canvas rendering with semi-transparent overlay, white crop border, rule-of-thirds grid lines, and corner handle circles. Falls back to center-crop if dialog is skipped
-- **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners crop to 5:2 wide, emojis crop to 1:1 square (was null/uncropped — caused server rejection)
+- **Interactive crop dialog** — full-screen drag-to-crop UI with ratio-locked corner resize handles and body repositioning. Shown after image pick for all upload types with forced aspect ratios (emoji 1:1, icons 1:1, banners 2.32:1, backgrounds 2.32:1, avatars 1:1). Returns `NormalizedCropRect` (0..1 range) for applying crop across animation frames. Canvas rendering with semi-transparent overlay, white crop border, rule-of-thirds grid lines, and corner handle circles
+- **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners/backgrounds crop to 232:100 (matching web frontend `imageAspect="232/100"`), emojis crop to 1:1 square
 - **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscale
-- **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit. Note: this destroys animation for GIF/animated WebP — see spec for animated emoji support plan
+- **Animated image support** — detects animated GIF (multiple image descriptor blocks) and animated WebP (ANIM/ANMF chunks in RIFF container). Animated GIFs under size limit pass through directly. Animated WebPs are frame-extracted and re-encoded as GIF (server only detects animation for `image/gif` content type). Frame extraction via `android.graphics.Movie` (GIF, all API levels) and `ImageDecoder`/`AnimatedImageDrawable` (WebP, API 28+). Crop applied per-frame using normalized coordinates
+- **GIF89a encoder** (`GifEncoder.kt`) — self-contained animated GIF encoder with LZW compression, median-cut color quantization (256 colors), NETSCAPE 2.0 looping extension, transparency support, and configurable per-frame delay/disposal
+- **WebP compression** — static uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit
 - **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB, backgrounds 6MB (matches Autumn config exactly)
 - **Downsampled decoding** — uses `BitmapFactory.Options.inSampleSize` for memory-safe decoding of large images. Threshold at 1.5x target dimension prevents OOM on 4000+ pixel camera photos
 - **OOM protection** — catches `Throwable` (not just `Exception`) to handle `OutOfMemoryError` from large bitmap processing. Intermediate bitmaps recycled immediately after each step to minimize peak memory
 - **Safe center-crop** — crop region bounds are coerced to prevent `IllegalArgumentException` when computed dimensions exceed bitmap bounds
 - **Wired into**: server icon/banner upload (ServerSettingsScreen), emoji upload (EmojiManagementScreen), bot avatar upload (BotManagementScreen), profile avatar/background (ProfileSettingsScreen), channel icon (ChannelSettingsOverview)
-- **Known limitations**: animated GIF emojis not yet supported (server preserves animation but client converts to static WebP); banner aspect ratio 5:2 doesn't match web frontend 232:100; profile background has no crop dialog (server preview 1280×720, web uses 232:100 aspect)
+- **Known limitations**: avatars/icons don't support animation (server strips animation for these tags); GIF quantization to 256 colors may reduce quality of complex animations
 
 ### Bot Description & Avatar
 Bot profile editing using the bot's own authentication token.
@@ -166,7 +168,7 @@ Full account settings screen with API integration.
 Server emoji administration with upload and delete support.
 
 - **Emoji list** — shows all custom emoji for a server from cache, with names and creator info
-- **Upload emoji** — pick image, interactive crop dialog (1:1 ratio), process (resize to 512px, compress as WebP within 500KB), preview with dimensions/size display, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
+- **Upload emoji** — pick image, interactive crop dialog (1:1 ratio), process (resize to 512px, compress as WebP or animated GIF within 500KB), preview with dimensions/size and format display, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`. Animated GIFs pass through directly; animated WebPs are re-encoded as GIF
 - **Delete emoji** — `DELETE /custom/emoji/{id}` with confirmation dialog
 - **Permission-gated** — requires ManageCustomisation or ManageServer
 

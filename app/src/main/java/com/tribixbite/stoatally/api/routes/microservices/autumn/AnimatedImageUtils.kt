@@ -9,6 +9,8 @@ import android.graphics.drawable.AnimatedImageDrawable
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.provider.OpenableColumns
+import kotlinx.coroutines.delay
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
@@ -158,7 +160,7 @@ object AnimatedImageUtils {
      * Extract frames from an animated WebP using ImageDecoder (API 28+).
      * Falls back to empty list on older API levels.
      */
-    fun extractWebPFrames(
+    suspend fun extractWebPFrames(
         context: Context,
         uri: Uri,
         maxFrames: Int = 100,
@@ -179,8 +181,9 @@ object AnimatedImageUtils {
 
     /**
      * Extract frames from any animated image. Tries GIF first, then WebP.
+     * Must be called from a coroutine context (WebP extraction uses delay()).
      */
-    fun extractFrames(
+    suspend fun extractFrames(
         context: Context,
         uri: Uri,
         maxFrames: Int = 100,
@@ -196,12 +199,23 @@ object AnimatedImageUtils {
     }
 
     /**
-     * Get the raw file size of a URI.
+     * Get the file size of a URI via ContentResolver metadata query.
+     * Falls back to reading the full stream if OpenableColumns not supported.
      */
     fun getFileSize(context: Context, uri: Uri): Long {
         return try {
-            context.contentResolver.openInputStream(uri)?.use { it.available().toLong() } ?: 0L
+            // Prefer ContentResolver query for accurate size
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeIndex != -1 && cursor.moveToFirst()) {
+                    cursor.getLong(sizeIndex)
+                } else null
+            } ?: context.contentResolver.openInputStream(uri)?.use {
+                // Fallback: count actual bytes
+                it.readBytes().size.toLong()
+            } ?: 0L
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to get file size", e)
             0L
         }
     }
@@ -322,8 +336,9 @@ object AnimatedImageUtils {
     /**
      * Use ImageDecoder (API 28+) to extract frames from animated images.
      * Works for both animated GIF and WebP via the platform decoder.
+     * Must be called from a coroutine context (uses delay() for frame stepping).
      */
-    private fun extractFramesViaImageDecoder(
+    private suspend fun extractFramesViaImageDecoder(
         context: Context,
         uri: Uri,
         maxFrames: Int,
@@ -383,7 +398,7 @@ object AnimatedImageUtils {
             }
 
             // Advance time — AnimatedImageDrawable auto-advances when started
-            Thread.sleep(stepMs.toLong())
+            delay(stepMs.toLong())
             time += stepMs
         }
 

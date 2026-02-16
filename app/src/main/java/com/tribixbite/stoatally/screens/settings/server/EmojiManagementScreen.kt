@@ -292,15 +292,19 @@ private fun AddEmojiDialog(
     var uploadProgress by remember { mutableFloatStateOf(0f) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // File picker launcher — detect animation, then show crop dialog
+    // File picker launcher — detect animation off main thread, then show crop dialog
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
             error = null
             processedImage = null
-            isAnimatedImage = AnimatedImageUtils.isAnimated(context, uri)
-            pendingCropUri = uri
+            scope.launch {
+                isAnimatedImage = withContext(Dispatchers.IO) {
+                    AnimatedImageUtils.isAnimated(context, uri)
+                }
+                pendingCropUri = uri
+            }
         }
     }
 
@@ -319,11 +323,7 @@ private fun AddEmojiDialog(
                     val result = withContext(Dispatchers.Default) {
                         if (animated) {
                             // Try pass-through first (animated GIF under size limit, no crop needed)
-                            val isFullFrame = normalizedRect.left < 0.01f &&
-                                normalizedRect.top < 0.01f &&
-                                normalizedRect.width > 0.98f &&
-                                normalizedRect.height > 0.98f
-                            val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, cropUri)) {
+                            val passThru = if (normalizedRect.isFullFrame() && AnimatedImageUtils.isAnimatedGif(context, cropUri)) {
                                 ImageProcessor.passThruAnimatedGif(context, cropUri, AutumnUploadType.EMOJI, context.cacheDir)
                             } else null
 

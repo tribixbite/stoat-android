@@ -80,6 +80,16 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     var pendingAvatarCropUri by mutableStateOf<Uri?>(null)
     var pendingBackgroundCropUri by mutableStateOf<Uri?>(null)
     var isAnimatedBackground by mutableStateOf(false)
+
+    /** Detect animation off main thread, then show crop dialog. */
+    fun onBackgroundPicked(uri: Uri) {
+        viewModelScope.launch {
+            isAnimatedBackground = withContext(Dispatchers.IO) {
+                AnimatedImageUtils.isAnimated(context, uri)
+            }
+            pendingBackgroundCropUri = uri
+        }
+    }
     var uploadProgress by mutableFloatStateOf(0f)
     var uploadError by mutableStateOf<String?>(null)
     var bioError by mutableStateOf<String?>(null)
@@ -198,9 +208,7 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
                 val result = withContext(Dispatchers.Default) {
                     if (animated) {
                         // Try pass-through first (animated GIF under size limit, no crop)
-                        val isFullFrame = cropRect.left < 0.02f && cropRect.top < 0.02f &&
-                            cropRect.width > 0.96f && cropRect.height > 0.96f
-                        val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
+                        val passThru = if (cropRect.isFullFrame() && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
                             ImageProcessor.passThruAnimatedGif(
                                 context, uri, AutumnUploadType.BACKGROUND, context.cacheDir
                             )
@@ -468,9 +476,7 @@ fun ProfileSettingsScreen(
                                         else -> null
                                     }
                                     if (uri != null) {
-                                        viewModel.isAnimatedBackground =
-                                            AnimatedImageUtils.isAnimated(viewModel.context, uri)
-                                        viewModel.pendingBackgroundCropUri = uri
+                                        viewModel.onBackgroundPicked(uri)
                                     }
                                 },
                                 canRemove = true,

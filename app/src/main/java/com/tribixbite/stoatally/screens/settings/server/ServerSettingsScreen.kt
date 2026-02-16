@@ -95,6 +95,16 @@ class ServerSettingsViewModel @Inject constructor(
     var pendingBannerCropUri by mutableStateOf<Uri?>(null)
     var isAnimatedBanner by mutableStateOf(false)
 
+    /** Detect animation off main thread, then show crop dialog. */
+    fun onBannerPicked(uri: Uri) {
+        viewModelScope.launch {
+            isAnimatedBanner = withContext(Dispatchers.IO) {
+                AnimatedImageUtils.isAnimated(context, uri)
+            }
+            pendingBannerCropUri = uri
+        }
+    }
+
     var uploadError by mutableStateOf<String?>(null)
     var updateError by mutableStateOf<String?>(null)
 
@@ -183,9 +193,7 @@ class ServerSettingsViewModel @Inject constructor(
                 val result = withContext(Dispatchers.Default) {
                     if (animated) {
                         // Try pass-through first (animated GIF under size limit, no crop)
-                        val isFullFrame = cropRect.left < 0.02f && cropRect.top < 0.02f &&
-                            cropRect.width > 0.96f && cropRect.height > 0.96f
-                        val passThru = if (isFullFrame && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
+                        val passThru = if (cropRect.isFullFrame() && AnimatedImageUtils.isAnimatedGif(context, uri!!)) {
                             ImageProcessor.passThruAnimatedGif(
                                 context, uri, AutumnUploadType.BANNER, context.cacheDir
                             )
@@ -521,9 +529,7 @@ fun ServerSettingsScreen(
                                         else -> null
                                     }
                                     if (uri != null) {
-                                        viewModel.isAnimatedBanner =
-                                            AnimatedImageUtils.isAnimated(viewModel.context, uri)
-                                        viewModel.pendingBannerCropUri = uri
+                                        viewModel.onBannerPicked(uri)
                                     }
                                 },
                                 circular = false,

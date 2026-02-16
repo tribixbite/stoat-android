@@ -57,6 +57,9 @@ data class ProcessedImage(
 object ImageProcessor {
     private const val TAG = "ImageProcessor"
 
+    /** Tolerance for considering a crop rect as "full frame" (2% margin). */
+    const val FULL_FRAME_TOLERANCE = 0.02f
+
     /**
      * Process an image URI for a specific upload type.
      * Returns a [ProcessedImage] ready for upload to Autumn, or null on failure.
@@ -513,4 +516,9 @@ data class NormalizedCropRect(
     val top: Float,
     val width: Float,
     val height: Float
-)
+) {
+    /** Check if this crop is approximately the full frame (within tolerance). */
+    fun isFullFrame(tolerance: Float = ImageProcessor.FULL_FRAME_TOLERANCE): Boolean =
+        left < tolerance && top < tolerance &&
+            width > (1f - tolerance * 2) && height > (1f - tolerance * 2)
+}

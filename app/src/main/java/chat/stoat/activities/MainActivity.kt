@@ -2,6 +2,7 @@ package chat.stoat.activities
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -75,6 +76,8 @@ import androidx.navigation.compose.rememberNavController
 import chat.stoat.BuildConfig
 import chat.stoat.R
 import chat.stoat.StoatApplication
+import chat.stoat.callbacks.Action
+import chat.stoat.callbacks.ActionChannel
 import chat.stoat.api.HitRateLimitException
 import chat.stoat.api.StoatAPI
 import chat.stoat.api.StoatHttp
@@ -162,6 +165,34 @@ class MainActivityViewModel @Inject constructor(
     var isConnected = MutableStateFlow(false)
     val isReady = MutableStateFlow(false)
     val couldNotLogIn = MutableStateFlow(false)
+
+    // Channel ID from notification tap — consumed after login to navigate directly
+    var pendingNotificationChannelId: String? = null
+
+    /**
+     * Extract channelId from a notification tap intent.
+     * Called from onCreate before the login state check coroutine progresses.
+     */
+    fun handleNotificationIntent(intent: Intent?) {
+        val channelId = intent?.getStringExtra("channelId")
+        if (channelId != null) {
+            Log.d("MainActivity", "Notification tap: pending navigation to channel $channelId")
+            pendingNotificationChannelId = channelId
+        }
+    }
+
+    /**
+     * Handle new intent when activity is already running (e.g. notification tap
+     * while app is in foreground). Sends directly via ActionChannel since
+     * ChatRouterScreen's listener is already active.
+     */
+    fun handleNewIntent(intent: Intent?) {
+        val channelId = intent?.getStringExtra("channelId") ?: return
+        Log.d("MainActivity", "New intent: switching to channel $channelId")
+        viewModelScope.launch {
+            ActionChannel.send(Action.SwitchChannel(channelId))
+        }
+    }
 
     private fun hasInternetConnection(): Boolean {
         val connectivityManager =
@@ -285,6 +316,16 @@ class MainActivityViewModel @Inject constructor(
                     Log.d("MainActivity", "Onboarding state is complete, logging in")
                     StoatAPI.loginAs(token)
                     StoatAPI.setSessionId(id)
+
+                    // If launched from a notification tap, set the target channel
+                    // so ChatRouterViewModel picks it up on initialization
+                    val notifChannel = pendingNotificationChannelId
+                    if (notifChannel != null) {
+                        Log.d("MainActivity", "Setting notification channel destination: $notifChannel")
+                        kvStorage.set("currentDestination", "channel/$notifChannel")
+                        pendingNotificationChannelId = null
+                    }
+
                     if (Experiments.usePolar.isEnabled) {
                         startWithDestination("main")
                     } else {
@@ -375,6 +416,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Extract notification channel ID before the ViewModel's login coroutine progresses
+        viewModel.handleNotificationIntent(intent)
+
         SentryAndroid.init(this) { options ->
             options.dsn = BuildConfig.SENTRY_DSN
             options.release = BuildConfig.VERSION_NAME
@@ -419,6 +463,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    // Handle notification taps when activity is already running
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        viewModel.handleNewIntent(intent)
     }
 
     override fun onProvideKeyboardShortcuts(

@@ -34,7 +34,7 @@ Server moderation features with full UI, only API stubs existed upstream.
 ### Server Management (Full UI + API)
 Complete server administration screens with permission-gated access.
 
-- **Server Settings screen** — edit name, description, icon upload (auto-crop to 1:1, resize to 1024px, WebP), banner upload (auto-crop to 5:2, resize to 2048px, WebP) via InlineMediaPicker with progress bar and Autumn upload
+- **Server Settings screen** — edit name, description, icon upload (interactive crop to 1:1, resize to 1024px, WebP), banner upload (interactive crop to 5:2, resize to 2048px, WebP) via InlineMediaPicker with crop dialog, progress bar and Autumn upload
 - **Role Management screen** — create, edit (name, colour with hex preview, hoist toggle, rank editing), delete roles
 - **Ban Management screen** — view ban list with reasons, unban with confirmation
 - **Create Channel screen** — Text/Voice type selection, name, description, NSFW toggle (passes `nsfw` param to API)
@@ -107,7 +107,8 @@ Automatic image optimization for all uploads, ensuring compatibility with Autumn
 
 - **ImageProcessor utility** (`ImageProcessor.kt`) — handles complete image preparation pipeline
 - **EXIF rotation** — reads EXIF orientation tag and applies rotation/flip before processing (many phone cameras embed rotation in metadata rather than pixel data)
-- **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners crop to 5:2 wide, emojis preserve original aspect
+- **Interactive crop dialog** — full-screen drag-to-crop UI with ratio-locked corner resize handles and body repositioning. Shown after image pick for all upload types with forced aspect ratios (emoji 1:1, icons 1:1, banners 5:2, avatars 1:1). Canvas rendering with semi-transparent overlay, white crop border, rule-of-thirds grid lines, and corner handle circles. Falls back to center-crop if dialog is skipped
+- **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners crop to 5:2 wide, emojis crop to 1:1 square (was null/uncropped — caused server rejection)
 - **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscaling
 - **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit
 - **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB
@@ -164,7 +165,7 @@ Full account settings screen with API integration.
 Server emoji administration with upload and delete support.
 
 - **Emoji list** — shows all custom emoji for a server from cache, with names and creator info
-- **Upload emoji** — pick image, auto-process (resize to 512px, compress as WebP within 500KB), preview with dimensions/size display, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
+- **Upload emoji** — pick image, interactive crop dialog (1:1 ratio), process (resize to 512px, compress as WebP within 500KB), preview with dimensions/size display, upload to `autumn/emojis`, create via `PUT /custom/emoji/{id}`
 - **Delete emoji** — `DELETE /custom/emoji/{id}` with confirmation dialog
 - **Permission-gated** — requires ManageCustomisation or ManageServer
 

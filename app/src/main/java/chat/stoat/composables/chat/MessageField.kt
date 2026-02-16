@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
@@ -155,6 +156,7 @@ fun MessageField(
     canAttach: Boolean = true,
     disabled: Boolean = false,
     failedValidation: Boolean = false,
+    isSending: Boolean = false,
     serverId: String? = null,
     channelId: String? = null,
     valueIsBlank: Boolean = false,
@@ -619,21 +621,32 @@ fun MessageField(
                     targetOffsetX = { it }
                 ) + fadeOut(animationSpec = StoatTweenFloat)
             ) {
-                Icon(
-                    painter = when {
-                        editMode -> painterResource(R.drawable.icn_edit_24dp)
-                        else -> painterResource(R.drawable.icn_send_24dp)
-                    },
-                    tint = MaterialTheme.colorScheme.primary,
-                    contentDescription = stringResource(id = R.string.send_alt),
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .clip(CircleShape)
-                        .clickable { onSendMessage() }
-                        .size(32.dp)
-                        .padding(4.dp)
-                        .testTag("send_message")
-                )
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(32.dp)
+                            .padding(4.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Icon(
+                        painter = when {
+                            editMode -> painterResource(R.drawable.icn_edit_24dp)
+                            else -> painterResource(R.drawable.icn_send_24dp)
+                        },
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = stringResource(id = R.string.send_alt),
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .clip(CircleShape)
+                            .clickable { onSendMessage() }
+                            .size(32.dp)
+                            .padding(4.dp)
+                            .testTag("send_message")
+                    )
+                }
             }
         }
     }

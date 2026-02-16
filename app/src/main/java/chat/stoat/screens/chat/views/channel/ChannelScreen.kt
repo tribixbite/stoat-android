@@ -1213,6 +1213,7 @@ fun ChannelScreen(
                                             channelId = channelId,
                                             failedValidation = viewModel.draftContent.length > 2000,
                                             valueIsBlank = viewModel.draftContent.isBlank(),
+                                            isSending = viewModel.isSendingMessage,
                                             cancelEdit = {
                                                 viewModel.editingMessage = null
                                                 viewModel.putDraftContent("", true)

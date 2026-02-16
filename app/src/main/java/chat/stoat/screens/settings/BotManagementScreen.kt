@@ -68,6 +68,7 @@ import chat.stoat.api.routes.bots.fetchOwnedBots
 import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
 import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
+import chat.stoat.composables.generic.ImageCropDialog
 import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.core.model.schemas.User
 import io.ktor.http.ContentType
@@ -316,6 +317,7 @@ private fun BotListItem(
     var avatarModel by remember(user) {
         mutableStateOf<Any?>(user?.avatar?.let { "$STOAT_FILES/avatars/${it.id}" })
     }
+    var pendingAvatarCropUri by remember { mutableStateOf<Uri?>(null) }
     var isAvatarUploading by remember { mutableStateOf(false) }
     var avatarUploadProgress by remember { mutableFloatStateOf(0f) }
     var isSavingProfile by remember { mutableStateOf(false) }
@@ -536,18 +538,57 @@ private fun BotListItem(
                             mimeType = "image/*",
                             canRemove = avatarModel != null,
                             enabled = !isAvatarUploading,
-                            onPick = { uri ->
-                                avatarModel = uri
+                            onPick = { model ->
+                                // Show crop dialog instead of processing directly
+                                val uri = when (model) {
+                                    is Uri -> model
+                                    is String -> Uri.parse(model.toString())
+                                    else -> null
+                                }
+                                if (uri != null) {
+                                    pendingAvatarCropUri = uri
+                                }
+                            },
+                            onRemove = {
+                                avatarModel = null
+                                editError = null
+                                scope.launch {
+                                    try {
+                                        withContext(Dispatchers.IO) {
+                                            editBotUserProfile(
+                                                bot.token,
+                                                remove = listOf("Avatar")
+                                            )
+                                        }
+                                    } catch (e: Exception) {
+                                        editError = e.message
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    // Bot avatar crop dialog (1:1 aspect ratio)
+                    if (pendingAvatarCropUri != null) {
+                        ImageCropDialog(
+                            uri = pendingAvatarCropUri!!,
+                            aspectRatio = 1f,
+                            onConfirm = { croppedBitmap ->
+                                pendingAvatarCropUri = null
+                                avatarModel = croppedBitmap
                                 isAvatarUploading = true
                                 avatarUploadProgress = 0f
                                 editError = null
                                 scope.launch {
                                     try {
                                         val processed = withContext(Dispatchers.Default) {
-                                            ImageProcessor.processForUpload(
-                                                context, uri, AutumnUploadType.AVATAR
+                                            ImageProcessor.processForUploadBitmap(
+                                                croppedBitmap,
+                                                AutumnUploadType.AVATAR,
+                                                context.cacheDir
                                             )
                                         } ?: throw Exception("Failed to process image")
+                                        if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
 
                                         val autumnId = uploadToAutumn(
                                             processed.file,
@@ -570,22 +611,7 @@ private fun BotListItem(
                                     isAvatarUploading = false
                                 }
                             },
-                            onRemove = {
-                                avatarModel = null
-                                editError = null
-                                scope.launch {
-                                    try {
-                                        withContext(Dispatchers.IO) {
-                                            editBotUserProfile(
-                                                bot.token,
-                                                remove = listOf("Avatar")
-                                            )
-                                        }
-                                    } catch (e: Exception) {
-                                        editError = e.message
-                                    }
-                                }
-                            }
+                            onDismiss = { pendingAvatarCropUri = null }
                         )
                     }
 

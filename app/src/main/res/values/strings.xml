@@ -1274,6 +1274,11 @@
     <string name="user_flag_banned">Banned</string>
     <string name="user_flag_spam">Spam</string>
 
+    <!-- Image crop dialog -->
+    <string name="crop_dialog_title">Crop Image</string>
+    <string name="crop_dialog_done">Done</string>
+    <string name="crop_dialog_loading">Loading…</string>
+
     <!-- Password reset -->
     <string name="password_reset_title">Reset Password</string>
     <string name="password_reset_email_hint">Enter the email for your account</string>

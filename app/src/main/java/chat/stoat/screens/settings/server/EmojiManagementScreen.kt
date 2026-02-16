@@ -62,6 +62,7 @@ import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
 import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.ProcessedImage
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
+import chat.stoat.composables.generic.ImageCropDialog
 import chat.stoat.composables.generic.ListHeader
 import chat.stoat.core.model.schemas.Emoji
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
@@ -281,33 +282,53 @@ private fun AddEmojiDialog(
     val scope = rememberCoroutineScope()
     var emojiName by remember { mutableStateOf("") }
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingCropUri by remember { mutableStateOf<Uri?>(null) }
     var processedImage by remember { mutableStateOf<ProcessedImage?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableFloatStateOf(0f) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // File picker launcher — processes image immediately after selection
+    // File picker launcher — shows crop dialog instead of processing immediately
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            selectedUri = uri
-            isProcessing = true
             error = null
             processedImage = null
-            scope.launch {
-                val result = withContext(Dispatchers.Default) {
-                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.EMOJI)
-                }
-                if (result != null) {
-                    processedImage = result
-                } else {
-                    error = "Failed to process image"
-                }
-                isProcessing = false
-            }
+            pendingCropUri = uri
         }
+    }
+
+    // Crop dialog for square emoji (1:1 aspect ratio)
+    if (pendingCropUri != null) {
+        ImageCropDialog(
+            uri = pendingCropUri!!,
+            aspectRatio = 1f,
+            onConfirm = { croppedBitmap ->
+                val cropUri = pendingCropUri
+                pendingCropUri = null
+                selectedUri = cropUri
+                isProcessing = true
+                scope.launch {
+                    val result = withContext(Dispatchers.Default) {
+                        ImageProcessor.processForUploadBitmap(
+                            croppedBitmap,
+                            AutumnUploadType.EMOJI,
+                            context.cacheDir
+                        )
+                    }
+                    if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+                    if (result != null) {
+                        processedImage = result
+                    } else {
+                        error = "Failed to process image"
+                    }
+                    isProcessing = false
+                }
+            },
+            onDismiss = { pendingCropUri = null }
+        )
     }
 
     AlertDialog(

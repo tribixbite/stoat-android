@@ -65,6 +65,7 @@ import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.settings.NotificationSettingsProvider
 import chat.stoat.api.settings.SyncedSettings
 import chat.stoat.core.model.schemas.Channel
+import chat.stoat.composables.generic.ImageCropDialog
 import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.composables.generic.ListHeader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -84,6 +85,8 @@ class ChannelSettingsOverviewViewModel @Inject constructor(@ApplicationContext v
     var iconModel by mutableStateOf<Any?>(null)
     var iconIsUploading by mutableStateOf(false)
     var iconUploadProgress by mutableFloatStateOf(0f)
+
+    var pendingIconCropUri by mutableStateOf<Uri?>(null)
 
     var uploadError by mutableStateOf<String?>(null)
     var updateError by mutableStateOf<String?>(null)
@@ -116,6 +119,40 @@ class ChannelSettingsOverviewViewModel @Inject constructor(@ApplicationContext v
                 iconIsUploading = false
             }
         } ?: run {
+            iconIsUploading = false
+        }
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as channel icon.
+     */
+    fun processAndUploadIcon(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        iconUploadProgress = 0f
+        iconIsUploading = true
+
+        viewModelScope.launch {
+            try {
+                val processed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.ICON, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "icon.webp", "icons", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        iconUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                processed.file.delete()
+                patchChannel(initialChannel?.id ?: "", icon = id)
+                iconModel = "$STOAT_FILES/icons/$id"
+            } catch (e: Exception) {
+                uploadError = e.message
+                iconUploadProgress = 0f
+            }
             iconIsUploading = false
         }
     }
@@ -338,13 +375,36 @@ fun ChannelSettingsOverview(
                     ) {
                         InlineMediaPicker(
                             currentModel = viewModel.iconModel,
-                            onPick = { viewModel.pickIcon(it) },
+                            onPick = { model ->
+                                // Show crop dialog instead of uploading directly
+                                val uri = when (model) {
+                                    is Uri -> model
+                                    is String -> Uri.parse(model)
+                                    else -> null
+                                }
+                                if (uri != null) {
+                                    viewModel.pendingIconCropUri = uri
+                                }
+                            },
                             circular = true,
                             mimeType = "image/*",
                             canRemove = true,
                             enabled = !viewModel.iconIsUploading,
                             onRemove = { viewModel.pickIcon(null) },
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                        )
+                    }
+
+                    // Icon crop dialog (1:1 aspect ratio)
+                    if (viewModel.pendingIconCropUri != null) {
+                        ImageCropDialog(
+                            uri = viewModel.pendingIconCropUri!!,
+                            aspectRatio = 1f,
+                            onConfirm = { croppedBitmap ->
+                                viewModel.pendingIconCropUri = null
+                                viewModel.processAndUploadIcon(croppedBitmap)
+                            },
+                            onDismiss = { viewModel.pendingIconCropUri = null }
                         )
                     }
 

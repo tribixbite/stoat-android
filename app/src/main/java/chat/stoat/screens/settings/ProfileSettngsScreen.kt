@@ -55,6 +55,7 @@ import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.routes.user.fetchUserProfile
 import chat.stoat.api.routes.user.patchSelf
 import chat.stoat.core.model.schemas.Profile
+import chat.stoat.composables.generic.ImageCropDialog
 import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.composables.screens.settings.RawUserOverview
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -74,6 +75,7 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     var currentProfile by mutableStateOf<Profile?>(null)
     var pendingProfile by mutableStateOf<Profile?>(null)
     var backgroundModel by mutableStateOf<Any?>(null)
+    var pendingAvatarCropUri by mutableStateOf<Uri?>(null)
     var uploadProgress by mutableFloatStateOf(0f)
     var uploadError by mutableStateOf<String?>(null)
     var bioError by mutableStateOf<String?>(null)
@@ -95,6 +97,39 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
             }
         }
 
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as user avatar.
+     */
+    fun processAndUploadAvatar(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        viewModelScope.launch {
+            try {
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.AVATAR, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "avatar.webp", "avatars", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        uploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                processed.file.delete()
+                patchSelf(avatar = id)
+
+                pfpModel = StoatAPI.userCache[StoatAPI.selfId]?.avatar?.id?.let {
+                    "$STOAT_FILES/avatars/${it}"
+                }
+            } catch (e: Exception) {
+                uploadError = e.message
+            }
+            uploadProgress = 0f
+        }
     }
 
     fun saveNewPfp() {
@@ -331,15 +366,35 @@ fun ProfileSettingsScreen(
                                 currentModel = viewModel.pfpModel,
                                 circular = true,
                                 useAvatarCircularity = true,
-                                onPick = {
-                                    viewModel.pfpModel = it.toString()
-                                    viewModel.saveNewPfp()
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model.toString())
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.pendingAvatarCropUri = uri
+                                    }
                                 },
                                 canRemove = true,
                                 onRemove = {
                                     viewModel.removePfp()
                                 }
                             )
+
+                            // Avatar crop dialog (1:1 aspect ratio)
+                            if (viewModel.pendingAvatarCropUri != null) {
+                                ImageCropDialog(
+                                    uri = viewModel.pendingAvatarCropUri!!,
+                                    aspectRatio = 1f,
+                                    onConfirm = { croppedBitmap ->
+                                        viewModel.pendingAvatarCropUri = null
+                                        viewModel.processAndUploadAvatar(croppedBitmap)
+                                    },
+                                    onDismiss = { viewModel.pendingAvatarCropUri = null }
+                                )
+                            }
                         }
 
                         Column(

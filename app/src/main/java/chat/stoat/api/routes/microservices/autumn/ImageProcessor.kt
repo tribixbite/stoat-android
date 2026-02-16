@@ -26,7 +26,7 @@ enum class AutumnUploadType(
     AVATAR("avatars", 4_000_000L, 1024, 1f, "Avatar"),
     ICON("icons", 2_500_000L, 1024, 1f, "Server icon"),
     BANNER("banners", 6_000_000L, 2048, 2.5f, "Server banner"), // ~5:2 aspect
-    EMOJI("emojis", 500_000L, 512, null, "Custom emoji"),
+    EMOJI("emojis", 500_000L, 512, 1f, "Custom emoji"),
     BACKGROUND("backgrounds", 6_000_000L, 2048, null, "Profile background"),
     ATTACHMENT("attachments", 20_000_000L, 4096, null, "Attachment");
 
@@ -175,10 +175,59 @@ object ImageProcessor {
     }
 
     /**
+     * Process a pre-cropped bitmap for upload — skips decode/EXIF/center-crop,
+     * goes straight to resize + WebP compress. Used by ImageCropDialog which
+     * provides an already-cropped bitmap from user interaction.
+     */
+    fun processForUploadBitmap(
+        bitmap: Bitmap,
+        uploadType: AutumnUploadType,
+        cacheDir: File
+    ): ProcessedImage? {
+        var resized: Bitmap? = null
+        try {
+            // Resize to max dimensions (no decode/EXIF/crop needed — already handled)
+            resized = resizeToMax(bitmap, uploadType.maxDimension)
+
+            val resizedBmp = resized ?: return null
+            val outputFile = File(cacheDir, "processed_${System.currentTimeMillis()}.webp")
+            val compressed = compressToWebP(resizedBmp, outputFile, uploadType.maxBytes)
+
+            val finalWidth = resizedBmp.width
+            val finalHeight = resizedBmp.height
+
+            // Recycle only if we created a new bitmap during resize
+            if (resized !== bitmap) { resizedBmp.recycle(); resized = null }
+
+            if (!compressed) {
+                Log.e(TAG, "Failed to compress within ${uploadType.maxBytes} bytes")
+                outputFile.delete()
+                return null
+            }
+
+            return ProcessedImage(
+                file = outputFile,
+                width = finalWidth,
+                height = finalHeight,
+                sizeBytes = outputFile.length(),
+                mimeType = "image/webp"
+            )
+        } catch (e: Throwable) {
+            Log.e(TAG, "Bitmap processing failed: ${e.javaClass.simpleName}", e)
+            return null
+        } finally {
+            if (resized != null && resized !== bitmap && !resized.isRecycled) {
+                resized.recycle()
+            }
+        }
+    }
+
+    /**
      * Read EXIF orientation and rotate/flip bitmap accordingly.
      * Many phone cameras embed rotation in EXIF rather than pixel data.
+     * Internal visibility so ImageCropDialog can reuse for EXIF-aware preview.
      */
-    private fun applyExifRotation(context: Context, uri: Uri, bitmap: Bitmap): Bitmap {
+    internal fun applyExifRotation(context: Context, uri: Uri, bitmap: Bitmap): Bitmap {
         val orientation = try {
             context.contentResolver.openInputStream(uri)?.use {
                 ExifInterface(it).getAttributeInt(

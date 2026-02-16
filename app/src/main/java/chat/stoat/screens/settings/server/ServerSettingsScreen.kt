@@ -60,6 +60,7 @@ import chat.stoat.api.routes.microservices.autumn.AutumnUploadType
 import chat.stoat.api.routes.microservices.autumn.ImageProcessor
 import chat.stoat.api.routes.microservices.autumn.uploadToAutumn
 import chat.stoat.api.routes.server.editServer
+import chat.stoat.composables.generic.ImageCropDialog
 import chat.stoat.composables.generic.InlineMediaPicker
 import chat.stoat.composables.generic.ListHeader
 import chat.stoat.core.model.schemas.Server
@@ -87,6 +88,9 @@ class ServerSettingsViewModel @Inject constructor(
     var bannerModel by mutableStateOf<Any?>(null)
     var bannerIsUploading by mutableStateOf(false)
     var bannerUploadProgress by mutableFloatStateOf(0f)
+
+    var pendingIconCropUri by mutableStateOf<Uri?>(null)
+    var pendingBannerCropUri by mutableStateOf<Uri?>(null)
 
     var uploadError by mutableStateOf<String?>(null)
     var updateError by mutableStateOf<String?>(null)
@@ -118,6 +122,76 @@ class ServerSettingsViewModel @Inject constructor(
                 iconIsUploading = false
             }
         } ?: run { iconIsUploading = false }
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as server icon.
+     */
+    fun processAndUploadIcon(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        iconUploadProgress = 0f
+        iconIsUploading = true
+
+        viewModelScope.launch {
+            try {
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.ICON, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "icon.webp", "icons", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        iconUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", icon = id)
+                processed.file.delete()
+                // Update icon model to show uploaded image
+                iconModel = "$STOAT_FILES/icons/$id"
+            } catch (e: Exception) {
+                uploadError = e.message
+                iconUploadProgress = 0f
+            }
+            iconIsUploading = false
+        }
+    }
+
+    /**
+     * Process a pre-cropped bitmap and upload as server banner.
+     */
+    fun processAndUploadBanner(croppedBitmap: android.graphics.Bitmap) {
+        uploadError = null
+        bannerUploadProgress = 0f
+        bannerIsUploading = true
+
+        viewModelScope.launch {
+            try {
+                val processed = withContext(Dispatchers.Default) {
+                    ImageProcessor.processForUploadBitmap(
+                        croppedBitmap, AutumnUploadType.BANNER, context.cacheDir
+                    )
+                } ?: throw Exception("Failed to process image")
+                if (!croppedBitmap.isRecycled) croppedBitmap.recycle()
+
+                val id = uploadToAutumn(
+                    processed.file, "banner.webp", "banners", ContentType.Image.Any,
+                    onProgress = { soFar, outOf ->
+                        bannerUploadProgress = soFar.toFloat() / outOf.toFloat()
+                    }
+                )
+                editServer(initialServer?.id ?: "", banner = id)
+                processed.file.delete()
+                // Update banner model to show uploaded image
+                bannerModel = "$STOAT_FILES/banners/$id"
+            } catch (e: Exception) {
+                uploadError = e.message
+                bannerUploadProgress = 0f
+            }
+            bannerIsUploading = false
+        }
     }
 
     fun pickIcon(newModel: Any?) {
@@ -334,13 +408,36 @@ fun ServerSettingsScreen(
                         ) {
                             InlineMediaPicker(
                                 currentModel = viewModel.iconModel,
-                                onPick = { viewModel.pickIcon(it) },
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model)
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.pendingIconCropUri = uri
+                                    }
+                                },
                                 circular = true,
                                 mimeType = "image/*",
                                 canRemove = true,
                                 enabled = !viewModel.iconIsUploading,
                                 onRemove = { viewModel.pickIcon(null) },
                                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Icon crop dialog (1:1 aspect ratio)
+                        if (viewModel.pendingIconCropUri != null) {
+                            ImageCropDialog(
+                                uri = viewModel.pendingIconCropUri!!,
+                                aspectRatio = 1f,
+                                onConfirm = { croppedBitmap ->
+                                    viewModel.pendingIconCropUri = null
+                                    viewModel.processAndUploadIcon(croppedBitmap)
+                                },
+                                onDismiss = { viewModel.pendingIconCropUri = null }
                             )
                         }
 
@@ -364,13 +461,36 @@ fun ServerSettingsScreen(
                         ) {
                             InlineMediaPicker(
                                 currentModel = viewModel.bannerModel,
-                                onPick = { viewModel.pickBanner(it) },
+                                onPick = { model ->
+                                    // Show crop dialog instead of uploading directly
+                                    val uri = when (model) {
+                                        is Uri -> model
+                                        is String -> Uri.parse(model)
+                                        else -> null
+                                    }
+                                    if (uri != null) {
+                                        viewModel.pendingBannerCropUri = uri
+                                    }
+                                },
                                 circular = false,
                                 mimeType = "image/*",
                                 canRemove = true,
                                 enabled = !viewModel.bannerIsUploading,
                                 onRemove = { viewModel.pickBanner(null) },
                                 modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // Banner crop dialog (5:2 aspect ratio)
+                        if (viewModel.pendingBannerCropUri != null) {
+                            ImageCropDialog(
+                                uri = viewModel.pendingBannerCropUri!!,
+                                aspectRatio = 2.5f,
+                                onConfirm = { croppedBitmap ->
+                                    viewModel.pendingBannerCropUri = null
+                                    viewModel.processAndUploadBanner(croppedBitmap)
+                                },
+                                onDismiss = { viewModel.pendingBannerCropUri = null }
                             )
                         }
 

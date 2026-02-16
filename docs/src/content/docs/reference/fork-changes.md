@@ -581,3 +581,4 @@ All changes from upstream divergence point:
 | `d57c734` | feat | UnifiedPush support (connector 3.2.0, StoatPushService, distributor picker) |
 | `d43a168` | fix | ANR on settings navigation (ActionChannel CancellationException loop), notification settings threading |
 | `77e5eda` | fix | UnifiedPush WAKE\_LOCK permission (override maxSdkVersion=25), Glide main-thread crash, ULID validation guard |
+| `c44886b` | fix | Show error with retry button when message fetch fails instead of infinite shimmer |

@@ -53,13 +53,29 @@ Full default and per-role permission editor matching the web client UI, for both
 - **5 categories**: Admin (5), Members (8), Channels (6), Messaging (6), Voice (7)
 - **API routes**: `PUT /servers/{id}/permissions/default`, `PUT /servers/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/default`
 
+### Push Notification Relay via stoatcord-bot
+Working push notifications via bot relay, bypassing the unconfigured Stoat backend FCM.
+
+- **Push mode selector** in Notification Settings — radio group with three modes:
+  - **Direct (Bot Relay)**: FCM via stoatcord-bot relay server (default, recommended)
+  - **Backend (Stoat Server)**: legacy direct path (disabled — backend FCM unconfigured)
+  - **Off**: disable push notifications entirely
+- **Bot relay architecture**: stoatcord-bot receives all Stoat WebSocket events, filters for mentions/DMs, sends FCM data-only messages to registered devices
+- **Bot URL configuration** — editable text field for self-hosted bot instances
+- **Registration status** — shows connected/error state with retry button
+- **Seamless FCM pipeline** — bot sends `data.payload` JSON matching existing `HandlerService.onMessageReceived()` format, so rich notifications (avatars, conversation style, bubbles, reply actions) work unchanged
+- **Automatic re-registration** on app resume and FCM token refresh
+- **Bot HTTP API** endpoints: `POST /api/push/register`, `DELETE /api/push/unregister`, `GET /api/push/status`
+- **PushManager** — dedicated HTTP client for bot push API communication
+- **PushMode enum** — type-safe push mode selection with KVStorage persistence
+
 ### Notification Controls
 Granular notification management beyond upstream.
 
 - **Mute/Unmute server** — toggle from server context sheet, synced to backend
 - **Mute/Unmute channel** — toggle from channel context sheet, synced to backend
 - **Notification filtering** — HandlerService checks mute state before displaying
-- **Notification Settings screen** — permission status, FCM registration status with retry, muted server/channel lists (showing names from cache), unmute buttons, reset
+- **Notification Settings screen** — permission status, push provider selection, FCM registration status with retry, muted server/channel lists (showing names from cache), unmute buttons, reset
 - **Placeholder detection** — detects placeholder `google-services.json` at runtime and shows "Not available" instead of misleading retry loop
 
 ### Termux ARM64 Build System
@@ -460,6 +476,7 @@ Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth route
 | Push unsubscribe | `POST /push/unsubscribe` | **Done** |
 | FCM notification-only handling | `HandlerService` fallback | **Done** |
 | Robust push registration | `ChatRouterScreen` retry logic | **Done** |
+| Push relay via bot | `PushManager` + bot HTTP API | **Done** (FCM via stoatcord-bot) |
 | Password reset | `POST/PATCH /auth/account/reset_password` | **Done** (2 endpoints) |
 | Email verify (code) | `POST /auth/account/verify/{code}` | **Done** |
 | Mass mention parsing | `@everyone`/`@here` in markdown | **Done** (MassMentionParser + renderer) |
@@ -548,3 +565,4 @@ All changes from upstream divergence point:
 | `bbb79b3` | docs | Update roadmap — 121/121 API endpoints, search scroll-to-message |
 | `d9071bc` | docs | Add performance optimizations to fork-changes |
 | `66c5b1e` | feat | Search result scroll-to-message, remaining API endpoints, fix TODOs |
+| `3b08e36` | feat | Push notification relay via stoatcord-bot (FCM + mode selector) |

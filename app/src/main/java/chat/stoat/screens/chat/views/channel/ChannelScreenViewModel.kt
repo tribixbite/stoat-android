@@ -65,6 +65,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.toJavaInstant
@@ -175,19 +176,28 @@ class ChannelScreenViewModel @Inject constructor(
             // Watch the cache and retry when it appears (upstream #41/#21).
             pendingChannelId = id
             cacheWatchJob = viewModelScope.launch {
-                snapshotFlow { StoatAPI.channelCache[id] }
-                    .filterNotNull()
-                    .first()
-                    .let { cachedChannel ->
-                        channel = cachedChannel
-                        pendingChannelId = null
-                        ageGateUnlocked = cachedChannel.nsfw != true
-                        showGeoGate = cachedChannel.nsfw == true &&
-                                GeoStateProvider.geoState?.isAgeRestrictedGeo == true
-                        denyMessageFieldIfNeeded()
-                        ensuredSelfMember = true
-                        loadMessages(50, markLastAsRead = true)
-                    }
+                val cachedChannel = withTimeoutOrNull(30_000L) {
+                    snapshotFlow { StoatAPI.channelCache[id] }
+                        .filterNotNull()
+                        .first()
+                }
+                if (cachedChannel != null) {
+                    channel = cachedChannel
+                    pendingChannelId = null
+                    ageGateUnlocked = cachedChannel.nsfw != true
+                    showGeoGate = cachedChannel.nsfw == true &&
+                            GeoStateProvider.geoState?.isAgeRestrictedGeo == true
+                    denyMessageFieldIfNeeded()
+                    ensuredSelfMember = true
+                    loadMessages(50, markLastAsRead = true)
+                } else {
+                    // Channel never appeared — show error so user can navigate away
+                    Log.e("ChannelScreenViewModel", "Timed out waiting for channel $id in cache")
+                    pendingChannelId = null
+                    items = mutableStateListOf(
+                        ChannelScreenItem.FetchError("Channel not available. Try switching to another channel.")
+                    )
+                }
             }
         }
     }
@@ -574,9 +584,11 @@ class ChannelScreenViewModel @Inject constructor(
 
     /** Retry loading messages after a fetch error */
     fun retryLoadMessages() {
-        channel?.id?.let {
-            items = mutableStateListOf(ChannelScreenItem.Loading)
-            loadMessages(50, markLastAsRead = true)
+        val id = channel?.id ?: pendingChannelId
+        if (id != null) {
+            // Re-run the full switchChannel flow which handles both
+            // cached and pending channel states
+            switchChannel(id)
         }
     }
 
@@ -815,17 +827,8 @@ class ChannelScreenViewModel @Inject constructor(
                     }
 
                     is UiCallback.ReplyToMessageWithContent -> {
-                        val message = items.find { m ->
-                            m is ChannelScreenItem.RegularMessage && m.message.id == it.messageId
-                        } as? ChannelScreenItem.RegularMessage ?: return@onEach
-
-                        val shouldMention = kvStorage.getBoolean("mentionOnReply") ?: false
-                        draftReplyTo.add(
-                            SendMessageReply(
-                                message.message.id ?: return@onEach,
-                                shouldMention
-                            )
-                        )
+                        // Use addReplyTo() for deduplication + max-5 limit (#57)
+                        addReplyTo(it.messageId)
                         putDraftContent(it.content, true)
                     }
                 }

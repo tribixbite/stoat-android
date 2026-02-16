@@ -342,6 +342,7 @@ fun AddServerSheet(onDismiss: () -> Unit) {
 
                     var serverNameRangeError by remember { mutableStateOf(false) }
                     var serverCreationError by remember { mutableStateOf(false) }
+                    var isCreating by remember { mutableStateOf(false) }
 
                     LaunchedEffect(serverNameState.text) {
                         if (serverNameState.text.length > 32) {
@@ -455,6 +456,8 @@ fun AddServerSheet(onDismiss: () -> Unit) {
 
                         Button(
                             onClick = {
+                                if (isCreating) return@Button // Guard against double-tap (#30)
+                                isCreating = true
                                 serverCreationError = false
 
                                 scope.launch {
@@ -475,9 +478,10 @@ fun AddServerSheet(onDismiss: () -> Unit) {
                                         serverCreationError = true
                                         logcat { "Error creating server: ${e.asLog()}" }
                                     }
+                                    isCreating = false
                                 }
                             },
-                            enabled = !serverNameIsBlank && !serverNameRangeError,
+                            enabled = !serverNameIsBlank && !serverNameRangeError && !isCreating,
                             modifier = Modifier
                                 .fillMaxWidth()
                         ) {

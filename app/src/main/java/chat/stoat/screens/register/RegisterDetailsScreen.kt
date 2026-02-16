@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,6 +55,8 @@ class RegisterDetailsScreenViewModel : ViewModel() {
     var email by mutableStateOf("")
     var password by mutableStateOf("")
     var error by mutableStateOf<String?>(null)
+    var isRegistering by mutableStateOf(false)
+        private set
     private var captchaToken by mutableStateOf<String?>(null)
 
     fun initCaptcha(context: Context, onSuccess: () -> Unit) {
@@ -94,6 +98,9 @@ class RegisterDetailsScreenViewModel : ViewModel() {
     }
 
     fun doRegistration(navController: NavController) {
+        if (isRegistering) return // Guard against double-tap (#30)
+        isRegistering = true
+
         val body = RegistrationBody(
             email = email,
             password = password,
@@ -101,13 +108,17 @@ class RegisterDetailsScreenViewModel : ViewModel() {
         )
 
         viewModelScope.launch {
-            val result = register(body)
-
-            if (result.ok) {
-                navController.navigate("register/verify/$email")
-            } else {
-                error = result.unwrapError().type
+            try {
+                val result = register(body)
+                if (result.ok) {
+                    navController.navigate("register/verify/$email")
+                } else {
+                    error = result.unwrapError().type
+                }
+            } catch (e: Exception) {
+                error = e.message ?: "Unknown error"
             }
+            isRegistering = false
         }
     }
 }
@@ -232,9 +243,17 @@ fun RegisterDetailsScreen(
                         viewModel.doRegistration(navController)
                     }
                 },
-                enabled = viewModel.email.isNotBlank() && viewModel.password.isNotBlank()
+                enabled = viewModel.email.isNotBlank() && viewModel.password.isNotBlank() && !viewModel.isRegistering
             ) {
-                Text(text = stringResource(R.string.signup))
+                if (viewModel.isRegistering) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text(text = stringResource(R.string.signup))
+                }
             }
         }
     }

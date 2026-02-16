@@ -87,9 +87,10 @@ object TextViewCompat {
                 }
 
                 val stop = if (splitPart.size == 2) {
-                    splitPart[1].removeSuffix("%").toFloat() / 100f
+                    splitPart[1].removeSuffix("%").toFloatOrNull()?.div(100f)
+                        ?: (index.toFloat() / (parts.size - 1).coerceAtLeast(1))
                 } else {
-                    index.toFloat() / (parts.size - 1)
+                    index.toFloat() / (parts.size - 1).coerceAtLeast(1)
                 }
 
                 stops.add(stop to colour)
@@ -106,34 +107,31 @@ object TextViewCompat {
             stops.map { it.second }.toIntArray(),
             stops.map { it.first }.toFloatArray(),
             Shader.TileMode.CLAMP
-        ) to stops.first().second
+        ) to (stops.firstOrNull()?.second ?: 0)
     }
 
     fun setColourFromRoleColour(tv: TextView, colour: String) {
-        when {
-            colour.startsWith("var(") -> {
-                val varName = colour.substringAfter("var(").substringBeforeLast(")")
-                val parsedColour = tryParseVariable(tv, varName)
-                tv.setTextColor(parsedColour)
-            }
+        try {
+            when {
+                colour.startsWith("var(") -> {
+                    val varName = colour.substringAfter("var(").substringBeforeLast(")")
+                    val parsedColour = tryParseVariable(tv, varName)
+                    tv.setTextColor(parsedColour)
+                }
 
-            colour.startsWith("linear-gradient(") || colour.startsWith("repeating-linear-gradient(") -> {
-                val gradient = colour.substringAfter("(").substringBeforeLast(")")
-                val shader = tryParseSetLinearGradient(tv, gradient)
-                tv.paint.shader = shader.first
-            }
+                colour.startsWith("linear-gradient(") || colour.startsWith("repeating-linear-gradient(") -> {
+                    val gradient = colour.substringAfter("(").substringBeforeLast(")")
+                    val shader = tryParseSetLinearGradient(tv, gradient)
+                    tv.paint.shader = shader.first
+                }
 
-            else -> {
-                try {
+                else -> {
                     val directColour = tryParseDirectColour(colour)
                     tv.setTextColor(directColour)
-                } catch (e: IllegalArgumentException) {
-                    Log.d(
-                        "TextViewCompat",
-                        "Failed to parse colour $colour, not setting colour"
-                    )
                 }
             }
+        } catch (e: Exception) {
+            Log.w("TextViewCompat", "Failed to parse colour: $colour", e)
         }
     }
 }

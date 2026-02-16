@@ -73,14 +73,17 @@ object BrushCompat {
                 }
 
                 val stop = if (splitPart.size == 2) {
-                    splitPart[1].removeSuffix("%").toFloat() / 100f
+                    splitPart[1].removeSuffix("%").toFloatOrNull()?.div(100f)
+                        ?: (index.toFloat() / (parts.size - 1).coerceAtLeast(1))
                 } else {
-                    index.toFloat() / (parts.size - 1)
+                    index.toFloat() / (parts.size - 1).coerceAtLeast(1)
                 }
 
                 stops.add(stop to colour)
             }
         }
+
+        if (stops.isEmpty()) return Brush.solidColor(LocalContentColor.current)
 
         return linearGradient(
             colorStops = stops.toTypedArray()
@@ -129,13 +132,16 @@ object BrushCompat {
             }
 
             val stop = if (splitPart.size == 2) {
-                splitPart[1].removeSuffix("%").toFloat() / 100f
+                splitPart[1].removeSuffix("%").toFloatOrNull()?.div(100f)
+                    ?: (index.toFloat() / (parts.size - 2).coerceAtLeast(1))
             } else {
-                index.toFloat() / (parts.size - 2)
+                index.toFloat() / (parts.size - 2).coerceAtLeast(1)
             }
 
             stops.add(stop to color)
         }
+
+        if (stops.isEmpty()) return Brush.solidColor(LocalContentColor.current)
 
         return Brush.radialGradient(
             colorStops = stops.toTypedArray()
@@ -227,10 +233,6 @@ object BrushCompat {
 
         when {
             colour.startsWith("var(") -> {
-                Log.d(
-                    "BrushCompat",
-                    "Parsing variable $colour"
-                )
                 return parseVar(
                     colour.substringAfter("var(").substringBeforeLast(")")
                 )
@@ -253,7 +255,6 @@ object BrushCompat {
                         .substringBeforeLast(")")
                 )
             }
-
 
             else -> {
                 return Brush.solidColor(parseColourName(colour))
@@ -318,14 +319,17 @@ class InstancedBrushCompat(
                 }
 
                 val stop = if (splitPart.size == 2) {
-                    splitPart[1].removeSuffix("%").toFloat() / 100f
+                    splitPart[1].removeSuffix("%").toFloatOrNull()?.div(100f)
+                        ?: (index.toFloat() / (parts.size - 1).coerceAtLeast(1))
                 } else {
-                    index.toFloat() / (parts.size - 1)
+                    index.toFloat() / (parts.size - 1).coerceAtLeast(1)
                 }
 
                 stops.add(stop to colour)
             }
         }
+
+        if (stops.isEmpty()) return Brush.solidColor(defaultColour)
 
         return linearGradient(
             colorStops = stops.toTypedArray()
@@ -373,13 +377,16 @@ class InstancedBrushCompat(
             }
 
             val stop = if (splitPart.size == 2) {
-                splitPart[1].removeSuffix("%").toFloat() / 100f
+                splitPart[1].removeSuffix("%").toFloatOrNull()?.div(100f)
+                    ?: (index.toFloat() / (parts.size - 2).coerceAtLeast(1))
             } else {
-                index.toFloat() / (parts.size - 2)
+                index.toFloat() / (parts.size - 2).coerceAtLeast(1)
             }
 
             stops.add(stop to color)
         }
+
+        if (stops.isEmpty()) return Brush.solidColor(defaultColour)
 
         return Brush.radialGradient(
             colorStops = stops.toTypedArray()
@@ -465,39 +472,41 @@ class InstancedBrushCompat(
             return Brush.solidColor(Color.Unspecified)
         }
 
-        when {
-            colour.startsWith("var(") -> {
-                Log.d(
-                    "BrushCompat",
-                    "Parsing variable $colour"
-                )
-                return parseVar(
-                    colour.substringAfter("var(").substringBeforeLast(")")
-                )
-            }
+        val fallback = Brush.solidColor(defaultColour)
 
-            colour.startsWith("linear-gradient(") || colour.startsWith("repeating-linear-gradient(") -> {
-                return parseLinearGradient(
-                    colour
-                        .substringAfter("repeating-")
-                        .substringAfter("linear-gradient(")
-                        .substringBeforeLast(")")
-                )
-            }
+        return try {
+            when {
+                colour.startsWith("var(") -> {
+                    parseVar(
+                        colour.substringAfter("var(").substringBeforeLast(")")
+                    )
+                }
 
-            colour.startsWith("radial-gradient(") || colour.startsWith("repeating-radial-gradient(") -> {
-                return parseRadialGradient(
-                    colour
-                        .substringAfter("repeating-")
-                        .substringAfter("radial-gradient(")
-                        .substringBeforeLast(")")
-                )
-            }
+                colour.startsWith("linear-gradient(") || colour.startsWith("repeating-linear-gradient(") -> {
+                    parseLinearGradient(
+                        colour
+                            .substringAfter("repeating-")
+                            .substringAfter("linear-gradient(")
+                            .substringBeforeLast(")")
+                    )
+                }
 
+                colour.startsWith("radial-gradient(") || colour.startsWith("repeating-radial-gradient(") -> {
+                    parseRadialGradient(
+                        colour
+                            .substringAfter("repeating-")
+                            .substringAfter("radial-gradient(")
+                            .substringBeforeLast(")")
+                    )
+                }
 
-            else -> {
-                return Brush.solidColor(parseColourName(colour))
+                else -> {
+                    Brush.solidColor(parseColourName(colour))
+                }
             }
+        } catch (e: Exception) {
+            Log.w("BrushCompat", "Failed to parse colour: $colour", e)
+            fallback
         }
     }
 }

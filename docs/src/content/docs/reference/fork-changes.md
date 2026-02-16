@@ -303,6 +303,24 @@ Prevents duplicate message sends from rapid tapping.
 - Previously, `friendUser()`, `acceptFriendRequest()`, `unfriendUser()`, `blockUser()`, `unblockUser()` discarded the API response — the UI only updated when a WebSocket event arrived (or not at all if the socket was slow)
 - Now parses the response `User` object and writes to `StoatAPI.userCache`, triggering instant Compose recomposition
 
+### Suspended User Login Recovery (Upstream #27)
+- **App no longer gets stuck after platform suspension expires** — `checkSessionToken()` now validates `UserFlags` after `fetchSelf()`, rejecting Suspended/Deleted/Banned accounts instead of silently proceeding to a broken login state
+- **WebSocket Error frame now handled** — server-sent error frames (e.g., auth rejection) close the socket gracefully instead of being silently logged
+- **Logout now clears all state** — `logOut()` calls `StoatAPI.logout()` to clear in-memory caches AND persistent database, not just kvStorage tokens. Previously, stale suspended user data survived across restarts.
+
+### WebSocket Real-Time Cache Sync
+- **ChannelGroupJoin/Leave** — group DM recipient list updates in real-time when members join or leave (was silently dropped, requiring app restart to see changes)
+- **EmojiCreate/Delete** — custom emoji cache syncs when emojis are added or removed server-side (was silently dropped)
+- **MessageRemoveReaction** — clears all reactions for a specific emoji when a moderator bulk-removes them (was silently dropped)
+
+### System Message Visual Distinction
+- **Type-specific background and foreground colors** for system messages:
+  - Green tint for joins and user additions
+  - Amber tint for leaves and removals
+  - Red tint for bans and kicks
+  - Blue tint (Material primary) for channel edits
+- Previously all system messages used a single generic color
+
 ### Spoiler Text (Upstream #54)
 - **Implemented `||spoiler||` syntax** — double-pipe delimiters render as hidden text
 - New `SpoilerParser` sequential parser recognizes `||..||` in the markdown pipeline
@@ -628,3 +646,6 @@ All changes from upstream divergence point:
 | `0eeafeb` | fix | @mention autocomplete matches displayName in DMs and groups (#52) |
 | `50f7a72` | fix | Friends list updates immediately after relationship changes (#39) |
 | `4f275fa` | fix | CatchUpScreen uses actual newest message ID from channel cache |
+| `48b2a86` | fix | Handle suspended/banned user state at login to prevent stuck app (#27) |
+| `7894fd4` | fix | Type-specific system message colors, verify permission calculation |
+| `a7c3636` | fix | Handle missing WebSocket frame types for real-time cache sync |

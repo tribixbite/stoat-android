@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -86,33 +88,40 @@ class LoginViewModel @Inject constructor(
     val mfaResponse: EmailPasswordAssessment?
         get() = _mfaResponse
 
+    private var _isLoggingIn by mutableStateOf(false)
+    val isLoggingIn: Boolean
+        get() = _isLoggingIn
+
     fun doLogin() {
+        if (_isLoggingIn) return // Guard against double-tap (#30)
+        _isLoggingIn = true
         _error = null
 
         viewModelScope.launch {
-            val response = try {
-                negotiateAuthentication(_email, _password)
-            } catch (e: Exception) {
-                _error = if (e.message?.startsWith("Unexpected JSON token") == true) {
-                    StoatApplication.instance.getString(R.string.service_health_alert_body_default)
-                } else e.message ?: "Unknown error"
-                return@launch
-            }
-            if (response.error != null) {
-                _error = response.error.type
-            } else {
-                Log.d("Login", "Checking for MFA")
-                if (response.proceedMfa) {
-                    Log.d("Login", "MFA required. Navigating to MFA screen")
-                    _mfaResponse = response
-                    _navigateTo = "mfa"
+            try {
+                val response = try {
+                    negotiateAuthentication(_email, _password)
+                } catch (e: Exception) {
+                    _error = if (e.message?.startsWith("Unexpected JSON token") == true) {
+                        StoatApplication.instance.getString(R.string.service_health_alert_body_default)
+                    } else e.message ?: "Unknown error"
+                    _isLoggingIn = false
+                    return@launch
+                }
+                if (response.error != null) {
+                    _error = response.error.type
                 } else {
-                    Log.d(
-                        "Login",
-                        "No MFA required. Login is complete! We should have a session token"
-                    )
+                    Log.d("Login", "Checking for MFA")
+                    if (response.proceedMfa) {
+                        Log.d("Login", "MFA required. Navigating to MFA screen")
+                        _mfaResponse = response
+                        _navigateTo = "mfa"
+                    } else {
+                        Log.d(
+                            "Login",
+                            "No MFA required. Login is complete! We should have a session token"
+                        )
 
-                    try {
                         val token = response.firstUserHints!!.token
                         val id = response.firstUserHints.id
 
@@ -122,18 +131,20 @@ class LoginViewModel @Inject constructor(
                         val onboard = needsOnboarding(token)
                         if (onboard) {
                             _navigateTo = "onboarding"
+                            _isLoggingIn = false
                             return@launch
                         }
 
                         StoatAPI.loginAs(token)
-                        StoatAPI.setSessionId(response.firstUserHints.token)
+                        StoatAPI.setSessionId(id) // Was incorrectly using token instead of id
 
                         _navigateTo = "home"
-                    } catch (e: Error) {
-                        _error = e.message ?: "Unknown error"
                     }
                 }
+            } catch (e: Exception) {
+                _error = e.message ?: "Unknown error"
             }
+            _isLoggingIn = false
         }
     }
 
@@ -316,10 +327,19 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                Button(onClick = {
-                    viewModel.doLogin()
-                }) {
-                    Text(text = stringResource(R.string.login))
+                Button(
+                    onClick = { viewModel.doLogin() },
+                    enabled = !viewModel.isLoggingIn
+                ) {
+                    if (viewModel.isLoggingIn) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text(text = stringResource(R.string.login))
+                    }
                 }
             }
         }

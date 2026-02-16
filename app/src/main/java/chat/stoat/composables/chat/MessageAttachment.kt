@@ -19,10 +19,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import chat.stoat.api.StoatHttp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -187,10 +195,93 @@ fun AudioAttachment(attachment: AutumnResource) {
     )
 }
 
+/**
+ * Inline text file preview — fetches the first 12 lines and displays
+ * them in a monospace code block, with file header and size.
+ * Falls back to [FileAttachment] if the fetch fails or file is too large.
+ */
 @Composable
 fun TextAttachment(attachment: AutumnResource) {
-    // FIXME Write bespoke viewer for text attachments.
-    FileAttachment(attachment)
+    val maxPreviewBytes = 100_000L // only preview files under 100KB
+    val maxPreviewLines = 12
+
+    // Skip preview for large files — just show the download card
+    if ((attachment.size ?: 0) > maxPreviewBytes) {
+        FileAttachment(attachment)
+        return
+    }
+
+    val url = "$STOAT_FILES/attachments/${attachment.id}/${attachment.filename}"
+    var preview by remember { mutableStateOf<String?>(null) }
+    var failed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(url) {
+        try {
+            val text = StoatHttp.get(url).bodyAsText()
+            val lines = text.lines()
+            val truncated = lines.take(maxPreviewLines)
+            val suffix = if (lines.size > maxPreviewLines) "\n… (${lines.size - maxPreviewLines} more lines)" else ""
+            preview = truncated.joinToString("\n") + suffix
+        } catch (_: Exception) {
+            failed = true
+        }
+    }
+
+    if (failed || preview == null) {
+        FileAttachment(attachment)
+        return
+    }
+
+    val context = LocalContext.current
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .clip(MaterialTheme.shapes.medium)
+        ) {
+            // File header row
+            Row(
+                modifier = Modifier.padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.icn_file_present_24dp),
+                    contentDescription = null
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = attachment.filename ?: "File",
+                        maxLines = 1,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = Formatter.formatShortFileSize(context, attachment.size ?: 0),
+                        maxLines = 1,
+                        color = LocalContentColor.current.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+            // Code preview block
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = preview ?: "",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = LocalContentColor.current.copy(alpha = 0.85f)
+                )
+            }
+        }
+    }
 }
 
 @Composable

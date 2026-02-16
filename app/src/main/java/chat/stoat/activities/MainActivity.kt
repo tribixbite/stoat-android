@@ -343,6 +343,9 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             kvStorage.remove("sessionToken")
             kvStorage.remove("sessionId")
+            // Clear all in-memory caches and persistent DB so stale
+            // suspended/deleted user state doesn't survive logout (#27)
+            StoatAPI.logout()
             startWithDestination("login/greeting")
         }
     }

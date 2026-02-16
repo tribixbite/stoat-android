@@ -11,6 +11,7 @@ import chat.stoat.api.realtime.frames.receivable.AnyFrame
 import chat.stoat.api.realtime.frames.receivable.BulkFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelAckFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelDeleteFrame
+import chat.stoat.api.realtime.frames.receivable.ErrorFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelStartTypingFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelStopTypingFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelUpdateFrame
@@ -926,6 +927,16 @@ object RealtimeSocket {
             "Authenticated" -> {
                 SyncedSettings.fetch()
                 LoadedSettings.hydrateWithSettings(SyncedSettings)
+            }
+
+            "Error" -> {
+                // Server sent an error — auth rejection, suspended account, etc. (#27)
+                val errorFrame = try {
+                    StoatJson.decodeFromString(ErrorFrame.serializer(), rawFrame)
+                } catch (_: Exception) { null }
+                Log.e("RealtimeSocket", "Server error: ${errorFrame?.error ?: rawFrame}")
+                // Close the socket so the disconnect handler fires and UI can respond
+                socket?.close(CloseReason(CloseReason.Codes.NORMAL, "Server error: ${errorFrame?.error}"))
             }
 
             else -> {

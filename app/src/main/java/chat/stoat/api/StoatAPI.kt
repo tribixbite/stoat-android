@@ -19,6 +19,8 @@ import chat.stoat.api.unreads.Unreads
 import chat.stoat.core.model.schemas.AutumnResource
 import chat.stoat.core.model.schemas.ChannelType
 import chat.stoat.core.model.schemas.User
+import chat.stoat.core.model.schemas.UserFlags
+import chat.stoat.core.model.schemas.hasFlag
 import chat.stoat.persistence.Database
 import chat.stoat.persistence.SqlStorage
 import com.chuckerteam.chucker.api.ChuckerCollector
@@ -294,13 +296,22 @@ object StoatAPI {
     }
 
     /**
-     * Checks if a session token is valid.
+     * Checks if a session token is valid and the user account is usable.
+     * Returns false if the token is invalid or the user is suspended/deleted/banned (#27).
      */
     suspend fun checkSessionToken(token: String): Boolean {
         return try {
             setSessionHeader(token)
-            fetchSelf()
-            true
+            val user = fetchSelf()
+            // Reject suspended/deleted/banned accounts — the server may still return
+            // the user object but the account is not usable (#27)
+            val flags = user.flags
+            if (flags hasFlag UserFlags.Suspended || flags hasFlag UserFlags.Deleted || flags hasFlag UserFlags.Banned) {
+                Log.w("RevoltAPI", "Session valid but user has flags=$flags (suspended/deleted/banned)")
+                false
+            } else {
+                true
+            }
         } catch (e: Exception) {
             false
         }

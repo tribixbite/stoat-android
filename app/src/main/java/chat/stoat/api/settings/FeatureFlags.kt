@@ -65,8 +65,8 @@ object FeatureFlags {
     )
 
     val labsAccessControlGranted: Boolean
-        get() = when (labsAccessControl) {
-            is LabsAccessControlVariates.Restricted -> (labsAccessControl as LabsAccessControlVariates.Restricted).predicate()
+        get() = when (val ctrl = labsAccessControl) {
+            is LabsAccessControlVariates.Restricted -> ctrl.predicate()
         }
 
     @FeatureFlag("UserCards")
@@ -77,9 +77,9 @@ object FeatureFlags {
     )
 
     val userCardsGranted: Boolean
-        get() = when (userCards) {
+        get() = when (val cards = userCards) {
             is UserCardsVariates.Enabled -> true
-            is UserCardsVariates.Restricted -> (userCards as UserCardsVariates.Restricted).predicate()
+            is UserCardsVariates.Restricted -> cards.predicate()
         }
 
     @FeatureFlag("MassMentions")

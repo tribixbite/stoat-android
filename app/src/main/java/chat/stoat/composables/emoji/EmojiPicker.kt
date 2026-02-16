@@ -378,7 +378,7 @@ fun EmojiPicker(
                                 }
                             }
                             .then(
-                                if (currentCategory.value is Category.ServerEmoteCategory && (currentCategory.value as Category.ServerEmoteCategory).server == server) {
+                                if ((currentCategory.value as? Category.ServerEmoteCategory)?.server == server) {
                                     Modifier.background(
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                     )
@@ -426,7 +426,7 @@ fun EmojiPicker(
                                 }
                             }
                             .then(
-                                if (currentCategory.value is Category.UnicodeEmojiCategory && (currentCategory.value as Category.UnicodeEmojiCategory).definition == category) {
+                                if ((currentCategory.value as? Category.UnicodeEmojiCategory)?.definition == category) {
                                     Modifier.background(
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                     )
@@ -478,7 +478,7 @@ fun EmojiPicker(
                                 )
                             },
                             contentDescription = null,
-                            tint = if (currentCategory.value is Category.UnicodeEmojiCategory && (currentCategory.value as Category.UnicodeEmojiCategory).definition == category) {
+                            tint = if ((currentCategory.value as? Category.UnicodeEmojiCategory)?.definition == category) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 LocalContentColor.current

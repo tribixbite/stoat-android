@@ -368,7 +368,7 @@ object RealtimeSocket {
                     StoatJson.decodeFromString(MessageDeleteFrame.serializer(), rawFrame)
                 Log.d(
                     "RealtimeSocket",
-                    "Received message react frame for ${messageDeleteFrame.id}."
+                    "Received message delete frame for ${messageDeleteFrame.id}."
                 )
 
                 val message = StoatAPI.messageCache[messageDeleteFrame.id]
@@ -381,6 +381,16 @@ object RealtimeSocket {
                 }
 
                 StoatAPI.messageCache.remove(messageDeleteFrame.id)
+
+                // If the deleted message was the channel's lastMessageID, clear it
+                // so the unread system doesn't compare against a stale deleted ID (#62)
+                val channelId = messageDeleteFrame.channel
+                val channel = StoatAPI.channelCache[channelId]
+                if (channel != null && channel.lastMessageID == messageDeleteFrame.id) {
+                    StoatAPI.channelCache[channelId] =
+                        channel.copy(lastMessageID = null)
+                }
+
                 StoatAPI.wsFrameChannel.emit(messageDeleteFrame)
             }
 

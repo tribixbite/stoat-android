@@ -515,7 +515,10 @@ class ChannelScreenViewModel @Inject constructor(
                         }
 
                         if (markLastAsRead) {
-                            ackMessage(messages.firstOrNull()?.id ?: return@launch)
+                            // Ack the most recent message, or use a current ULID if no
+                            // messages exist (e.g. last message was deleted — upstream #62)
+                            val ackId = messages.firstOrNull()?.id ?: ULID.makeNext()
+                            ackMessage(ackId)
                         }
                     }
 

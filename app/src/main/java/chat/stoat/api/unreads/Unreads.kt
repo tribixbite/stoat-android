@@ -58,7 +58,8 @@ class Unreads {
                     serverId
                 )
             ) return@any false // Channel is muted
-            hasUnread(it, channel.lastMessageID ?: "", serverId) // Channel has unread
+            // No lastMessageID means no messages (or last was deleted) — not unread (#62)
+            channel.lastMessageID?.let { msgId -> hasUnread(it, msgId, serverId) } ?: false
         } == true // Null guard
     }
 
@@ -109,7 +110,8 @@ class Unreads {
         for ((channelId, unread) in StoatAPI.channelCache) {
             if (channelId !in channels) continue
             if (NotificationSettingsProvider.isChannelMuted(channelId, unread.server)) continue
-            if (hasUnread(channelId, unread.lastMessageID ?: "", unread.server)) {
+            val lastMsgId = unread.lastMessageID ?: continue // no messages → not unread
+            if (hasUnread(channelId, lastMsgId, unread.server)) {
                 return true
             }
         }
@@ -127,7 +129,8 @@ class Unreads {
         for ((channelId, unread) in StoatAPI.channelCache) {
             if (channelId !in channels) continue
             if (NotificationSettingsProvider.isChannelMuted(channelId, unread.server)) continue
-            if (hasUnread(channelId, unread.lastMessageID ?: "", unread.server)) {
+            val lastMsgId = unread.lastMessageID ?: continue // no messages → not unread
+            if (hasUnread(channelId, lastMsgId, unread.server)) {
                 count++
             }
         }

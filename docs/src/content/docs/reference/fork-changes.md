@@ -239,6 +239,8 @@ Prevents duplicate message sends from rapid tapping.
 ### Navigation Restoration (Upstream #41/#21)
 - **Fixed DM/Saved Notes stuck loading** — when app restarts on a DM or saved notes channel, the channel cache is empty until WebSocket Ready frame arrives
 - `switchChannel()` now watches the cache with `snapshotFlow` and retries loading once the channel appears
+- **30-second timeout** on cache watch — if the channel never appears (deleted, network issue), shows error with retry instead of infinite shimmer
+- `retryLoadMessages()` handles both cached and pending channel states
 - Previously left the screen permanently in Loading state
 
 ### Message Send Race Condition (Upstream #17)
@@ -266,8 +268,13 @@ Prevents duplicate message sends from rapid tapping.
 
 ### Duplicate Reply Banners (Upstream #57)
 - **Fixed duplicate reply banners** — selecting "Reply" on the same message multiple times stacked multiple reply banners
-- Context menu reply path called `draftReplyTo.add()` directly, bypassing the duplicate check in `addReplyTo()`
-- Now uses `addReplyTo()` which enforces both deduplication and max-5 limit
+- Both context menu and `ReplyToMessageWithContent` paths called `draftReplyTo.add()` directly, bypassing the duplicate check in `addReplyTo()`
+- Now all reply paths use `addReplyTo()` which enforces both deduplication and max-5 limit
+
+### Double-Tap Duplicate Requests (Upstream #30)
+- **Fixed server creation double-tap** — tapping "Create" multiple times rapidly launched multiple coroutines, creating duplicate servers
+- Added `isCreating` state guard to AddServerSheet that disables the button during API call
+- Also affects sign-up flow and other forms that launch coroutines without loading guards
 
 ### Spoiler Text (Upstream #54)
 - **Implemented `||spoiler||` syntax** — double-pipe delimiters render as hidden text
@@ -583,3 +590,4 @@ All changes from upstream divergence point:
 | `77e5eda` | fix | UnifiedPush WAKE\_LOCK permission (override maxSdkVersion=25), Glide main-thread crash, ULID validation guard |
 | `c44886b` | fix | Show error with retry button when message fetch fails instead of infinite shimmer |
 | `83b1580` | fix | Channels not marking as read when last message was deleted (#62) |
+| `c0110dd` | fix | Prevent double-tap duplicate requests (#30/#57), cache watch timeout for stuck loading (#21) |

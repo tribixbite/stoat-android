@@ -56,14 +56,21 @@ Full default and per-role permission editor matching the web client UI, for both
 ### Push Notification Relay via stoatcord-bot
 Working push notifications via bot relay, bypassing the unconfigured Stoat backend FCM.
 
-- **Push mode selector** in Notification Settings — radio group with three modes:
+- **Push mode selector** in Notification Settings — radio group with four modes:
   - **Direct (Bot Relay)**: FCM via stoatcord-bot relay server (default, recommended)
+  - **UnifiedPush**: Firebase-free push via distributors like ntfy — no Google dependency or signing key requirements
   - **Backend (Stoat Server)**: legacy direct path (disabled — backend FCM unconfigured)
   - **Off**: disable push notifications entirely
-- **Bot relay architecture**: stoatcord-bot receives all Stoat WebSocket events, filters for mentions/DMs, sends FCM data-only messages to registered devices
-- **Bot URL configuration** — editable text field for self-hosted bot instances
+- **UnifiedPush support** (`org.unifiedpush.android:connector:3.2.0`):
+  - `StoatPushService` extends UP `PushService` with full rich notification display (avatars, conversation style, bubbles)
+  - Distributor picker UI — lists installed UP distributors with friendly app names
+  - Endpoint registration with bot relay server (WebPush encryption when keys available, plain POST fallback for ntfy)
+  - Registration status display with endpoint URL preview and error reporting
+  - Handles `onNewEndpoint`, `onMessage`, `onUnregistered`, `onRegistrationFailed`
+- **Bot relay architecture**: stoatcord-bot receives all Stoat WebSocket events, filters for mentions/DMs, sends FCM data-only messages or plain HTTP POST (UnifiedPush) to registered devices
+- **Bot URL configuration** — editable text field for self-hosted bot instances (shown for both Bot FCM and UnifiedPush modes)
 - **Registration status** — shows connected/error state with retry button
-- **Seamless FCM pipeline** — bot sends `data.payload` JSON matching existing `HandlerService.onMessageReceived()` format, so rich notifications (avatars, conversation style, bubbles, reply actions) work unchanged
+- **Seamless notification pipeline** — bot sends JSON payload matching `HandlerService`/`StoatPushService` format, so rich notifications (avatars, conversation style, bubbles, reply actions) work across both FCM and UP paths
 - **Automatic re-registration** on app resume and FCM token refresh
 - **Bot HTTP API** endpoints: `POST /api/push/register`, `DELETE /api/push/unregister`, `GET /api/push/status`
 - **PushManager** — dedicated HTTP client for bot push API communication
@@ -566,3 +573,4 @@ All changes from upstream divergence point:
 | `d9071bc` | docs | Add performance optimizations to fork-changes |
 | `66c5b1e` | feat | Search result scroll-to-message, remaining API endpoints, fix TODOs |
 | `3b08e36` | feat | Push notification relay via stoatcord-bot (FCM + mode selector) |
+| `d57c734` | feat | UnifiedPush support (connector 3.2.0, StoatPushService, distributor picker) |

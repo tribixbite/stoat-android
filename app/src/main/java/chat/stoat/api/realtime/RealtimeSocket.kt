@@ -11,6 +11,10 @@ import chat.stoat.api.realtime.frames.receivable.AnyFrame
 import chat.stoat.api.realtime.frames.receivable.BulkFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelAckFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelDeleteFrame
+import chat.stoat.api.realtime.frames.receivable.ChannelGroupJoinFrame
+import chat.stoat.api.realtime.frames.receivable.ChannelGroupLeaveFrame
+import chat.stoat.api.realtime.frames.receivable.EmojiCreateFrame
+import chat.stoat.api.realtime.frames.receivable.EmojiDeleteFrame
 import chat.stoat.api.realtime.frames.receivable.ErrorFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelStartTypingFrame
 import chat.stoat.api.realtime.frames.receivable.ChannelStopTypingFrame
@@ -19,6 +23,7 @@ import chat.stoat.api.realtime.frames.receivable.MessageAppendFrame
 import chat.stoat.api.realtime.frames.receivable.MessageDeleteFrame
 import chat.stoat.api.realtime.frames.receivable.MessageFrame
 import chat.stoat.api.realtime.frames.receivable.MessageReactFrame
+import chat.stoat.api.realtime.frames.receivable.MessageRemoveReactionFrame
 import chat.stoat.api.realtime.frames.receivable.MessageUpdateFrame
 import chat.stoat.api.realtime.frames.receivable.PongFrame
 import chat.stoat.api.realtime.frames.receivable.ReadyFrame
@@ -456,6 +461,22 @@ object RealtimeSocket {
                     oldMessage.copy(reactions = reactions)
 
                 StoatAPI.wsFrameChannel.emit(messageUnreactFrame)
+            }
+
+            "MessageRemoveReaction" -> {
+                // Server removes all reactions for a specific emoji (e.g., moderator action)
+                val frame =
+                    StoatJson.decodeFromString(MessageRemoveReactionFrame.serializer(), rawFrame)
+                Log.d("RealtimeSocket", "Received remove-reaction frame for ${frame.id} emoji ${frame.emoji_id}.")
+
+                val oldMessage = StoatAPI.messageCache[frame.id]
+                if (oldMessage != null) {
+                    val reactions = oldMessage.reactions?.toMutableMap() ?: mutableMapOf()
+                    reactions.remove(frame.emoji_id)
+                    StoatAPI.messageCache[frame.id] = oldMessage.copy(
+                        reactions = if (reactions.isEmpty()) null else reactions
+                    )
+                }
             }
 
             "UserUpdate" -> {
@@ -922,6 +943,38 @@ object RealtimeSocket {
 
                 // Send message to UI to handle the move
                 StoatAPI.wsFrameChannel.emit(userMoveVoiceChannelFrame)
+            }
+
+            "ChannelGroupJoin" -> {
+                val frame = StoatJson.decodeFromString(ChannelGroupJoinFrame.serializer(), rawFrame)
+                Log.d("RealtimeSocket", "User ${frame.user} joined group ${frame.id}")
+                val channel = StoatAPI.channelCache[frame.id] ?: return
+                val recipients = channel.recipients?.toMutableList() ?: mutableListOf()
+                if (frame.user !in recipients) {
+                    recipients.add(frame.user)
+                    StoatAPI.channelCache[frame.id] = channel.copy(recipients = recipients)
+                }
+            }
+
+            "ChannelGroupLeave" -> {
+                val frame = StoatJson.decodeFromString(ChannelGroupLeaveFrame.serializer(), rawFrame)
+                Log.d("RealtimeSocket", "User ${frame.user} left group ${frame.id}")
+                val channel = StoatAPI.channelCache[frame.id] ?: return
+                val recipients = channel.recipients?.toMutableList() ?: mutableListOf()
+                recipients.remove(frame.user)
+                StoatAPI.channelCache[frame.id] = channel.copy(recipients = recipients)
+            }
+
+            "EmojiCreate" -> {
+                val emoji = StoatJson.decodeFromString(EmojiCreateFrame.serializer(), rawFrame)
+                Log.d("RealtimeSocket", "Emoji created: ${emoji.id} (${emoji.name})")
+                emoji.id?.let { StoatAPI.emojiCache[it] = emoji }
+            }
+
+            "EmojiDelete" -> {
+                val frame = StoatJson.decodeFromString(EmojiDeleteFrame.serializer(), rawFrame)
+                Log.d("RealtimeSocket", "Emoji deleted: ${frame.id}")
+                StoatAPI.emojiCache.remove(frame.id)
             }
 
             "Authenticated" -> {

@@ -75,11 +75,13 @@ class CatchUpScreenViewModel : ViewModel() {
         if (dataSource.hasNext()) {
             val unread = dataSource.next()
             unread.last_id?.let { lastId ->
+                // Use the channel's latest message ID from cache, fall back to last read ID
+                val newestId = StoatAPI.channelCache[unread.id]?.lastMessageID ?: lastId
                 deck.addLast(
                     CatchUpCard.UnreadMessageInChannel(
                         channelId = unread.id,
                         lastReadMessageId = lastId,
-                        newestMessageId = lastId // TODO: Replace with actual newest message ID
+                        newestMessageId = newestId
                     )
                 )
                 deckUpdated()

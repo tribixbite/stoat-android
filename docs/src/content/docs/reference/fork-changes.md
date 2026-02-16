@@ -272,9 +272,14 @@ Prevents duplicate message sends from rapid tapping.
 - Now all reply paths use `addReplyTo()` which enforces both deduplication and max-5 limit
 
 ### Double-Tap Duplicate Requests (Upstream #30)
-- **Fixed server creation double-tap** — tapping "Create" multiple times rapidly launched multiple coroutines, creating duplicate servers
-- Added `isCreating` state guard to AddServerSheet that disables the button during API call
-- Also affects sign-up flow and other forms that launch coroutines without loading guards
+- **Comprehensive double-tap protection** across all critical actions:
+  - **Server creation** (AddServerSheet) — `isCreating` guard prevents duplicate servers
+  - **Login** (LoginScreen) — `isLoggingIn` guard prevents duplicate auth requests; also fixed `setSessionId(token)` → `setSessionId(id)` bug
+  - **Registration** (RegisterDetailsScreen) — `isRegistering` guard prevents duplicate signup emails
+  - **Group creation** (CreateGroupScreen) — `isCreating` guard prevents duplicate group DMs
+  - **MFA TOTP** (MfaScreen) — `isSubmitting` guard prevents duplicate auth, auto-submit on 6 digits
+- All guarded buttons show `CircularProgressIndicator` during API call and are disabled
+- Each screen properly catches `Exception` (not just `Error`) for broader error handling
 
 ### Early Access Sheet Stuck UI (Upstream #63)
 - **Fixed zombie scrim blocking all interaction** — the "Welcome to Early Access" ModalBottomSheet had `onDismissRequest = {}` (empty), intending to force button-only dismissal
@@ -597,3 +602,7 @@ All changes from upstream divergence point:
 | `83b1580` | fix | Channels not marking as read when last message was deleted (#62) |
 | `c0110dd` | fix | Prevent double-tap duplicate requests (#30/#57), cache watch timeout for stuck loading (#21) |
 | `fc30a84` | fix | Early access sheet dismissal allows back press to prevent stuck UI (#63) |
+| `30fad61` | feat | MFA screen auto-submit on 6 digits, loading indicator, double-tap guard |
+| `d2beeaa` | fix | Login double-tap guard, loading state, session ID bug (was storing token as ID) |
+| `52b85a0` | fix | Registration double-tap guard prevents duplicate signup emails (#30) |
+| `2362e9e` | fix | Group creation double-tap guard (#30) |

@@ -65,14 +65,9 @@ fun RegularEmbed(
                 Row(
                     modifier = Modifier
                         .then(
-                            if (embed.originalURL != null) {
-                                Modifier
-                                    .clickable {
-                                        onLinkClick(embed.originalURL!!)
-                                    }
-                            } else {
-                                Modifier
-                            }
+                            embed.originalURL?.let { url ->
+                                Modifier.clickable { onLinkClick(url) }
+                            } ?: Modifier
                         ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -106,23 +101,20 @@ fun RegularEmbed(
 
                 // Image
                 embed.image?.let {
-                    if (it.url == null || it.url?.endsWith(".svg") == true) return@let
+                    val imageUrl = it.url
+                    if (imageUrl == null || imageUrl.endsWith(".svg")) return@let
 
                     Spacer(modifier = Modifier.height(8.dp))
                     RemoteImage(
-                        url = asJanuaryProxyUrl(it.url!!),
+                        url = asJanuaryProxyUrl(imageUrl),
                         width = (it.width ?: 48).toInt(),
                         height = (it.height ?: 48).toInt(),
                         modifier = Modifier
                             .clip(MaterialTheme.shapes.medium)
                             .then(
-                                if (embed.originalURL != null) {
-                                    Modifier.clickable {
-                                        onLinkClick(embed.originalURL!!)
-                                    }
-                                } else {
-                                    Modifier
-                                }
+                                embed.originalURL?.let { url ->
+                                    Modifier.clickable { onLinkClick(url) }
+                                } ?: Modifier
                             )
                             .aspectRatio(
                                 ((it.width?.toFloat() ?: 0f) / (it.height?.toFloat() ?: 0f)).let {

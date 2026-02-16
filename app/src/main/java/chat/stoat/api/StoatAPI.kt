@@ -355,7 +355,7 @@ object StoatAPI {
             )
         }
         channelCache.clear()
-        channelCache.putAll(channels.associateBy { it.id!! })
+        channelCache.putAll(channels.filter { it.id != null }.associateBy { it.id!! })
 
         val servers = db.serverQueries.selectAll().executeAsList().map {
             Server(
@@ -372,12 +372,11 @@ object StoatAPI {
                 flags = it.flags,
                 channels = channels
                     .filter { c -> c.server == it.id }
-                    .filterNot { c -> c.id == null }
-                    .map { c -> c.id!! },
+                    .mapNotNull { c -> c.id },
             )
         }
         serverCache.clear()
-        serverCache.putAll(servers.associateBy { it.id!! })
+        serverCache.putAll(servers.filter { it.id != null }.associateBy { it.id!! })
 
         openForLocalHydration = false
     }

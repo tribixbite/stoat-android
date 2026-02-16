@@ -122,8 +122,14 @@ class LoginViewModel @Inject constructor(
                             "No MFA required. Login is complete! We should have a session token"
                         )
 
-                        val token = response.firstUserHints!!.token
-                        val id = response.firstUserHints.id
+                        val hints = response.firstUserHints
+                        if (hints == null) {
+                            _error = "Login succeeded but no session data received"
+                            _isLoggingIn = false
+                            return@launch
+                        }
+                        val token = hints.token
+                        val id = hints.id
 
                         kvStorage.set("sessionToken", token)
                         kvStorage.set("sessionId", id)
@@ -287,9 +293,9 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                     modifier = Modifier.padding(vertical = 7.dp)
                 )
 
-                if (viewModel.error != null) {
+                viewModel.error?.let { errorText ->
                     Text(
-                        text = viewModel.error!!,
+                        text = errorText,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.titleMedium.copy(
                             textAlign = TextAlign.Center,

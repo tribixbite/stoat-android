@@ -15,7 +15,7 @@ object Autocomplete {
         val unicodeResults = emojiImpl.shortcodeContains(query).map {
             AutocompleteSuggestion.Emoji(
                 it.shortcodes.find { shortcode -> shortcode.contains(query, ignoreCase = true) }
-                    ?: it.shortcodes.first(),
+                    ?: it.shortcodes.firstOrNull() ?: "",
                 it.base.joinToString("") { s -> String(Character.toChars(s.toInt())) },
                 null,
                 query

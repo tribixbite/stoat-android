@@ -172,23 +172,23 @@ object RealtimeSocket {
                 }
 
                 Log.d("RealtimeSocket", "Adding users to cache.")
-                val userMap = readyFrame.users.associateBy { it.id!! }
+                val userMap = readyFrame.users.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.userCache.putAll(userMap)
 
                 Log.d("RealtimeSocket", "Adding servers to cache.")
-                val serverMap = readyFrame.servers.associateBy { it.id!! }
+                val serverMap = readyFrame.servers.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.serverCache.putAll(serverMap)
 
                 // Cache servers in persistent local database
-                readyFrame.servers.map {
-                    if (it.id == null || it.owner == null || it.name == null) {
-                        return@map
-                    }
+                readyFrame.servers.forEach {
+                    val id = it.id ?: return@forEach
+                    val owner = it.owner ?: return@forEach
+                    val name = it.name ?: return@forEach
 
                     database.serverQueries.upsert(
-                        it.id!!,
-                        it.owner!!,
-                        it.name!!,
+                        id,
+                        owner,
+                        name,
                         it.description,
                         it.icon?.id,
                         it.banner?.id,
@@ -212,17 +212,15 @@ object RealtimeSocket {
                 }
 
                 Log.d("RealtimeSocket", "Adding channels to cache.")
-                val channelMap = readyFrame.channels.associateBy { it.id!! }
+                val channelMap = readyFrame.channels.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.channelCache.putAll(channelMap)
 
                 // Cache channels in persistent local database
-                readyFrame.channels.map {
-                    if (it.id == null || it.name == null) {
-                        return@map
-                    }
+                readyFrame.channels.forEach {
+                    val channelId = it.id ?: return@forEach
 
                     database.channelQueries.upsert(
-                        it.id!!,
+                        channelId,
                         it.channelType?.value ?: ChannelType.TextChannel.value,
                         it.user,
                         it.name,
@@ -253,7 +251,7 @@ object RealtimeSocket {
                 }
 
                 Log.d("RealtimeSocket", "Adding emojis to cache.")
-                val emojiMap = readyFrame.emojis.associateBy { it.id!! }
+                val emojiMap = readyFrame.emojis.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.emojiCache.putAll(emojiMap)
 
                 logcat { "Adding voice states to cache." }
@@ -275,21 +273,23 @@ object RealtimeSocket {
                     "Received message frame for ${messageFrame.id} in channel ${messageFrame.channel}."
                 )
 
-                if (messageFrame.id == null) {
-                    Log.d("RealtimeSocket", "Message frame has no ID or channel. Ignoring.")
+                val msgId = messageFrame.id
+                if (msgId == null) {
+                    Log.d("RealtimeSocket", "Message frame has no ID. Ignoring.")
                     return
                 }
 
-                StoatAPI.messageCache[messageFrame.id!!] = messageFrame
+                StoatAPI.messageCache[msgId] = messageFrame
 
-                messageFrame.channel?.let {
-                    if (StoatAPI.channelCache[it] == null) {
-                        Log.d("RealtimeSocket", "Channel $it not found in cache. Ignoring.")
+                messageFrame.channel?.let { channelId ->
+                    val existingChannel = StoatAPI.channelCache[channelId]
+                    if (existingChannel == null) {
+                        Log.d("RealtimeSocket", "Channel $channelId not found in cache. Ignoring.")
                         return
                     }
 
-                    StoatAPI.channelCache[it] =
-                        StoatAPI.channelCache[it]!!.copy(lastMessageID = messageFrame.id)
+                    StoatAPI.channelCache[channelId] =
+                        existingChannel.copy(lastMessageID = messageFrame.id)
 
                     StoatAPI.wsFrameChannel.emit(messageFrame)
                 }
@@ -506,16 +506,17 @@ object RealtimeSocket {
 
                 val existing = StoatAPI.userCache[userRelationshipFrame.user.id]
 
-                if (existing == null && userRelationshipFrame.user.id != null) {
-                    StoatAPI.userCache[userRelationshipFrame.user.id!!] =
+                val relUserId = userRelationshipFrame.user.id
+                if (existing == null && relUserId != null) {
+                    StoatAPI.userCache[relUserId] =
                         userRelationshipFrame.user.copy(
                             relationship = userRelationshipFrame.status ?: "None"
                         )
-                } else if (existing != null && userRelationshipFrame.user.id != null) {
+                } else if (existing != null && relUserId != null) {
                     val merged = existing.mergeWithPartial(userRelationshipFrame.user).copy(
                         relationship = userRelationshipFrame.status ?: "None"
                     )
-                    StoatAPI.userCache[userRelationshipFrame.user.id!!] = merged
+                    StoatAPI.userCache[relUserId] = merged
                 } else {
                     Log.w("RealtimeSocket", "Invalid UserRelationship frame: $rawFrame")
                 }
@@ -556,9 +557,10 @@ object RealtimeSocket {
                     "Received channel create frame for ${channelCreateFrame.id}, with name ${channelCreateFrame.name}. Adding to cache."
                 )
 
-                StoatAPI.channelCache[channelCreateFrame.id!!] = channelCreateFrame
+                val createChId = channelCreateFrame.id ?: return
+                StoatAPI.channelCache[createChId] = channelCreateFrame
                 database.channelQueries.upsert(
-                    channelCreateFrame.id!!,
+                    createChId,
                     channelCreateFrame.channelType?.value ?: ChannelType.TextChannel.value,
                     channelCreateFrame.user,
                     channelCreateFrame.name,
@@ -593,18 +595,19 @@ object RealtimeSocket {
                 StoatAPI.channelCache.remove(channelDeleteFrame.id)
                 database.channelQueries.delete(channelDeleteFrame.id)
 
-                if (currentChannel.server != null) {
-                    val existingServer = StoatAPI.serverCache[currentChannel.server]
+                val serverId = currentChannel.server
+                if (serverId != null) {
+                    val existingServer = StoatAPI.serverCache[serverId]
 
                     if (existingServer == null) {
                         Log.d(
                             "RealtimeSocket",
-                            "Server ${currentChannel.server} not found in cache. Ignoring."
+                            "Server $serverId not found in cache. Ignoring."
                         )
                         return
                     }
 
-                    StoatAPI.serverCache[currentChannel.server!!] = existingServer.copy(
+                    StoatAPI.serverCache[serverId] = existingServer.copy(
                         channels = existingServer.channels?.filter { it != channelDeleteFrame.id }
                             ?: emptyList()
                     )
@@ -635,15 +638,17 @@ object RealtimeSocket {
                 StoatAPI.serverCache[serverCreateFrame.id] = serverCreateFrame.server
 
                 serverCreateFrame.channels.forEach { channel ->
-                    if (channel.id == null) return@forEach
-                    StoatAPI.channelCache[channel.id!!] = channel
+                    val chId = channel.id ?: return@forEach
+                    StoatAPI.channelCache[chId] = channel
                 }
 
-                if (serverCreateFrame.server.owner != null && serverCreateFrame.server.name != null) {
+                val srvOwner = serverCreateFrame.server.owner
+                val srvName = serverCreateFrame.server.name
+                if (srvOwner != null && srvName != null) {
                     database.serverQueries.upsert(
                         serverCreateFrame.id,
-                        serverCreateFrame.server.owner!!,
-                        serverCreateFrame.server.name!!,
+                        srvOwner,
+                        srvName,
                         serverCreateFrame.server.description,
                         serverCreateFrame.server.icon?.id,
                         serverCreateFrame.server.banner?.id,
@@ -699,12 +704,15 @@ object RealtimeSocket {
 
                 StoatAPI.serverCache[serverUpdateFrame.id] = updated
 
-                if (updated.id != null && updated.owner != null && updated.name != null) {
+                val updatedId = updated.id
+                val updatedOwner = updated.owner
+                val updatedName = updated.name
+                if (updatedId != null && updatedOwner != null && updatedName != null) {
                     try {
                         database.serverQueries.upsert(
-                            updated.id!!,
-                            updated.owner!!,
-                            updated.name!!,
+                            updatedId,
+                            updatedOwner,
+                            updatedName,
                             updated.description,
                             updated.icon?.id,
                             updated.banner?.id,
@@ -823,7 +831,7 @@ object RealtimeSocket {
                     )
                     val updatedRole = existingRole.mergeWithPartial(serverRoleUpdateFrame.data)
                     val newServer = server.copy(
-                        roles = server.roles!!.plus(
+                        roles = (server.roles ?: emptyMap()).plus(
                             Pair(serverRoleUpdateFrame.roleId, updatedRole)
                         )
                     )

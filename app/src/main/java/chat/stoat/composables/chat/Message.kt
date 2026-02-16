@@ -413,7 +413,7 @@ fun Message(
                                 Spacer(modifier = Modifier.width(5.dp))
 
                                 Text(
-                                    text = formatLongAsTime(ULID.asTimestamp(message.id!!)),
+                                    text = message.id?.let { formatLongAsTime(ULID.asTimestamp(it)) } ?: "",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                                     maxLines = 1,
@@ -436,38 +436,28 @@ fun Message(
                         }
 
                         key(message.content) {
-                            message.content?.let {
-                                if (message.content!!.isBlank()) return@let // if only an attachment is sent
+                            message.content?.let { content ->
+                                if (content.isBlank()) return@let // if only an attachment is sent
 
                                 if (Experiments.useKotlinBasedMarkdownRenderer.isEnabled) {
                                     CompositionLocalProvider(
                                         LocalJBMarkdownTreeState provides LocalJBMarkdownTreeState.current.copy(
                                             currentServer = StoatAPI.channelCache[message.channel]?.server,
-                                            fontSizeMultiplier = Gigamoji.useGigamojiForMessage(
-                                                message.content!!
-                                            )
-                                                .let {
-                                                    if (it) 2f else 1f
-                                                }
+                                            fontSizeMultiplier = if (Gigamoji.useGigamojiForMessage(content)) 2f else 1f
                                         )
                                     ) {
                                         Spacer(modifier = Modifier.height(2.dp))
-                                        JBMRenderer(message.content!!)
+                                        JBMRenderer(content)
                                     }
                                 } else {
                                     CompositionLocalProvider(
                                         LocalMarkdownTreeConfig provides LocalMarkdownTreeConfig.current.copy(
                                             currentServer = StoatAPI.channelCache[message.channel]?.server,
-                                            fontSizeMultiplier = Gigamoji.useGigamojiForMessage(
-                                                message.content!!
-                                            )
-                                                .let {
-                                                    if (it) 2f else 1f
-                                                }
+                                            fontSizeMultiplier = if (Gigamoji.useGigamojiForMessage(content)) 2f else 1f
                                         )
                                     ) {
                                         Spacer(modifier = Modifier.height(2.dp))
-                                        RichMarkdown(input = message.content!!)
+                                        RichMarkdown(input = content)
                                     }
                                 }
                             }
@@ -593,27 +583,22 @@ fun Message(
                                     Reaction(
                                         reaction.key, reaction.value,
                                         onClick = { hasOwn ->
+                                            val ch = message.channel ?: return@Reaction
+                                            val mid = message.id ?: return@Reaction
                                             scope.launch {
                                                 if (hasOwn) {
-                                                    unreact(
-                                                        message.channel!!,
-                                                        message.id!!,
-                                                        reaction.key
-                                                    )
+                                                    unreact(ch, mid, reaction.key)
                                                 } else {
-                                                    react(
-                                                        message.channel!!,
-                                                        message.id!!,
-                                                        reaction.key
-                                                    )
+                                                    react(ch, mid, reaction.key)
                                                 }
                                             }
                                         }
                                     ) {
+                                        val mid = message.id ?: return@Reaction
                                         scope.launch {
                                             ActionChannel.send(
                                                 Action.MessageReactionInfo(
-                                                    message.id!!,
+                                                    mid,
                                                     reaction.key
                                                 )
                                             )

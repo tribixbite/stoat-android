@@ -110,7 +110,10 @@ class StoatPushService : PushService() {
         val payloadString = String(message.content, Charsets.UTF_8)
         Log.d(TAG, "Payload (first 500 chars): ${payloadString.take(500)}")
 
-        showNotificationFromPayload(payloadString)
+        // Run on IO thread — Glide's blocking .submit().get() requires a background thread
+        serviceScope.launch {
+            showNotificationFromPayload(payloadString)
+        }
     }
 
     /**
@@ -207,8 +210,13 @@ class StoatPushService : PushService() {
             }
         } ?: getString(R.string.unknown)
 
-        val messageTimestamp = message.id?.let { ULID.asTimestamp(it) } ?: run {
-            Log.e(TAG, "No message id")
+        val messageTimestamp = try {
+            message.id?.let { ULID.asTimestamp(it) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Invalid message ID for ULID timestamp: ${message.id}")
+            null
+        } ?: run {
+            Log.e(TAG, "No valid message id")
             return
         }
 

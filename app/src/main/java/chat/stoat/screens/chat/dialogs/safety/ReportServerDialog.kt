@@ -213,7 +213,7 @@ fun ReportServerDialog(onDismiss: () -> Unit, serverId: String) {
                                         userAddedContext.value
                                     )
                                     state.value = ServerReportFlowState.Done
-                                } catch (e: Error) {
+                                } catch (e: Exception) {
                                     state.value = ServerReportFlowState.Error
                                     Log.e("ReportServerDialog", "Failed to report server", e)
                                     return@launch

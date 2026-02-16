@@ -209,7 +209,7 @@ fun ReportUserDialog(onDismiss: () -> Unit, userId: String) {
                                         userAddedContext.value
                                     )
                                     state.value = UserReportFlowState.Done
-                                } catch (e: Error) {
+                                } catch (e: Exception) {
                                     state.value = UserReportFlowState.Error
                                     Log.e("ReportMessageDialog", "Failed to report user", e)
                                     return@launch

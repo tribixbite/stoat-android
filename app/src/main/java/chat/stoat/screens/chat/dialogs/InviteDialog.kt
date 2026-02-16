@@ -97,7 +97,7 @@ fun InviteDialog(channelId: String, onDismissRequest: () -> Unit) {
             swapInviteJob?.cancel()
             isActual = true
             inviteCode = invite.id
-        } catch (e: Error) {
+        } catch (e: Exception) {
             isActual = true
             inviteCode = "error"
         }

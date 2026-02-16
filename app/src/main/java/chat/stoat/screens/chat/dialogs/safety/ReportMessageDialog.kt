@@ -247,7 +247,7 @@ fun ReportMessageDialog(onDismiss: () -> Unit, messageId: String) {
                                         userAddedContext.value
                                     )
                                     state.value = MessageReportFlowState.Done
-                                } catch (e: Error) {
+                                } catch (e: Exception) {
                                     state.value = MessageReportFlowState.Error
                                     Log.e("ReportMessageDialog", "Failed to report message", e)
                                     return@launch

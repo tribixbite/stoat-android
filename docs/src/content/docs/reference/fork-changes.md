@@ -142,6 +142,11 @@ Bot profile editing using the bot's own authentication token.
 - **Crash fix**: bitmap loading in `HandlerService` wrapped with timeout and fallback to default icon
 - **Error message display**: push notification errors now surface to the user instead of silent failure
 - **Manage Notifications button** added to settings for direct access to system notification settings
+- **PushManager timeout**: added HttpTimeout (5s connect, 10s request/socket) to prevent indefinite hangs to unreachable bot URLs
+- **Notification Settings threading**: moved IO operations to `Dispatchers.IO` via `withContext` while keeping Compose state updates on Main thread (was crashing from setting `mutableStateOf` on IO thread)
+
+### Navigation ANR Fix
+- **ChatRouter ActionChannel infinite loop**: the `while(true)` action handler was catching `CancellationException` (specifically `LeftCompositionCancellationException`) instead of rethrowing it. When navigating away from chat, the cancelled coroutine would enter a tight infinite loop of catching cancellation exceptions on the main thread, blocking UI for 10+ seconds and triggering Android's ANR dialog. Fixed by rethrowing `CancellationException` before the generic catch block.
 
 ### Account Management
 Full account settings screen with API integration.
@@ -574,3 +579,4 @@ All changes from upstream divergence point:
 | `66c5b1e` | feat | Search result scroll-to-message, remaining API endpoints, fix TODOs |
 | `3b08e36` | feat | Push notification relay via stoatcord-bot (FCM + mode selector) |
 | `d57c734` | feat | UnifiedPush support (connector 3.2.0, StoatPushService, distributor picker) |
+| `d43a168` | fix | ANR on settings navigation (ActionChannel CancellationException loop), notification settings threading |

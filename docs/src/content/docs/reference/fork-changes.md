@@ -276,6 +276,11 @@ Prevents duplicate message sends from rapid tapping.
 - Added `isCreating` state guard to AddServerSheet that disables the button during API call
 - Also affects sign-up flow and other forms that launch coroutines without loading guards
 
+### Early Access Sheet Stuck UI (Upstream #63)
+- **Fixed zombie scrim blocking all interaction** — the "Welcome to Early Access" ModalBottomSheet had `onDismissRequest = {}` (empty), intending to force button-only dismissal
+- On some devices, system back gesture could visually dismiss the sheet while `showEarlyAccessSpark` remained `true`, leaving an invisible scrim blocking all touch input
+- Now `onDismissRequest` properly calls `dismissEarlyAccessSpark()` so back press works as expected
+
 ### Spoiler Text (Upstream #54)
 - **Implemented `||spoiler||` syntax** — double-pipe delimiters render as hidden text
 - New `SpoilerParser` sequential parser recognizes `||..||` in the markdown pipeline
@@ -591,3 +596,4 @@ All changes from upstream divergence point:
 | `c44886b` | fix | Show error with retry button when message fetch fails instead of infinite shimmer |
 | `83b1580` | fix | Channels not marking as read when last message was deleted (#62) |
 | `c0110dd` | fix | Prevent double-tap duplicate requests (#30/#57), cache watch timeout for stuck loading (#21) |
+| `fc30a84` | fix | Early access sheet dismissal allows back press to prevent stuck UI (#63) |

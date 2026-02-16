@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,8 +70,19 @@ class MfaScreenViewModel @Inject constructor(
     val navigateToHome: Boolean
         get() = _navigateToHome
 
+    private var _isSubmitting by mutableStateOf(false)
+    val isSubmitting: Boolean
+        get() = _isSubmitting
+
+    // Callback set by the composable to auto-submit on 6 digits
+    var onAutoSubmit: (() -> Unit)? = null
+
     fun setTotpCode(code: String) {
-        _totpCode = code.replace(Regex("[^0-9]"), "")
+        _totpCode = code.replace(Regex("[^0-9]"), "").take(6)
+        // Auto-submit when 6 digits entered
+        if (_totpCode.length == 6 && !_isSubmitting) {
+            onAutoSubmit?.invoke()
+        }
     }
 
     fun setRecoveryCode(code: String) {
@@ -78,61 +90,55 @@ class MfaScreenViewModel @Inject constructor(
     }
 
     fun tryAuthorizeTotp(mfaTicket: String) {
+        if (_isSubmitting) return
+        _isSubmitting = true
         _error = null
         viewModelScope.launch {
-            val response = authenticateWithMfaTotpCode(mfaTicket, MfaResponseTotpCode(totpCode))
-            if (response.error != null) {
-                _error = response.error.type
-            } else {
-                Log.d(
-                    "MFA",
-                    "Successfully authorized with TOTP."
-                )
-
-                try {
+            try {
+                val response = authenticateWithMfaTotpCode(mfaTicket, MfaResponseTotpCode(totpCode))
+                if (response.error != null) {
+                    _error = response.error.type
+                } else {
+                    Log.d("MFA", "Successfully authorized with TOTP.")
                     val token = response.firstUserHints!!.token
                     val id = response.firstUserHints.id
-
                     StoatAPI.loginAs(token)
                     StoatAPI.setSessionId(id)
                     kvStorage.set("sessionToken", token)
                     kvStorage.set("sessionId", id)
-
                     _navigateToHome = true
-                } catch (e: Error) {
-                    _error = e.message ?: "Unknown error"
                 }
+            } catch (e: Exception) {
+                _error = e.message ?: "Unknown error"
             }
+            _isSubmitting = false
         }
     }
 
     fun tryAuthorizeRecovery(mfaTicket: String) {
+        if (_isSubmitting) return
+        _isSubmitting = true
         _error = null
         viewModelScope.launch {
-            val response =
-                authenticateWithMfaRecoveryCode(mfaTicket, MfaResponseRecoveryCode(recoveryCode))
-            if (response.error != null) {
-                _error = response.error.type
-            } else {
-                Log.d(
-                    "MFA",
-                    "Successfully authorized with a recovery code."
-                )
-
-                try {
+            try {
+                val response =
+                    authenticateWithMfaRecoveryCode(mfaTicket, MfaResponseRecoveryCode(recoveryCode))
+                if (response.error != null) {
+                    _error = response.error.type
+                } else {
+                    Log.d("MFA", "Successfully authorized with a recovery code.")
                     val token = response.firstUserHints!!.token
                     val id = response.firstUserHints.id
-
                     StoatAPI.loginAs(token)
                     StoatAPI.setSessionId(id)
                     kvStorage.set("sessionToken", token)
                     kvStorage.set("sessionId", id)
-
                     _navigateToHome = true
-                } catch (e: Error) {
-                    _error = e.message ?: "Unknown error"
                 }
+            } catch (e: Exception) {
+                _error = e.message ?: "Unknown error"
             }
+            _isSubmitting = false
         }
     }
 }
@@ -145,6 +151,11 @@ fun MfaScreen(
     viewModel: MfaScreenViewModel = hiltViewModel()
 ) {
     val allowedAuthTypes = allowedAuthTypesCommaSep.split(",")
+
+    // Wire auto-submit for TOTP 6-digit completion
+    LaunchedEffect(Unit) {
+        viewModel.onAutoSubmit = { viewModel.tryAuthorizeTotp(mfaTicket) }
+    }
 
     LaunchedEffect(viewModel.navigateToHome) {
         if (viewModel.navigateToHome) {
@@ -257,14 +268,23 @@ fun MfaScreen(
 
                                 Button(
                                     onClick = { viewModel.tryAuthorizeTotp(mfaTicket) },
+                                    enabled = viewModel.totpCode.length == 6 && !viewModel.isSubmitting,
                                     modifier = Modifier
                                         .padding(horizontal = 20.dp, vertical = 10.dp)
                                         .fillMaxWidth()
                                         .testTag("do_totp_button")
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.next)
-                                    )
+                                    if (viewModel.isSubmitting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.next)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -311,14 +331,23 @@ fun MfaScreen(
 
                                 Button(
                                     onClick = { viewModel.tryAuthorizeRecovery(mfaTicket) },
+                                    enabled = viewModel.recoveryCode.isNotBlank() && !viewModel.isSubmitting,
                                     modifier = Modifier
                                         .padding(horizontal = 20.dp, vertical = 10.dp)
                                         .fillMaxWidth()
                                         .testTag("do_mfa_recovery_button")
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.next)
-                                    )
+                                    if (viewModel.isSubmitting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.next)
+                                        )
+                                    }
                                 }
                             }
                         }

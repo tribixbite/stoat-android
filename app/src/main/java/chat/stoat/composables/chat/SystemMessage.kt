@@ -306,15 +306,39 @@ private fun shapeForType(type: SystemMessageType): Shape {
     }.toShape()
 }
 
-// TODO - find the best colours for each type
+// Type-specific colours: green for joins/adds, red for leaves/bans/kicks, blue for channel edits
 @Composable
 private fun backgroundColourForType(type: SystemMessageType): Color {
-    return MaterialTheme.colorScheme.primaryContainer
+    return when (type) {
+        SystemMessageType.USER_JOINED, SystemMessageType.USER_ADDED ->
+            Color(0xFF1B3A2A) // green tint — positive membership events
+        SystemMessageType.USER_LEFT, SystemMessageType.USER_REMOVE ->
+            Color(0xFF3A2A1B) // amber tint — neutral departures
+        SystemMessageType.USER_BANNED, SystemMessageType.USER_KICKED ->
+            Color(0xFF3A1B1B) // red tint — moderation actions
+        SystemMessageType.CHANNEL_OWNERSHIP_CHANGED, SystemMessageType.CHANNEL_ICON_CHANGED,
+        SystemMessageType.CHANNEL_DESCRIPTION_CHANGED, SystemMessageType.CHANNEL_RENAMED ->
+            MaterialTheme.colorScheme.primaryContainer // blue tint — channel edits
+        SystemMessageType.TEXT ->
+            MaterialTheme.colorScheme.surfaceVariant
+    }
 }
 
 @Composable
 private fun contentColourForType(type: SystemMessageType): Color {
-    return MaterialTheme.colorScheme.onPrimaryContainer
+    return when (type) {
+        SystemMessageType.USER_JOINED, SystemMessageType.USER_ADDED ->
+            Color(0xFF7EDB9E) // green
+        SystemMessageType.USER_LEFT, SystemMessageType.USER_REMOVE ->
+            Color(0xFFDBB07E) // amber
+        SystemMessageType.USER_BANNED, SystemMessageType.USER_KICKED ->
+            Color(0xFFDB7E7E) // red
+        SystemMessageType.CHANNEL_OWNERSHIP_CHANGED, SystemMessageType.CHANNEL_ICON_CHANGED,
+        SystemMessageType.CHANNEL_DESCRIPTION_CHANGED, SystemMessageType.CHANNEL_RENAMED ->
+            MaterialTheme.colorScheme.onPrimaryContainer
+        SystemMessageType.TEXT ->
+            MaterialTheme.colorScheme.onSurfaceVariant
+    }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

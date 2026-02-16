@@ -70,8 +70,8 @@ object Roles {
         return calculated
     }
 
-    // TODO may not be exactly accurate
-    // See https://github.com/revoltchat/revolt.js/blob/2ba023c879b2a53f9a3cc7042e6721c28dd970ba/src/permissions/calculator.ts#L80-L158
+    // Verified against revolt.js calculator.ts — Kotlin infix `or`/`and` evaluate
+    // left-to-right, matching the JS `perm.or(a).and(~d)` chain: (perm | allow) & ~deny
     fun permissionFor(channel: Channel, user: User? = null, member: Member? = null): Long {
         return when (channel.channelType) {
             ChannelType.SavedMessages -> BitDefaults.SavedMessages

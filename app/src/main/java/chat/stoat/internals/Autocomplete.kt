@@ -65,7 +65,11 @@ object Autocomplete {
                 val otherUser = channel.recipients?.find { it != StoatAPI.selfId }
                 if (otherUser != null) {
                     val user = StoatAPI.userCache[otherUser]
-                    if (user != null && user.username?.contains(query, ignoreCase = true) == true) {
+                    if (user != null && (
+                        user.username?.contains(query, ignoreCase = true) == true ||
+                        user.displayName?.contains(query, ignoreCase = true) == true ||
+                        query.isBlank()
+                    )) {
                         listOf(
                             AutocompleteSuggestion.User(
                                 user,
@@ -85,7 +89,11 @@ object Autocomplete {
                 val users =
                     channel.recipients?.mapNotNull { StoatAPI.userCache[it] } ?: emptyList()
                 users
-                    .filter { it.username?.contains(query, ignoreCase = true) ?: false }
+                    .filter {
+                        it.username?.contains(query, ignoreCase = true) == true ||
+                        it.displayName?.contains(query, ignoreCase = true) == true ||
+                        query.isBlank()
+                    }
                     .map {
                         AutocompleteSuggestion.User(
                             it,
@@ -97,11 +105,11 @@ object Autocomplete {
 
             ChannelType.SavedMessages -> {
                 val user = StoatAPI.userCache[StoatAPI.selfId]
-                return if (user != null && user.username?.contains(
-                        query,
-                        ignoreCase = true
-                    ) == true
-                ) {
+                return if (user != null && (
+                    user.username?.contains(query, ignoreCase = true) == true ||
+                    user.displayName?.contains(query, ignoreCase = true) == true ||
+                    query.isBlank()
+                )) {
                     listOf(
                         AutocompleteSuggestion.User(
                             user,

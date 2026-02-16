@@ -392,6 +392,7 @@ Prevents duplicate message sends from rapid tapping.
 - **Null-safety audit across 9 files** — replaced ~30 force-unwrap (`!!`) assertions with null-safe patterns (smart casts, safe-call chains, early returns). Fixes potential NPE crashes in: MFA login navigation, member list rendering, message embed sizing, masquerade display, reaction info sheet, invite activity, user info sheet, permission calculation, and WebSocket message append handling
 - **Collection crash prevention** — replaced `.first()` calls with `.firstOrNull()` on API data (DM recipients, server channels, changelogs), fixed empty-string `.first()` in avatar/icon placeholders, made changelog index handle empty/missing data gracefully, broadened `catch (Error)` to `catch (Exception)` for network failures
 - **Safe cast race conditions** — EmojiPicker used `is` type check then `as` unsafe cast on `currentCategory.value` (mutable state that could change between check and cast). Replaced with `as?` safe casts. FeatureFlags used same anti-pattern; fixed with local `val` capture for Kotlin smart cast.
+- **Error handler type fix** — InviteDialog, ReportMessageDialog, ReportServerDialog, ReportUserDialog all caught JVM `Error` (OOM/StackOverflow) instead of `Exception` — meaning network failures (IOException, SerializationException) went uncaught and crashed the app instead of showing the error UI. Fixed to `catch (e: Exception)` across all 4 dialogs.
 
 ## Performance Optimizations
 

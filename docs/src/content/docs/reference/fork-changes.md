@@ -360,6 +360,13 @@ Prevents duplicate message sends from rapid tapping.
 - 5-second timeout with graceful fallback for deleted/unavailable messages
 - Works for both single-channel search and server-wide search results
 
+### Inline Text File Preview
+- **Text attachments now show an inline code preview** — first 12 lines displayed in a monospace code block with horizontal scroll, directly in the message
+- File header shows filename and size above the preview
+- Files over 100KB skip the preview and show the standard download card
+- Falls back to the standard file attachment card if the fetch fails
+- Replaces the generic file icon card that previously showed no content preview
+
 ### Upload Error Display
 - **Fixed silent upload failure** — attachment upload errors now display an error banner above the message field instead of failing silently
 - Tap to dismiss the error banner
@@ -649,3 +656,4 @@ All changes from upstream divergence point:
 | `48b2a86` | fix | Handle suspended/banned user state at login to prevent stuck app (#27) |
 | `7894fd4` | fix | Type-specific system message colors, verify permission calculation |
 | `a7c3636` | fix | Handle missing WebSocket frame types for real-time cache sync |
+| `32353e7` | feat | Inline text file preview in message attachments |

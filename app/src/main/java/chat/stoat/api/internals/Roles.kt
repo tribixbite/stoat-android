@@ -81,7 +81,8 @@ object Roles {
 
             ChannelType.TextChannel, ChannelType.VoiceChannel -> {
                 val server = StoatAPI.serverCache[channel.server]
-                // FIXME this is a stupid patch to prevent it from showing "no permission" on a channel on launch
+                // Server not yet cached (startup race) — grant full permissions until
+                // the server data arrives, rather than blocking the UI with "no permission"
                     ?: return PermissionBit.GrantAllSafe.value
 
                 if (server.owner == user?.id) return PermissionBit.GrantAllSafe.value

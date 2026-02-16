@@ -794,7 +794,8 @@ fun ChannelScreen(
                                             if (item.message.content?.replace("\\s".toRegex(), "")
                                                     ?.contains(">>>>>>>") == true
                                             ) {
-                                                // FIXME Dirty hack to prevent a crash caused by malicious messages.
+                                                // Deeply nested blockquotes (7+ levels) crash the markdown
+                                                // renderer via stack overflow. Filter them before rendering.
                                                 UnsupportedMessage()
                                                 return@items
                                             }

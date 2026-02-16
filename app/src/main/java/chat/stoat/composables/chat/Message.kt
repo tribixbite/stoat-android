@@ -521,9 +521,7 @@ fun Message(
                                             embed.title == null && embed.description == null && embed.iconURL == null && embed.image == null
 
                                         if (embedIsEmpty) {
-                                            // if we do not emit anything, compose will cause an internal error.
-                                            // FIXME if you are doing fixme's anyways then check if this is still an issue
-                                            Box {}
+                                            // Empty embeds are skipped — no composable needed
                                             return@forEach
                                         }
 

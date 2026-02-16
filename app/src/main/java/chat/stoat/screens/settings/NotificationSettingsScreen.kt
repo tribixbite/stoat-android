@@ -66,6 +66,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.sentry.Sentry
 import kotlinx.coroutines.launch
+import org.unifiedpush.android.connector.UnifiedPush
 import java.util.UUID
 import javax.inject.Inject
 
@@ -93,6 +94,16 @@ class NotificationSettingsViewModel @Inject constructor(
     var botRegistrationError by mutableStateOf<String?>(null)
         private set
     var isSwitchingMode by mutableStateOf(false)
+        private set
+
+    // UnifiedPush state
+    var availableDistributors by mutableStateOf<List<String>>(emptyList())
+        private set
+    var selectedDistributor by mutableStateOf<String?>(null)
+        private set
+    var upEndpoint by mutableStateOf<String?>(null)
+        private set
+    var upRegistrationError by mutableStateOf<String?>(null)
         private set
 
     init {
@@ -129,21 +140,41 @@ class NotificationSettingsViewModel @Inject constructor(
                     botRegistrationError = status.error
                 }
             }
+
+            // Load UnifiedPush state
+            upEndpoint = kvStorage.get("upEndpoint")
+            upRegistrationError = kvStorage.get("upRegistrationError")
         }
     }
 
+    /** Refresh available UP distributors — call from composable with context */
+    fun refreshDistributors(context: android.content.Context) {
+        availableDistributors = UnifiedPush.getDistributors(context)
+        selectedDistributor = UnifiedPush.getSavedDistributor(context)?.ifEmpty { null }
+    }
+
     /** Switch push notification delivery mode */
-    fun switchPushMode(newMode: PushMode) {
+    fun switchPushMode(newMode: PushMode, context: android.content.Context? = null) {
         if (newMode == pushMode) return
         isSwitchingMode = true
         botRegistrationError = null
+        upRegistrationError = null
 
         viewModelScope.launch {
-            // Unregister from bot if we were using it
-            if (pushMode == PushMode.BOT_FCM) {
-                val deviceId = getOrCreateDeviceId()
-                PushManager.unregister(botUrl, deviceId)
-                botRegistered = false
+            // Unregister from previous mode
+            when (pushMode) {
+                PushMode.BOT_FCM -> {
+                    val deviceId = getOrCreateDeviceId()
+                    PushManager.unregister(botUrl, deviceId)
+                    botRegistered = false
+                }
+                PushMode.UNIFIED_PUSH -> {
+                    // Unregister from UP distributor
+                    context?.let { UnifiedPush.unregister(it) }
+                    kvStorage.remove("upEndpoint")
+                    upEndpoint = null
+                }
+                else -> {}
             }
 
             // Store new mode
@@ -153,12 +184,33 @@ class NotificationSettingsViewModel @Inject constructor(
             // Register with new mode
             when (newMode) {
                 PushMode.BOT_FCM -> registerWithBot()
+                PushMode.UNIFIED_PUSH -> {
+                    // UP registration happens when user selects a distributor
+                    Log.d("NotificationSettings", "Switched to UnifiedPush mode")
+                }
                 PushMode.BACKEND -> retryFcmRegistration()
                 PushMode.OFF -> {
                     Log.d("NotificationSettings", "Push disabled by user")
                 }
             }
             isSwitchingMode = false
+        }
+    }
+
+    /** Select a UnifiedPush distributor and register with it */
+    fun selectDistributor(context: android.content.Context, distributor: String) {
+        upRegistrationError = null
+        selectedDistributor = distributor
+        UnifiedPush.saveDistributor(context, distributor)
+        UnifiedPush.register(context)
+        // Registration result arrives via StoatPushService.onNewEndpoint or onRegistrationFailed
+        Log.d("NotificationSettings", "UnifiedPush registration initiated with distributor: $distributor")
+
+        // Refresh endpoint state after a short delay
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2000)
+            upEndpoint = kvStorage.get("upEndpoint")
+            upRegistrationError = kvStorage.get("upRegistrationError")
         }
     }
 
@@ -383,6 +435,11 @@ fun NotificationSettingsScreen(
                 Text("Push Provider")
             }
 
+            // Refresh available UP distributors on composition
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                viewModel.refreshDistributors(context)
+            }
+
             Column(Modifier.selectableGroup()) {
                 // Bot FCM relay option
                 PushModeOption(
@@ -390,7 +447,19 @@ fun NotificationSettingsScreen(
                     description = "FCM via stoatcord-bot relay",
                     selected = viewModel.pushMode == PushMode.BOT_FCM,
                     enabled = !viewModel.isSwitchingMode,
-                    onSelect = { viewModel.switchPushMode(PushMode.BOT_FCM) }
+                    onSelect = { viewModel.switchPushMode(PushMode.BOT_FCM, context) }
+                )
+
+                // UnifiedPush option
+                PushModeOption(
+                    mode = PushMode.UNIFIED_PUSH,
+                    description = if (viewModel.availableDistributors.isEmpty())
+                        "No UP distributor installed (install ntfy)"
+                    else
+                        "${viewModel.availableDistributors.size} distributor(s) available",
+                    selected = viewModel.pushMode == PushMode.UNIFIED_PUSH,
+                    enabled = !viewModel.isSwitchingMode,
+                    onSelect = { viewModel.switchPushMode(PushMode.UNIFIED_PUSH, context) }
                 )
 
                 // Backend option (disabled with explanation)
@@ -408,7 +477,7 @@ fun NotificationSettingsScreen(
                     description = "Disable push notifications",
                     selected = viewModel.pushMode == PushMode.OFF,
                     enabled = !viewModel.isSwitchingMode,
-                    onSelect = { viewModel.switchPushMode(PushMode.OFF) }
+                    onSelect = { viewModel.switchPushMode(PushMode.OFF, context) }
                 )
             }
 
@@ -473,6 +542,127 @@ fun NotificationSettingsScreen(
                                 painter = painterResource(R.drawable.icn_chat_24dp),
                                 contentDescription = null,
                             )
+                        }
+                    }
+                )
+            }
+
+            // UnifiedPush distributor picker (only when UP mode selected)
+            if (viewModel.pushMode == PushMode.UNIFIED_PUSH) {
+                ListHeader {
+                    Text("UnifiedPush Distributor")
+                }
+
+                if (viewModel.availableDistributors.isEmpty()) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                "No distributor installed",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        },
+                        supportingContent = {
+                            Text("Install a UnifiedPush distributor like ntfy from F-Droid or Play Store")
+                        },
+                        leadingContent = {
+                            SettingsIcon {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_notification_settings_24dp),
+                                    contentDescription = null,
+                                )
+                            }
+                        }
+                    )
+                } else {
+                    viewModel.availableDistributors.forEach { distributor ->
+                        val isSelected = viewModel.selectedDistributor == distributor
+                        // Try to get a friendly app name
+                        val appName = try {
+                            context.packageManager.getApplicationLabel(
+                                context.packageManager.getApplicationInfo(distributor, 0)
+                            ).toString()
+                        } catch (_: Exception) {
+                            distributor
+                        }
+
+                        ListItem(
+                            headlineContent = { Text(appName) },
+                            supportingContent = {
+                                if (distributor != appName) {
+                                    Text(
+                                        distributor,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            },
+                            leadingContent = {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        viewModel.selectDistributor(context, distributor)
+                                    }
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                viewModel.selectDistributor(context, distributor)
+                            }
+                        )
+                    }
+                }
+
+                // UP registration status
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            if (viewModel.upEndpoint != null) "Registered"
+                            else if (viewModel.upRegistrationError != null) "Registration failed"
+                            else "Not registered"
+                        )
+                    },
+                    supportingContent = {
+                        if (viewModel.upEndpoint != null) {
+                            Text(
+                                text = viewModel.upEndpoint!!.take(60) + "...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (viewModel.upRegistrationError != null) {
+                            Text(
+                                text = viewModel.upRegistrationError!!,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    leadingContent = {
+                        SettingsIcon {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_chat_24dp),
+                                contentDescription = null,
+                            )
+                        }
+                    }
+                )
+
+                // Bot URL field for UP mode too (endpoint registers with bot)
+                var editingUpUrl by mutableStateOf(viewModel.botUrl)
+                ListItem(
+                    headlineContent = {
+                        OutlinedTextField(
+                            value = editingUpUrl,
+                            onValueChange = { editingUpUrl = it },
+                            label = { Text("Bot URL") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    trailingContent = {
+                        TextButton(
+                            onClick = { viewModel.saveBotUrl(editingUpUrl) },
+                            enabled = editingUpUrl != viewModel.botUrl && editingUpUrl.isNotBlank()
+                        ) {
+                            Text("Save")
                         }
                     }
                 )

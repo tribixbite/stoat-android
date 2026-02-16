@@ -82,6 +82,11 @@ class HandlerService : FirebaseMessagingService() {
                         // Also subscribe with backend as fallback
                         subscribePush(auth = token)
                     }
+                    PushMode.UNIFIED_PUSH -> {
+                        // UP manages its own registration — just store FCM token as fallback
+                        Log.d("HandlerService", "UnifiedPush mode, FCM token stored as fallback")
+                        subscribePush(auth = token)
+                    }
                     PushMode.BACKEND -> {
                         val error = subscribePush(auth = token)
                         if (error != null) {

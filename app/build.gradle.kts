@@ -268,6 +268,8 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
 
+    implementation(libs.unifiedpush.connector)
+
     implementation(libs.shimmer)
 
     debugImplementation(libs.chucker)

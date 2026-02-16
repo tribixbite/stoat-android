@@ -66,6 +66,15 @@
             </intent-filter>
         </service>
 
+        <!-- UnifiedPush receiver for push via ntfy or other UP distributors -->
+        <service
+            android:name=".push.StoatPushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".activities.MainActivity"
             android:exported="true"

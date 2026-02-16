@@ -8,9 +8,8 @@ enum class PushMode(val key: String, val displayName: String) {
     /** FCM via stoatcord-bot relay — primary, always available */
     BOT_FCM("fcm", "Direct (Bot Relay)"),
 
-    /** UnifiedPush via ntfy or other UP distributor */
-    // TODO: enable when UnifiedPush connector dependency is added
-    // UNIFIED_PUSH("unifiedpush", "UnifiedPush"),
+    /** UnifiedPush via ntfy or other UP distributor (e.g., ntfy) */
+    UNIFIED_PUSH("unifiedpush", "UnifiedPush"),
 
     /** Legacy: direct Stoat backend push (currently broken — FCM unconfigured) */
     BACKEND("backend", "Backend (Stoat Server)"),

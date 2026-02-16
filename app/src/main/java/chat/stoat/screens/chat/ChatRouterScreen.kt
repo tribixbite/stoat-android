@@ -253,6 +253,11 @@ class ChatRouterViewModel @Inject constructor(
                             val error = subscribePush(auth = token)
                             kvStorage.set("pushRegistrationFailed", error != null)
                         }
+                        PushMode.UNIFIED_PUSH -> {
+                            // UP handles its own registration via StoatPushService
+                            Log.d("FCM", "UnifiedPush mode — FCM token stored as fallback only")
+                            subscribePush(auth = token) // backend fallback
+                        }
                         PushMode.BACKEND -> {
                             val error = subscribePush(auth = token)
                             kvStorage.set("pushRegistrationFailed", error != null)
@@ -280,6 +285,12 @@ class ChatRouterViewModel @Inject constructor(
             // Skip if push is disabled
             if (mode == PushMode.OFF) {
                 Log.d("FCM", "Push disabled by user, skipping registration")
+                return@launch
+            }
+
+            // UnifiedPush manages its own registration via StoatPushService
+            if (mode == PushMode.UNIFIED_PUSH) {
+                Log.d("FCM", "UnifiedPush mode — registration managed by StoatPushService")
                 return@launch
             }
 
@@ -361,6 +372,10 @@ class ChatRouterViewModel @Inject constructor(
                 if (error == null) {
                     Log.d("FCM", "Backend push re-subscription succeeded")
                 }
+            }
+            PushMode.UNIFIED_PUSH -> {
+                // UP handles its own registration; just store token as fallback
+                Log.d("FCM", "UnifiedPush mode — skipping FCM token registration")
             }
             PushMode.BACKEND -> {
                 val logPrefix = if (isRetry) "Retrying" else "Re-subscribing"

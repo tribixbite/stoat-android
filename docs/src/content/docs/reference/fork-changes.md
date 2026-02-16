@@ -103,19 +103,20 @@ Automated build and release system.
 - SDK 36 + build-tools 35.0.0 setup
 
 ### Image Processing Pipeline
-Automatic image optimization for all uploads, ensuring compatibility with Autumn file server limits.
+Automatic image optimization for all uploads, ensuring compatibility with Autumn file server limits. See [`docs/specs/autumn-image-upload.md`](/stoat-android/specs/autumn-image-upload/) for the full server protocol spec.
 
 - **ImageProcessor utility** (`ImageProcessor.kt`) — handles complete image preparation pipeline
 - **EXIF rotation** — reads EXIF orientation tag and applies rotation/flip before processing (many phone cameras embed rotation in metadata rather than pixel data)
 - **Interactive crop dialog** — full-screen drag-to-crop UI with ratio-locked corner resize handles and body repositioning. Shown after image pick for all upload types with forced aspect ratios (emoji 1:1, icons 1:1, banners 5:2, avatars 1:1). Canvas rendering with semi-transparent overlay, white crop border, rule-of-thirds grid lines, and corner handle circles. Falls back to center-crop if dialog is skipped
 - **Center-crop to target aspect ratio** — icons/avatars crop to 1:1 square, banners crop to 5:2 wide, emojis crop to 1:1 square (was null/uncropped — caused server rejection)
-- **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscaling
-- **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit
-- **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB
+- **Resize to max dimensions** — enforces per-type limits (avatars/icons 1024px, banners 2048px, emojis 512px). No upscale
+- **WebP compression** — all uploads converted to WebP lossy format. Iterative quality reduction from 90 to 5 until within file size limit. Note: this destroys animation for GIF/animated WebP — see spec for animated emoji support plan
+- **File size enforcement** — avatars 4MB, icons 2.5MB, banners 6MB, emojis 500KB, backgrounds 6MB (matches Autumn config exactly)
 - **Downsampled decoding** — uses `BitmapFactory.Options.inSampleSize` for memory-safe decoding of large images. Threshold at 1.5x target dimension prevents OOM on 4000+ pixel camera photos
 - **OOM protection** — catches `Throwable` (not just `Exception`) to handle `OutOfMemoryError` from large bitmap processing. Intermediate bitmaps recycled immediately after each step to minimize peak memory
 - **Safe center-crop** — crop region bounds are coerced to prevent `IllegalArgumentException` when computed dimensions exceed bitmap bounds
 - **Wired into**: server icon/banner upload (ServerSettingsScreen), emoji upload (EmojiManagementScreen), bot avatar upload (BotManagementScreen), profile avatar/background (ProfileSettingsScreen), channel icon (ChannelSettingsOverview)
+- **Known limitations**: animated GIF emojis not yet supported (server preserves animation but client converts to static WebP); banner aspect ratio 5:2 doesn't match web frontend 232:100; profile background has no crop dialog (server preview 1280×720, web uses 232:100 aspect)
 
 ### Bot Description & Avatar
 Bot profile editing using the bot's own authentication token.

@@ -53,18 +53,22 @@ class GifEncoder(
 
         // Quantize to 256 colors
         val (palette, indexed, transparentIndex) = quantize(pixels)
+        val colorCount = palette.size / 3
 
         if (!started) {
             writeHeader()
-            writeLogicalScreenDescriptor(palette.size / 3)
-            writeGlobalColorTable(palette)
+            // Write a minimal 2-color GCT (required by spec, but each frame uses its own LCT)
+            writeLogicalScreenDescriptor(2)
+            writeGlobalColorTable(ByteArray(6)) // 2 black entries
             if (repeat >= 0) writeNetscapeExtension()
             started = true
         }
 
         writeGraphicControlExtension(delayMs, dispose, transparentIndex)
-        writeImageDescriptor()
-        writeLzwImageData(indexed, palette.size / 3)
+        // Each frame gets its own Local Color Table to ensure correct colors
+        writeImageDescriptorWithLct(colorCount)
+        writeLocalColorTable(palette, colorCount)
+        writeLzwImageData(indexed, colorCount)
         frameCount++
     }
 
@@ -130,13 +134,29 @@ class GifEncoder(
         output.write(0) // Block terminator
     }
 
-    private fun writeImageDescriptor() {
+    /**
+     * Write image descriptor with Local Color Table flag set.
+     * Each frame uses its own LCT so per-frame quantization colors are correct.
+     */
+    private fun writeImageDescriptorWithLct(colorCount: Int) {
         output.write(0x2C) // Image separator
         writeShort(0)      // Left
         writeShort(0)      // Top
         writeShort(width)  // Width
         writeShort(height) // Height
-        output.write(0)    // Packed: no LCT, not interlaced
+        // Packed: LCT flag=1, not interlaced, not sorted, LCT size bits
+        val lctSizeBits = colorTableSizeBits(colorCount)
+        val packed = 0x80 or lctSizeBits // LCT flag + size
+        output.write(packed)
+    }
+
+    /** Write Local Color Table (same padding logic as GCT). */
+    private fun writeLocalColorTable(palette: ByteArray, colorCount: Int) {
+        val paddedCount = nextPowerOfTwo(colorCount)
+        output.write(palette)
+        repeat((paddedCount - colorCount) * 3) {
+            output.write(0)
+        }
     }
 
     // -- LZW Image Data --

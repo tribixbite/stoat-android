@@ -368,10 +368,11 @@ object AnimatedImageUtils {
         // so we render at small intervals and detect unique frames by content hash
         val frames = mutableListOf<AnimFrame>()
         var lastHash = 0L
+        var firstFrameHash = 0L
         var lastChangeTime = 0
         val stepMs = 20
 
-        // Estimate total duration (render until we detect a loop)
+        // Render until we detect a loop back to the first frame
         drawable.start()
         val maxDuration = 10_000 // Cap at 10 seconds
 
@@ -383,18 +384,21 @@ object AnimatedImageUtils {
 
             val hash = frameBitmapHash(frameBmp)
             if (hash != lastHash || frames.isEmpty()) {
+                // Detect loop: current frame matches the first frame (animation restarted)
+                if (frames.size >= 2 && hash == firstFrameHash) {
+                    frameBmp.recycle()
+                    break
+                }
                 if (frames.isNotEmpty()) {
                     val prevDelay = (time - lastChangeTime).coerceAtLeast(20)
                     frames[frames.lastIndex] = frames.last().copy(delayMs = prevDelay)
                 }
+                if (frames.isEmpty()) firstFrameHash = hash
                 frames.add(AnimFrame(frameBmp, stepMs))
                 lastHash = hash
                 lastChangeTime = time
             } else {
                 frameBmp.recycle()
-                // If we've seen at least 2 frames and we're getting repeats,
-                // the animation has likely looped
-                if (frames.size >= 2) break
             }
 
             // Advance time — AnimatedImageDrawable auto-advances when started

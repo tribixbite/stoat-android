@@ -146,48 +146,6 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
         }
     }
 
-    fun saveNewPfp() {
-        uploadError = null
-
-        val uri = when (val model = pfpModel) {
-            is Uri -> model
-            is String -> Uri.parse(model)
-            else -> return
-        }
-
-        viewModelScope.launch {
-            try {
-                // Process image: center-crop to 1:1, resize, compress as WebP
-                val processed = withContext(Dispatchers.Default) {
-                    ImageProcessor.processForUpload(context, uri, AutumnUploadType.AVATAR)
-                } ?: throw Exception("Failed to process image")
-
-                val id = uploadToAutumn(
-                    processed.file,
-                    "avatar.webp",
-                    "avatars",
-                    ContentType.Image.Any,
-                    onProgress = { soFar, outOf ->
-                        uploadProgress = soFar.toFloat() / outOf.toFloat()
-                    }
-                )
-                processed.file.delete()
-
-                patchSelf(avatar = id)
-            } catch (e: Exception) {
-                uploadError = e.message
-                uploadProgress = 0f
-                return@launch
-            }
-
-            pfpModel = StoatAPI.userCache[StoatAPI.selfId]?.avatar?.id?.let {
-                "$STOAT_FILES/avatars/${it}"
-            }
-
-            uploadProgress = 0f
-        }
-    }
-
     /**
      * Process a pre-cropped bitmap and upload as profile background.
      * Handles animated images: extracts frames, applies crop, encodes as GIF.

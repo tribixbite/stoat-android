@@ -44,6 +44,8 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
@@ -184,7 +186,8 @@ object StoatAPI {
     val realtimeContext = newSingleThreadContext("RealtimeContext")
     val wsFrameChannel = MutableSharedFlow<Any>(
         replay = 0,
-        extraBufferCapacity = Int.MAX_VALUE,
+        extraBufferCapacity = 1000,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
 
     private var socketCoroutine: Job? = null
@@ -201,9 +204,13 @@ object StoatAPI {
 
     suspend fun loginAs(token: String) {
         setSessionHeader(token)
+        // fetchSelf() must complete first — sets selfId which UI reads immediately.
+        // startSocketOps() and unreads.sync() are independent and can run in parallel.
         fetchSelf()
-        startSocketOps()
-        unreads.sync()
+        coroutineScope {
+            launch { startSocketOps() }
+            launch { unreads.sync() }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

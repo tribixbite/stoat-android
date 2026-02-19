@@ -8,6 +8,7 @@ import com.tribixbite.stoatally.BuildConfig
 import com.tribixbite.stoatally.StoatApplication
 import com.tribixbite.stoatally.api.StoatAPI.initialize
 import com.tribixbite.stoatally.api.internals.Members
+import com.tribixbite.stoatally.api.internals.SnapshotStateLruMap
 import com.tribixbite.stoatally.api.realtime.DisconnectionState
 import com.tribixbite.stoatally.api.realtime.RealtimeSocket
 import com.tribixbite.stoatally.api.routes.user.fetchSelf
@@ -168,7 +169,7 @@ object StoatAPI {
     val serverCache = mutableStateMapOf<String, Server>()
     val channelCache = mutableStateMapOf<String, ChannelSchema>()
     val emojiCache = mutableStateMapOf<String, Emoji>()
-    val messageCache = mutableStateMapOf<String, Message>()
+    val messageCache: MutableMap<String, Message> = SnapshotStateLruMap(maxSize = 2000)
     val voiceStateCache = mutableStateMapOf<String, ChannelVoiceState>()
 
     val members = Members()

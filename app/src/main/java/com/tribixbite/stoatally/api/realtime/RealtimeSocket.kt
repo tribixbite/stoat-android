@@ -185,76 +185,73 @@ object RealtimeSocket {
                 val serverMap = readyFrame.servers.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.serverCache.putAll(serverMap)
 
-                // Cache servers in persistent local database
-                readyFrame.servers.forEach {
-                    val id = it.id ?: return@forEach
-                    val owner = it.owner ?: return@forEach
-                    val name = it.name ?: return@forEach
-
-                    database.serverQueries.upsert(
-                        id,
-                        owner,
-                        name,
-                        it.description,
-                        it.icon?.id,
-                        it.banner?.id,
-                        it.flags
-                    )
-                }
-
-                // Remove servers that are not in the ready frame
-                val serversThatExist = readyFrame.servers.mapNotNull { it.id }
-                val serversInDatabase = database.serverQueries.selectAllIds().executeAsList()
-                val serversToDelete = serversInDatabase.filter { it !in serversThatExist }
-
-                serversToDelete.forEach {
-                    database.serverQueries.delete(it)
-                    Log.d(
-                        "RealtimeSocket",
-                        "Deleted server $it from local database due to not being in ready frame."
-                    )
-                    // Conversely, remove the server from the API state
-                    StoatAPI.serverCache.remove(it)
-                }
-
                 Log.d("RealtimeSocket", "Adding channels to cache.")
                 val channelMap = readyFrame.channels.filter { it.id != null }.associateBy { it.id!! }
                 StoatAPI.channelCache.putAll(channelMap)
 
-                // Cache channels in persistent local database
-                readyFrame.channels.forEach {
-                    val channelId = it.id ?: return@forEach
+                // Batch all DB writes in a single transaction — avoids N individual disk
+                // syncs that block the realtime thread for seconds with many servers/channels
+                database.transaction {
+                    readyFrame.servers.forEach {
+                        val id = it.id ?: return@forEach
+                        val owner = it.owner ?: return@forEach
+                        val name = it.name ?: return@forEach
 
-                    database.channelQueries.upsert(
-                        channelId,
-                        it.channelType?.value ?: ChannelType.TextChannel.value,
-                        it.user,
-                        it.name,
-                        it.owner,
-                        it.description,
-                        if (it.channelType == ChannelType.DirectMessage) it.recipients?.firstOrNull { u -> u != StoatAPI.selfId } else null,
-                        it.icon?.id,
-                        it.lastMessageID,
-                        if (it.active == true) 1L else 0L,
-                        if (it.nsfw == true) 1L else 0L,
-                        it.server
-                    )
+                        database.serverQueries.upsert(
+                            id,
+                            owner,
+                            name,
+                            it.description,
+                            it.icon?.id,
+                            it.banner?.id,
+                            it.flags
+                        )
+                    }
+
+                    val serversThatExist = readyFrame.servers.mapNotNull { it.id }
+                    val serversInDatabase = database.serverQueries.selectAllIds().executeAsList()
+                    serversInDatabase.filter { it !in serversThatExist }.forEach {
+                        database.serverQueries.delete(it)
+                        Log.d("RealtimeSocket", "Deleted server $it from local DB (not in ready frame)")
+                    }
+
+                    readyFrame.channels.forEach {
+                        val channelId = it.id ?: return@forEach
+
+                        database.channelQueries.upsert(
+                            channelId,
+                            it.channelType?.value ?: ChannelType.TextChannel.value,
+                            it.user,
+                            it.name,
+                            it.owner,
+                            it.description,
+                            if (it.channelType == ChannelType.DirectMessage) it.recipients?.firstOrNull { u -> u != StoatAPI.selfId } else null,
+                            it.icon?.id,
+                            it.lastMessageID,
+                            if (it.active == true) 1L else 0L,
+                            if (it.nsfw == true) 1L else 0L,
+                            it.server
+                        )
+                    }
+
+                    val channelsThatExist = readyFrame.channels.mapNotNull { it.id }
+                    val channelsInDatabase = database.channelQueries.selectAllIds().executeAsList()
+                    channelsInDatabase.filter { it !in channelsThatExist }.forEach {
+                        database.channelQueries.delete(it)
+                        Log.d("RealtimeSocket", "Deleted channel $it from local DB (not in ready frame)")
+                    }
                 }
 
-                // Remove channels that are not in the ready frame
+                // Remove stale entries from in-memory Compose state caches
+                val serversThatExist = readyFrame.servers.mapNotNull { it.id }
+                database.serverQueries.selectAllIds().executeAsList()
+                    .filter { it !in serversThatExist }
+                    .forEach { StoatAPI.serverCache.remove(it) }
+
                 val channelsThatExist = readyFrame.channels.mapNotNull { it.id }
-                val channelsInDatabase = database.channelQueries.selectAllIds().executeAsList()
-                val channelsToDelete = channelsInDatabase.filter { it !in channelsThatExist }
-
-                channelsToDelete.forEach {
-                    database.channelQueries.delete(it)
-                    Log.d(
-                        "RealtimeSocket",
-                        "Deleted channel $it from local database due to not being in ready frame."
-                    )
-                    // Conversely, remove the channel from the API state
-                    StoatAPI.channelCache.remove(it)
-                }
+                database.channelQueries.selectAllIds().executeAsList()
+                    .filter { it !in channelsThatExist }
+                    .forEach { StoatAPI.channelCache.remove(it) }
 
                 Log.d("RealtimeSocket", "Adding emojis to cache.")
                 val emojiMap = readyFrame.emojis.filter { it.id != null }.associateBy { it.id!! }

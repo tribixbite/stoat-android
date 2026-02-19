@@ -29,7 +29,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -54,7 +53,6 @@ import com.tribixbite.stoatally.core.model.schemas.Member
 import com.tribixbite.stoatally.core.model.schemas.User
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -231,14 +229,14 @@ fun MemberListSheet(
     var showMemberContextSheet by remember { mutableStateOf(false) }
     var memberContextSheetTarget by remember { mutableStateOf("") }
 
-    // We use LaunchedEffect to make sure that this is called every time any of the users status changes
-    LaunchedEffect(StoatAPI.userCache) {
-        snapshotFlow { StoatAPI.userCache }.distinctUntilChanged().collect {
-            if (serverId != null) {
-                viewModel.fetchServerMemberList(serverId, channelId)
-            } else {
-                viewModel.fetchGroupMemberList(channelId)
-            }
+    // Fetch member list once when the sheet opens. The previous snapshotFlow-based
+    // approach fired on every userCache mutation (any user status/avatar change),
+    // causing repeated full API re-fetches in busy servers.
+    LaunchedEffect(serverId, channelId) {
+        if (serverId != null) {
+            viewModel.fetchServerMemberList(serverId, channelId)
+        } else {
+            viewModel.fetchGroupMemberList(channelId)
         }
     }
 

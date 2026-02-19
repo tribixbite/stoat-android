@@ -65,24 +65,31 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/**
- * Minimum crop size in display pixels to prevent accidental zero-area crops.
- */
+/** Minimum crop size in display pixels to prevent accidental zero-area crops. */
 private const val MIN_CROP_PX = 48f
 
-/**
- * Radius of corner drag handles in display pixels.
- */
-private const val HANDLE_RADIUS = 14f
+/** Radius of corner drag handle circles in display pixels. */
+private const val HANDLE_RADIUS = 20f
 
-/**
- * Hit-test radius for corner handles — slightly larger than visual for touch ergonomics.
- */
-private const val HANDLE_HIT_RADIUS = 32f
+/** Hit-test radius for corner handles — generous for finger touch. */
+private const val HANDLE_HIT_RADIUS = 72f
 
-/**
- * Semi-transparent overlay colour drawn outside the crop region.
- */
+/** Hit-test distance from crop edge for edge-drag resize. */
+private const val EDGE_HIT_RADIUS = 48f
+
+/** Length of the L-shaped corner bracket lines. */
+private const val CORNER_BRACKET_LENGTH = 28f
+
+/** Stroke width of corner brackets and edge midpoint marks. */
+private const val CORNER_BRACKET_STROKE = 4f
+
+/** Drag mode: no active drag (touch outside crop area). */
+private const val DRAG_NONE = -1
+
+/** Drag mode: body reposition (touch inside crop area, away from edges). */
+private const val DRAG_BODY = 4
+
+/** Semi-transparent overlay colour drawn outside the crop region. */
 private val OVERLAY_COLOR = Color.Black.copy(alpha = 0.6f)
 
 /**
@@ -115,9 +122,8 @@ fun ImageCropDialog(
     // Crop rectangle in bitmap-coordinate space (pixels of displayBitmap)
     var cropRect by remember { mutableStateOf(Rect.Zero) }
 
-    // Which corner is being dragged (null = body drag or idle)
-    // 0=TL, 1=TR, 2=BR, 3=BL
-    var dragCorner by remember { mutableStateOf<Int?>(null) }
+    // Active drag mode: DRAG_NONE, 0-3 for corners (TL/TR/BR/BL), DRAG_BODY for reposition
+    var dragCorner by remember { mutableStateOf(DRAG_NONE) }
 
     // Decode bitmap on first composition
     LaunchedEffect(uri) {
@@ -240,8 +246,8 @@ private fun CropCanvas(
     cropRect: Rect,
     aspectRatio: Float,
     onCropRectChanged: (Rect) -> Unit,
-    dragCorner: Int?,
-    onDragCornerChanged: (Int?) -> Unit
+    dragCorner: Int,
+    onDragCornerChanged: (Int) -> Unit
 ) {
     val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
     val bmpW = bitmap.width.toFloat()
@@ -263,21 +269,36 @@ private fun CropCanvas(
                         val bmpX = (offset.x - offsetX) / scale
                         val bmpY = (offset.y - offsetY) / scale
 
-                        // Check if touching a corner handle
+                        // 1. Check corner handles (highest priority — generous hit radius)
                         val hitRadius = HANDLE_HIT_RADIUS / scale
                         val corners = listOf(
-                            Offset(cropRect.left, cropRect.top),   // 0 = TL
-                            Offset(cropRect.right, cropRect.top),  // 1 = TR
+                            Offset(cropRect.left, cropRect.top),     // 0 = TL
+                            Offset(cropRect.right, cropRect.top),    // 1 = TR
                             Offset(cropRect.right, cropRect.bottom), // 2 = BR
-                            Offset(cropRect.left, cropRect.bottom)  // 3 = BL
+                            Offset(cropRect.left, cropRect.bottom)   // 3 = BL
                         )
                         val hitCorner = corners.indexOfFirst { corner ->
                             (corner - Offset(bmpX, bmpY)).getDistance() < hitRadius
                         }
-                        onDragCornerChanged(if (hitCorner >= 0) hitCorner else null)
+                        if (hitCorner >= 0) {
+                            onDragCornerChanged(hitCorner)
+                        } else {
+                            // 2. Check edge proximity — map to nearest corner for resize
+                            val edgeRadius = EDGE_HIT_RADIUS / scale
+                            val edgeCorner = detectEdgeCorner(bmpX, bmpY, cropRect, edgeRadius)
+                            if (edgeCorner >= 0) {
+                                onDragCornerChanged(edgeCorner)
+                            } else if (cropRect.contains(Offset(bmpX, bmpY))) {
+                                // 3. Touch inside crop rect — body move
+                                onDragCornerChanged(DRAG_BODY)
+                            } else {
+                                // 4. Touch outside everything — no-op
+                                onDragCornerChanged(DRAG_NONE)
+                            }
+                        }
                     },
-                    onDragEnd = { onDragCornerChanged(null) },
-                    onDragCancel = { onDragCornerChanged(null) },
+                    onDragEnd = { onDragCornerChanged(DRAG_NONE) },
+                    onDragCancel = { onDragCornerChanged(DRAG_NONE) },
                     onDrag = { change, dragAmount ->
                         change.consume()
                         val canvasW = size.width.toFloat()
@@ -288,17 +309,20 @@ private fun CropCanvas(
                         val dx = dragAmount.x / scale
                         val dy = dragAmount.y / scale
 
-                        val corner = dragCorner
-                        if (corner != null) {
-                            // Corner drag — resize with locked aspect ratio
-                            onCropRectChanged(
-                                resizeCropRect(cropRect, corner, dx, dy, aspectRatio, bmpW, bmpH)
-                            )
-                        } else {
-                            // Body drag — reposition within image bounds
-                            onCropRectChanged(
-                                moveCropRect(cropRect, dx, dy, bmpW, bmpH)
-                            )
+                        when (dragCorner) {
+                            in 0..3 -> {
+                                // Corner/edge drag — resize with locked aspect ratio
+                                onCropRectChanged(
+                                    resizeCropRect(cropRect, dragCorner, dx, dy, aspectRatio, bmpW, bmpH)
+                                )
+                            }
+                            DRAG_BODY -> {
+                                // Body drag — reposition within image bounds
+                                onCropRectChanged(
+                                    moveCropRect(cropRect, dx, dy, bmpW, bmpH)
+                                )
+                            }
+                            // DRAG_NONE — consume event but don't move anything
                         }
                     }
                 )
@@ -371,26 +395,51 @@ private fun CropCanvas(
             )
         }
 
-        // Draw corner handles
+        // Draw corner handles: circles + L-shaped brackets
         val handleRadius = HANDLE_RADIUS
-        val corners = listOf(
-            Offset(displayCropRect.left, displayCropRect.top),
-            Offset(displayCropRect.right, displayCropRect.top),
-            Offset(displayCropRect.right, displayCropRect.bottom),
-            Offset(displayCropRect.left, displayCropRect.bottom)
+        val bracketLen = CORNER_BRACKET_LENGTH
+        val bracketStroke = CORNER_BRACKET_STROKE.dp.toPx()
+        val cL = displayCropRect.left
+        val cT = displayCropRect.top
+        val cR = displayCropRect.right
+        val cB = displayCropRect.bottom
+
+        // Corner circles (filled white with dark inner ring)
+        val cornerPoints = listOf(
+            Offset(cL, cT), Offset(cR, cT),
+            Offset(cR, cB), Offset(cL, cB)
         )
-        corners.forEach { corner ->
-            drawCircle(
-                color = Color.White,
-                radius = handleRadius,
-                center = corner
-            )
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.3f),
-                radius = handleRadius - 2f,
-                center = corner
-            )
+        cornerPoints.forEach { corner ->
+            drawCircle(Color.White, handleRadius, corner)
+            drawCircle(Color.Black.copy(alpha = 0.3f), handleRadius - 2f, corner)
         }
+
+        // L-shaped corner brackets — thick white lines extending along edges
+        // TL
+        drawLine(Color.White, Offset(cL, cT), Offset(cL + bracketLen, cT), bracketStroke)
+        drawLine(Color.White, Offset(cL, cT), Offset(cL, cT + bracketLen), bracketStroke)
+        // TR
+        drawLine(Color.White, Offset(cR, cT), Offset(cR - bracketLen, cT), bracketStroke)
+        drawLine(Color.White, Offset(cR, cT), Offset(cR, cT + bracketLen), bracketStroke)
+        // BR
+        drawLine(Color.White, Offset(cR, cB), Offset(cR - bracketLen, cB), bracketStroke)
+        drawLine(Color.White, Offset(cR, cB), Offset(cR, cB - bracketLen), bracketStroke)
+        // BL
+        drawLine(Color.White, Offset(cL, cB), Offset(cL + bracketLen, cB), bracketStroke)
+        drawLine(Color.White, Offset(cL, cB), Offset(cL, cB - bracketLen), bracketStroke)
+
+        // Edge midpoint marks — thicker segments as visual affordance for edge-drag
+        val midMarkLen = 18f
+        val midX = (cL + cR) / 2f
+        val midY = (cT + cB) / 2f
+        // Top edge
+        drawLine(Color.White, Offset(midX - midMarkLen, cT), Offset(midX + midMarkLen, cT), bracketStroke)
+        // Bottom edge
+        drawLine(Color.White, Offset(midX - midMarkLen, cB), Offset(midX + midMarkLen, cB), bracketStroke)
+        // Left edge
+        drawLine(Color.White, Offset(cL, midY - midMarkLen), Offset(cL, midY + midMarkLen), bracketStroke)
+        // Right edge
+        drawLine(Color.White, Offset(cR, midY - midMarkLen), Offset(cR, midY + midMarkLen), bracketStroke)
     }
 }
 
@@ -494,6 +543,40 @@ private fun moveCropRect(rect: Rect, dx: Float, dy: Float, imgW: Float, imgH: Fl
     newTop = newTop.coerceIn(0f, imgH - rect.height)
 
     return Rect(newLeft, newTop, newLeft + rect.width, newTop + rect.height)
+}
+
+/**
+ * Detect if a touch point in bitmap coordinates is near a crop rect edge.
+ * Returns the nearest corner index (0=TL, 1=TR, 2=BR, 3=BL) for resize,
+ * or -1 if no edge is within [edgeRadius].
+ *
+ * For horizontal edges the left half maps to the left corner, right half to right.
+ * For vertical edges the top half maps to the top corner, bottom half to bottom.
+ */
+private fun detectEdgeCorner(bmpX: Float, bmpY: Float, rect: Rect, edgeRadius: Float): Int {
+    val nearTop = abs(bmpY - rect.top) < edgeRadius &&
+        bmpX >= rect.left - edgeRadius && bmpX <= rect.right + edgeRadius
+    val nearBottom = abs(bmpY - rect.bottom) < edgeRadius &&
+        bmpX >= rect.left - edgeRadius && bmpX <= rect.right + edgeRadius
+    val nearLeft = abs(bmpX - rect.left) < edgeRadius &&
+        bmpY >= rect.top - edgeRadius && bmpY <= rect.bottom + edgeRadius
+    val nearRight = abs(bmpX - rect.right) < edgeRadius &&
+        bmpY >= rect.top - edgeRadius && bmpY <= rect.bottom + edgeRadius
+
+    val cx = rect.center.x
+    val cy = rect.center.y
+
+    return when {
+        nearTop && bmpX < cx -> 0   // TL
+        nearTop -> 1                 // TR
+        nearBottom && bmpX < cx -> 3 // BL
+        nearBottom -> 2              // BR
+        nearLeft && bmpY < cy -> 0   // TL
+        nearLeft -> 3                // BL
+        nearRight && bmpY < cy -> 1  // TR
+        nearRight -> 2               // BR
+        else -> -1
+    }
 }
 
 /**

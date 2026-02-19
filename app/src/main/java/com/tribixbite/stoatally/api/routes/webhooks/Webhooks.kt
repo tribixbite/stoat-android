@@ -177,10 +177,16 @@ suspend fun executeWebhook(
     )
 
     val body = Body(content, attachments)
-    val response = StoatHttp.post("/webhooks/$webhookId/$token".api()) {
+    val res = StoatHttp.post("/webhooks/$webhookId/$token".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), body))
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), response) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
     return response
 }

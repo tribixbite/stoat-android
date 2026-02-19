@@ -40,8 +40,14 @@ data class MfaInfo(
 
 /** Fetch current account info (email, MFA status). */
 suspend fun fetchAccountInfo(): AccountInfo {
-    val response = StoatHttp.get("/auth/account/".api()).bodyAsText()
-    return StoatJson.decodeFromString(AccountInfo.serializer(), response)
+    val res = StoatHttp.get("/auth/account/".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $body")
+    }
+
+    return StoatJson.decodeFromString(AccountInfo.serializer(), body)
 }
 
 /** Change account email. Requires current password. */
@@ -145,8 +151,14 @@ data class SessionInfo(
 
 /** Fetch all active sessions. */
 suspend fun fetchSessions(): List<SessionInfo> {
-    val response = StoatHttp.get("/auth/session/all".api()).bodyAsText()
-    return StoatJson.decodeFromString(ListSerializer(SessionInfo.serializer()), response)
+    val res = StoatHttp.get("/auth/session/all".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $body")
+    }
+
+    return StoatJson.decodeFromString(ListSerializer(SessionInfo.serializer()), body)
 }
 
 /** Revoke (delete) a specific session. */

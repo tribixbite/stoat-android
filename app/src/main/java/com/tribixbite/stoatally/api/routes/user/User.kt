@@ -81,7 +81,7 @@ suspend fun patchSelf(
         body["remove"] = StoatJson.encodeToJsonElement(ListSerializer(String.serializer()), remove)
     }
 
-    val response = StoatHttp.patch("/users/@me".api()) {
+    val res = StoatHttp.patch("/users/@me".api()) {
         contentType(ContentType.Application.Json)
         setBody(
             StoatJson.encodeToString(
@@ -93,7 +93,12 @@ suspend fun patchSelf(
             )
         )
     }
-        .bodyAsText()
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), response) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
     if (StoatAPI.selfId == null) {
         throw Error("Self ID is null")
@@ -143,8 +148,15 @@ suspend fun addUserIfUnknown(id: String) {
 
 /** Fetch mutual friends and servers with a user. */
 suspend fun fetchMutualFriendsAndServers(userId: String): MutualInfo {
-    val response = StoatHttp.get("/users/$userId/mutual".api()).bodyAsText()
-    return StoatJson.decodeFromString(MutualInfo.serializer(), response)
+    val res = StoatHttp.get("/users/$userId/mutual".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(MutualInfo.serializer(), body)
 }
 
 @kotlinx.serialization.Serializable

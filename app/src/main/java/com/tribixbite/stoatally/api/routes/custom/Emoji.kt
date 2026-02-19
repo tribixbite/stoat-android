@@ -16,11 +16,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 
 suspend fun fetchEmoji(id: String): Emoji {
-    val response = StoatHttp.get("/custom/emoji/$id".api()).bodyAsText()
-    return StoatJson.decodeFromString(
-        Emoji.serializer(),
-        response
-    )
+    val res = StoatHttp.get("/custom/emoji/$id".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $body")
+    }
+
+    return StoatJson.decodeFromString(Emoji.serializer(), body)
 }
 
 /** Fetch all emoji for a server. */
@@ -56,16 +59,22 @@ suspend fun createEmoji(
     serverId: String,
     nsfw: Boolean = false
 ): Emoji {
-    val body = CreateEmojiBody(
+    val reqBody = CreateEmojiBody(
         name = name,
         parent = EmojiParentBody(id = serverId),
         nsfw = nsfw
     )
-    val response = StoatHttp.put("/custom/emoji/$emojiId".api()) {
+    val res = StoatHttp.put("/custom/emoji/$emojiId".api()) {
         contentType(ContentType.Application.Json)
-        setBody(StoatJson.encodeToString(CreateEmojiBody.serializer(), body))
-    }.bodyAsText()
-    return StoatJson.decodeFromString(Emoji.serializer(), response)
+        setBody(StoatJson.encodeToString(CreateEmojiBody.serializer(), reqBody))
+    }
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $body")
+    }
+
+    return StoatJson.decodeFromString(Emoji.serializer(), body)
 }
 
 /** Delete a custom emoji. */

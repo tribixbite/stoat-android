@@ -18,7 +18,7 @@ import kotlinx.serialization.json.JsonArray
 data class SyncedSetting(val timestamp: Long, val value: String)
 
 suspend fun getKeys(vararg keys: String, token: String): Map<String, SyncedSetting> {
-    val response = StoatHttp.post("/sync/settings/fetch".api()) {
+    val res = StoatHttp.post("/sync/settings/fetch".api()) {
         headers.append(StoatAPI.TOKEN_HEADER_NAME, token)
 
         // format: {"keys": ["key1", "key2"]}
@@ -31,7 +31,12 @@ suspend fun getKeys(vararg keys: String, token: String): Map<String, SyncedSetti
                 mapOf("keys" to keys.toList())
             )
         )
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $response")
+    }
 
     return StoatJson.decodeFromString(
         MapSerializer(
@@ -56,7 +61,7 @@ suspend fun getKeys(vararg keys: String): Map<String, SyncedSetting> {
 }
 
 suspend fun setKey(key: String, value: String) {
-    StoatHttp.post("/sync/settings/set".api()) {
+    val res = StoatHttp.post("/sync/settings/set".api()) {
         parameter("timestamp", System.currentTimeMillis())
 
         // format: {"key": "value"}
@@ -69,5 +74,8 @@ suspend fun setKey(key: String, value: String) {
                 mapOf(key to value)
             )
         )
+    }
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: ${res.bodyAsText()}")
     }
 }

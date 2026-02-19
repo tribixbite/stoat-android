@@ -79,9 +79,14 @@ suspend fun fetchBotGuilds(
     apiKey: String = ""
 ): List<DiscordGuildPreview> {
     val url = "${botApiUrl.trimEnd('/')}/api/guilds"
-    val response = discordApiHttp.get(url) {
+    val res = discordApiHttp.get(url) {
         if (apiKey.isNotBlank()) header("x-api-key", apiKey)
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $response")
+    }
 
     return StoatJson.decodeFromString(
         ListSerializer(DiscordGuildPreview.serializer()),
@@ -101,9 +106,14 @@ suspend fun fetchGuildChannels(
     guildId: String
 ): GuildChannelsResponse {
     val url = "${botApiUrl.trimEnd('/')}/api/guilds/$guildId/channels"
-    val response = discordApiHttp.get(url) {
+    val res = discordApiHttp.get(url) {
         if (apiKey.isNotBlank()) header("x-api-key", apiKey)
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $response")
+    }
 
     return StoatJson.decodeFromString(
         GuildChannelsResponse.serializer(),
@@ -146,9 +156,14 @@ suspend fun fetchGuildLinks(
     guildId: String
 ): List<BridgeLinkInfo> {
     val url = "${botApiUrl.trimEnd('/')}/api/links/guild/$guildId"
-    val response = discordApiHttp.get(url) {
+    val res = discordApiHttp.get(url) {
         if (apiKey.isNotBlank()) header("x-api-key", apiKey)
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $response")
+    }
 
     return StoatJson.decodeFromString(
         ListSerializer(BridgeLinkInfo.serializer()),
@@ -170,11 +185,16 @@ suspend fun createBridgeLink(
         CreateLinkRequest.serializer(),
         CreateLinkRequest(discordChannelId, stoatChannelId)
     )
-    val response = discordApiHttp.post(url) {
+    val res = discordApiHttp.post(url) {
         if (apiKey.isNotBlank()) header("x-api-key", apiKey)
         contentType(ContentType.Application.Json)
         setBody(body)
-    }.bodyAsText()
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $response")
+    }
 
     return StoatJson.decodeFromString(
         CreateLinkResponse.serializer(),
@@ -191,7 +211,10 @@ suspend fun deleteBridgeLink(
     discordChannelId: String
 ) {
     val url = "${botApiUrl.trimEnd('/')}/api/links/$discordChannelId"
-    discordApiHttp.delete(url) {
+    val res = discordApiHttp.delete(url) {
         if (apiKey.isNotBlank()) header("x-api-key", apiKey)
+    }
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: ${res.bodyAsText()}")
     }
 }

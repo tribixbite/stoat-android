@@ -1,6 +1,7 @@
 package com.tribixbite.stoatally.api.routes.channel
 
 import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.api.StoatAPIError
 import com.tribixbite.stoatally.api.StoatHttp
 import com.tribixbite.stoatally.api.StoatJson
 import com.tribixbite.stoatally.api.api
@@ -16,11 +17,21 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 
 suspend fun react(channelId: String, messageId: String, emoji: String) {
-    StoatHttp.put("/channels/$channelId/messages/$messageId/reactions/$emoji".api())
+    val res = StoatHttp.put("/channels/$channelId/messages/$messageId/reactions/$emoji".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }
 
 suspend fun unreact(channelId: String, messageId: String, emoji: String) {
-    StoatHttp.delete("/channels/$channelId/messages/$messageId/reactions/$emoji".api())
+    val res = StoatHttp.delete("/channels/$channelId/messages/$messageId/reactions/$emoji".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }
 
 /**
@@ -28,8 +39,13 @@ suspend fun unreact(channelId: String, messageId: String, emoji: String) {
  * Requires ManageMessages permission.
  */
 suspend fun removeAllReactions(channelId: String, messageId: String) {
-    StoatHttp.delete("/channels/$channelId/messages/$messageId/reactions".api())
-    // Update local cache: clear reactions on cached message
+    val res = StoatHttp.delete("/channels/$channelId/messages/$messageId/reactions".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    // Update local cache only after server confirms success
     StoatAPI.messageCache[messageId]?.let { msg ->
         StoatAPI.messageCache[messageId] = msg.copy(reactions = null)
     }
@@ -41,8 +57,13 @@ suspend fun removeAllReactions(channelId: String, messageId: String) {
  * Pinned status is mutually exclusive with query in search.
  */
 suspend fun pinMessage(channelId: String, messageId: String) {
-    StoatHttp.post("/channels/$channelId/messages/$messageId/pin".api())
-    // Update local cache: set pinned flag on cached message
+    val res = StoatHttp.post("/channels/$channelId/messages/$messageId/pin".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    // Update local cache only after server confirms success
     StoatAPI.messageCache[messageId]?.let { msg ->
         StoatAPI.messageCache[messageId] = msg.copy(pinned = true)
     }
@@ -53,8 +74,13 @@ suspend fun pinMessage(channelId: String, messageId: String) {
  * Requires ManageMessages permission.
  */
 suspend fun unpinMessage(channelId: String, messageId: String) {
-    StoatHttp.delete("/channels/$channelId/messages/$messageId/pin".api())
-    // Update local cache: clear pinned flag on cached message
+    val res = StoatHttp.delete("/channels/$channelId/messages/$messageId/pin".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    // Update local cache only after server confirms success
     StoatAPI.messageCache[messageId]?.let { msg ->
         StoatAPI.messageCache[messageId] = msg.copy(pinned = false)
     }
@@ -69,10 +95,15 @@ data class BulkDeleteBody(val ids: List<String>)
  * Max 100 messages per request.
  */
 suspend fun bulkDeleteMessages(channelId: String, messageIds: List<String>) {
-    StoatHttp.delete("/channels/$channelId/messages/bulk".api()) {
+    val res = StoatHttp.delete("/channels/$channelId/messages/bulk".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(BulkDeleteBody.serializer(), BulkDeleteBody(messageIds)))
     }
-    // Remove from local cache
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    // Remove from local cache only after server confirms success
     messageIds.forEach { StoatAPI.messageCache.remove(it) }
 }

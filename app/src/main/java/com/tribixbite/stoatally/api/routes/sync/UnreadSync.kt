@@ -9,11 +9,15 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.builtins.ListSerializer
 
 suspend fun syncUnreads(): List<ChannelUnreadResponse> {
-    val response = StoatHttp.get("/sync/unreads".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/sync/unreads".api())
+    val body = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        throw Exception("HTTP ${res.status.value}: $body")
+    }
 
     return StoatJson.decodeFromString(
         ListSerializer(ChannelUnreadResponse.serializer()),
-        response
+        body
     )
 }

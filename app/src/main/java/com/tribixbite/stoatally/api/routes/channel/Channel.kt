@@ -36,7 +36,7 @@ suspend fun fetchMessagesFromChannel(
     nearby: String? = null,
     sort: String? = null
 ): MessagesInChannel {
-    val response = StoatHttp.get("/channels/$channelId/messages".api()) {
+    val res = StoatHttp.get("/channels/$channelId/messages".api()) {
         parameter("limit", limit)
         parameter("include_users", includeUsers)
 
@@ -45,7 +45,12 @@ suspend fun fetchMessagesFromChannel(
         if (nearby != null) parameter("nearby", nearby)
         if (sort != null) parameter("sort", sort)
     }
-        .bodyAsText()
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), response) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
     if (includeUsers) {
         return StoatJson.decodeFromString(
@@ -103,7 +108,7 @@ suspend fun sendMessage(
     attachments: List<String>? = null,
     idempotencyKey: String = ULID.makeNext()
 ): String {
-    val response = StoatHttp.post("/channels/$channelId/messages".api()) {
+    val res = StoatHttp.post("/channels/$channelId/messages".api()) {
         contentType(ContentType.Application.Json)
         setBody(
             SendMessageBody(
@@ -115,7 +120,12 @@ suspend fun sendMessage(
         )
         header("Idempotency-Key", idempotencyKey)
     }
-        .bodyAsText()
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), response) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 
     return response
 }
@@ -138,7 +148,12 @@ suspend fun editMessage(channelId: String, messageId: String, newContent: String
 }
 
 suspend fun deleteMessage(channelId: String, messageId: String) {
-    StoatHttp.delete("/channels/$channelId/messages/$messageId".api())
+    val res = StoatHttp.delete("/channels/$channelId/messages/$messageId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }
 
 suspend fun ackChannel(channelId: String, messageId: String = ULID.makeNext()) {
@@ -146,23 +161,27 @@ suspend fun ackChannel(channelId: String, messageId: String = ULID.makeNext()) {
 }
 
 suspend fun fetchSingleChannel(channelId: String): Channel {
-    val response = StoatHttp.get("/channels/$channelId".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/channels/$channelId".api())
+    val body = res.bodyAsText()
 
-    return StoatJson.decodeFromString(
-        Channel.serializer(),
-        response
-    )
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(Channel.serializer(), body)
 }
 
 suspend fun fetchGroupParticipants(channelId: String): List<User> {
-    val response = StoatHttp.get("/channels/$channelId/members".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/channels/$channelId/members".api())
+    val body = res.bodyAsText()
 
-    return StoatJson.decodeFromString(
-        ListSerializer(User.serializer()),
-        response
-    )
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(ListSerializer(User.serializer()), body)
 }
 
 suspend fun createInvite(channelId: String): CreateInviteResponse {
@@ -178,18 +197,25 @@ suspend fun createInvite(channelId: String): CreateInviteResponse {
 }
 
 suspend fun fetchSingleMessage(channelId: String, messageId: String): Message {
-    val response = StoatHttp.get("/channels/$channelId/messages/$messageId".api())
-        .bodyAsText()
+    val res = StoatHttp.get("/channels/$channelId/messages/$messageId".api())
+    val body = res.bodyAsText()
 
-    return StoatJson.decodeFromString(
-        Message.serializer(),
-        response
-    )
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+
+    return StoatJson.decodeFromString(Message.serializer(), body)
 }
 
 suspend fun leaveDeleteOrCloseChannel(channelId: String, leaveSilently: Boolean = false) {
-    StoatHttp.delete("/channels/$channelId".api()) {
+    val res = StoatHttp.delete("/channels/$channelId".api()) {
         parameter("leave_silently", leaveSilently)
+    }
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 

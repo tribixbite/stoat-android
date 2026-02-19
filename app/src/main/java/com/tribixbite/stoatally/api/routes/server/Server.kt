@@ -130,8 +130,13 @@ suspend fun queryMembers(serverId: String, query: String): FetchMembersResponse 
 }
 
 suspend fun leaveOrDeleteServer(serverId: String, leaveSilently: Boolean = false) {
-    StoatHttp.delete("/servers/$serverId".api()) {
+    val res = StoatHttp.delete("/servers/$serverId".api()) {
         parameter("leave_silently", leaveSilently)
+    }
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -212,7 +217,12 @@ suspend fun editServer(
  * Requires KickMembers permission.
  */
 suspend fun kickMember(serverId: String, userId: String) {
-    StoatHttp.delete("/servers/$serverId/members/$userId".api())
+    val res = StoatHttp.delete("/servers/$serverId/members/$userId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
     StoatAPI.members.removeMember(serverId, userId)
 }
 
@@ -245,11 +255,16 @@ data class ServerBansResponse(
  * Requires BanMembers permission.
  */
 suspend fun banMember(serverId: String, userId: String, reason: String? = null) {
-    StoatHttp.put("/servers/$serverId/bans/$userId".api()) {
+    val res = StoatHttp.put("/servers/$serverId/bans/$userId".api()) {
         if (reason != null) {
             contentType(ContentType.Application.Json)
             setBody(StoatJson.encodeToString(BanBody.serializer(), BanBody(reason)))
         }
+    }
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
     StoatAPI.members.removeMember(serverId, userId)
 }
@@ -259,7 +274,12 @@ suspend fun banMember(serverId: String, userId: String, reason: String? = null) 
  * Requires BanMembers permission.
  */
 suspend fun unbanMember(serverId: String, userId: String) {
-    StoatHttp.delete("/servers/$serverId/bans/$userId".api())
+    val res = StoatHttp.delete("/servers/$serverId/bans/$userId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }
 
 /**
@@ -267,8 +287,13 @@ suspend fun unbanMember(serverId: String, userId: String) {
  * Requires BanMembers permission.
  */
 suspend fun fetchBans(serverId: String): ServerBansResponse {
-    val response = StoatHttp.get("/servers/$serverId/bans".api()).bodyAsText()
-    return StoatJson.decodeFromString(ServerBansResponse.serializer(), response)
+    val res = StoatHttp.get("/servers/$serverId/bans".api())
+    val body = res.bodyAsText()
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    return StoatJson.decodeFromString(ServerBansResponse.serializer(), body)
 }
 
 // --- Member editing (nickname, avatar, roles, timeout) ---
@@ -441,7 +466,12 @@ suspend fun fetchRole(serverId: String, roleId: String): Role {
  * Requires ManageRole permission.
  */
 suspend fun deleteRole(serverId: String, roleId: String) {
-    StoatHttp.delete("/servers/$serverId/roles/$roleId".api())
+    val res = StoatHttp.delete("/servers/$serverId/roles/$roleId".api())
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
 }
 
 /**
@@ -456,9 +486,14 @@ suspend fun setDefaultPermissions(
     @Serializable
     data class Body(val permissions: Long)
 
-    StoatHttp.put("/servers/$serverId/permissions/default".api()) {
+    val res = StoatHttp.put("/servers/$serverId/permissions/default".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(Body.serializer(), Body(permissions)))
+    }
+    if (res.status.value !in 200..299) {
+        val body = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -473,9 +508,14 @@ suspend fun setServerPermissions(
     deny: Long
 ) {
     val body = PermissionDescription(a = allow, d = deny)
-    StoatHttp.put("/servers/$serverId/permissions/$roleId".api()) {
+    val res = StoatHttp.put("/servers/$serverId/permissions/$roleId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(PermissionDescription.serializer(), body))
+    }
+    if (res.status.value !in 200..299) {
+        val resBody = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), resBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -490,9 +530,14 @@ suspend fun setChannelPermissions(
     deny: Long
 ) {
     val body = PermissionDescription(a = allow, d = deny)
-    StoatHttp.put("/channels/$channelId/permissions/$roleId".api()) {
+    val res = StoatHttp.put("/channels/$channelId/permissions/$roleId".api()) {
         contentType(ContentType.Application.Json)
         setBody(StoatJson.encodeToString(PermissionDescription.serializer(), body))
+    }
+    if (res.status.value !in 200..299) {
+        val resBody = res.bodyAsText()
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), resBody) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
     }
 }
 
@@ -509,10 +554,15 @@ data class ServerInvite(
 
 /** Fetch all invites for a server. Requires ManageServer permission. */
 suspend fun fetchServerInvites(serverId: String): List<ServerInvite> {
-    val response = StoatHttp.get("/servers/$serverId/invites".api()).bodyAsText()
+    val res = StoatHttp.get("/servers/$serverId/invites".api())
+    val body = res.bodyAsText()
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
     return StoatJson.decodeFromString(
         ListSerializer(ServerInvite.serializer()),
-        response
+        body
     )
 }
 
@@ -525,6 +575,11 @@ suspend fun deleteInvite(inviteCode: String): String? {
 
 /** Create a channel invite. Returns the invite object. */
 suspend fun createChannelInvite(channelId: String): ServerInvite {
-    val response = StoatHttp.post("/channels/$channelId/invites".api()).bodyAsText()
-    return StoatJson.decodeFromString(ServerInvite.serializer(), response)
+    val res = StoatHttp.post("/channels/$channelId/invites".api())
+    val body = res.bodyAsText()
+    if (res.status.value !in 200..299) {
+        val error = try { StoatJson.decodeFromString(StoatAPIError.serializer(), body) } catch (_: Exception) { null }
+        throw Exception(error?.type ?: "HTTP ${res.status.value}")
+    }
+    return StoatJson.decodeFromString(ServerInvite.serializer(), body)
 }

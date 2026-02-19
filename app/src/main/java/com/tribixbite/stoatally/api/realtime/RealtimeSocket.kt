@@ -65,6 +65,7 @@ import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.jsonPrimitive
 import logcat.logcat
 
 enum class DisconnectionState {
@@ -154,8 +155,13 @@ object RealtimeSocket {
                 val bulkFrame = StoatJson.decodeFromString(BulkFrame.serializer(), rawFrame)
                 Log.d("RealtimeSocket", "Received bulk frame with ${bulkFrame.v.size} sub-frames.")
                 bulkFrame.v.forEach { subFrame ->
-                    val subFrameType =
-                        StoatJson.decodeFromString(AnyFrame.serializer(), subFrame.toString()).type
+                    // Extract type directly from JsonObject instead of re-serializing
+                    // through AnyFrame — avoids 2 unnecessary serialize/deserialize cycles
+                    val subFrameType = subFrame["type"]?.jsonPrimitive?.content
+                    if (subFrameType == null) {
+                        Log.w("RealtimeSocket", "Bulk sub-frame missing 'type' field, skipping")
+                        return@forEach
+                    }
                     handleFrame(subFrameType, subFrame.toString())
                 }
             }

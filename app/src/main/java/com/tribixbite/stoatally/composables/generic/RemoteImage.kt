@@ -44,7 +44,10 @@ fun RemoteImage(
             .height(pxAsDp(height)),
         transition = CrossFade,
         requestBuilderTransform = { rb ->
-            if (!allowAnimation) rb.dontAnimate() else rb
+            // Constrain decoded bitmap size to display dimensions to avoid
+            // wasting heap memory on images larger than the composable
+            var builder = if (width > 0 && height > 0) rb.override(width, height) else rb
+            if (!allowAnimation) builder.dontAnimate() else builder
         }
     )
 }

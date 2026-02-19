@@ -627,7 +627,11 @@ class ChannelScreenViewModel @Inject constructor(
                         channel?.server?.let { serverId ->
                             try {
                                 it.author?.let { userId ->
-                                    fetchMember(serverId, userId)
+                                    // Only fetch if not already cached — avoids redundant
+                                    // API call on every incoming message
+                                    if (!StoatAPI.members.hasMember(serverId, userId)) {
+                                        fetchMember(serverId, userId)
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("ChannelScreenViewModel", "Failed to fetch member", e)

@@ -35,8 +35,11 @@ fun ChangelogSheet(
                 renderedContents,
             )
 
-        activity?.supportFragmentManager?.let {
-            sheet.show(it, ChangelogBottomSheetFragment.TAG)
+        // Use commitAllowingStateLoss to avoid crash when activity is in background
+        activity?.supportFragmentManager?.let { fm ->
+            fm.beginTransaction()
+                .add(sheet, ChangelogBottomSheetFragment.TAG)
+                .commitAllowingStateLoss()
         }
 
         onDispose {

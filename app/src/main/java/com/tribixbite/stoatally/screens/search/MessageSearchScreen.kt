@@ -409,6 +409,7 @@ fun MessageSearchScreen(
     channelId: String,
     serverId: String = "",
     navController: NavController,
+    initialPinnedOnly: Boolean = false,
     viewModel: MessageSearchViewModel = hiltViewModel()
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -418,6 +419,14 @@ fun MessageSearchScreen(
     LaunchedEffect(channelId, serverId) {
         viewModel.channelId = channelId
         viewModel.serverId = serverId
+    }
+
+    // When opened with pinned filter pre-set, activate it and auto-search
+    LaunchedEffect(initialPinnedOnly) {
+        if (initialPinnedOnly && !viewModel.hasSearched) {
+            viewModel.pinnedOnly = true
+            viewModel.submitSearch()
+        }
     }
 
     LaunchedEffect(Unit) {

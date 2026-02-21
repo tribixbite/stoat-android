@@ -137,6 +137,36 @@ fun ChannelInfoSheet(channelId: String, onHideSheet: suspend () -> Unit) {
         else -> {}
     }
 
+    // Pinned messages button — available on all channel types that support messages
+    when (channel.channelType) {
+        ChannelType.TextChannel, ChannelType.VoiceChannel, ChannelType.Group, ChannelType.DirectMessage -> {
+            SheetButton(
+                headlineContent = {
+                    Text(
+                        text = stringResource(id = R.string.channel_info_sheet_options_pinned),
+                    )
+                },
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_pin_24dp),
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    scope.launch {
+                        onHideSheet()
+                    }
+                    scope.launch {
+                        delay(100)
+                        ActionChannel.send(Action.TopNavigate("search/${channel.id}?pinned=true"))
+                    }
+                }
+            )
+        }
+
+        else -> {}
+    }
+
     if (
         Roles.permissionFor(
             channel,

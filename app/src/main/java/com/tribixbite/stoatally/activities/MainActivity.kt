@@ -70,9 +70,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.tribixbite.stoatally.BuildConfig
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.StoatApplication
@@ -803,9 +805,23 @@ fun AppEntrypoint(
                     composable("settings/mfa") { MfaSetupScreen(navController) }
                     composable("settings/bots") { BotManagementScreen(navController) }
 
-                    composable("search/{channelId}") { backStackEntry ->
+                    composable(
+                        "search/{channelId}?pinned={pinned}",
+                        arguments = listOf(
+                            navArgument("channelId") { type = NavType.StringType },
+                            navArgument("pinned") {
+                                type = NavType.BoolType
+                                defaultValue = false
+                            }
+                        )
+                    ) { backStackEntry ->
                         val channelId = backStackEntry.arguments?.getString("channelId") ?: ""
-                        MessageSearchScreen(channelId = channelId, navController = navController)
+                        val initialPinnedOnly = backStackEntry.arguments?.getBoolean("pinned") ?: false
+                        MessageSearchScreen(
+                            channelId = channelId,
+                            navController = navController,
+                            initialPinnedOnly = initialPinnedOnly
+                        )
                     }
 
                     composable("search/server/{serverId}") { backStackEntry ->

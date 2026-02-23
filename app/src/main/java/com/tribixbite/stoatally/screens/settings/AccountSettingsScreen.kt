@@ -40,11 +40,13 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.routes.account.AccountInfo
+import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.account.changeEmail
 import com.tribixbite.stoatally.api.routes.account.changePassword
 import com.tribixbite.stoatally.api.routes.account.deleteAccount
 import com.tribixbite.stoatally.api.routes.account.disableAccount
 import com.tribixbite.stoatally.api.routes.account.fetchAccountInfo
+import com.tribixbite.stoatally.api.routes.user.changeUsername
 import com.tribixbite.stoatally.composables.generic.ListHeader
 import kotlinx.coroutines.launch
 
@@ -61,6 +63,7 @@ fun AccountSettingsScreen(
     var loadError by remember { mutableStateOf<String?>(null) }
 
     // Dialog states
+    var showChangeUsername by remember { mutableStateOf(false) }
     var showChangeEmail by remember { mutableStateOf(false) }
     var showChangePassword by remember { mutableStateOf(false) }
     var showDisableAccount by remember { mutableStateOf(false) }
@@ -72,6 +75,64 @@ fun AccountSettingsScreen(
         } catch (e: Exception) {
             loadError = e.message
         }
+    }
+
+    // Change username dialog
+    if (showChangeUsername) {
+        var newUsername by remember {
+            mutableStateOf(StoatAPI.userCache[StoatAPI.selfId]?.username ?: "")
+        }
+        var currentPassword by remember { mutableStateOf("") }
+        var isSaving by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isSaving) showChangeUsername = false },
+            title = { Text(stringResource(R.string.account_change_username_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newUsername,
+                        onValueChange = { newUsername = it },
+                        label = { Text(stringResource(R.string.account_new_username)) },
+                        placeholder = { Text(stringResource(R.string.account_username_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text(stringResource(R.string.account_current_password)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isSaving = true
+                        scope.launch {
+                            val error = changeUsername(newUsername.trim(), currentPassword)
+                            if (error == null) {
+                                showChangeUsername = false
+                                Toast.makeText(context, context.getString(R.string.account_username_changed), Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                            }
+                            isSaving = false
+                        }
+                    },
+                    enabled = newUsername.trim().length in 2..32
+                            && currentPassword.isNotEmpty() && !isSaving
+                ) { Text(stringResource(R.string.server_settings_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChangeUsername = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 
     // Change email dialog
@@ -346,6 +407,32 @@ fun AccountSettingsScreen(
 
             // Actions
             ListHeader { Text(stringResource(R.string.account_actions_header)) }
+
+            // Current username display
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.onboarding_username)) },
+                supportingContent = {
+                    val self = StoatAPI.userCache[StoatAPI.selfId]
+                    Text(
+                        "${self?.username ?: ""}#${self?.discriminator ?: ""}"
+                    )
+                },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(painterResource(R.drawable.icn_account_circle_24dp), contentDescription = null)
+                    }
+                }
+            )
+
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.account_change_username_title)) },
+                leadingContent = {
+                    SettingsIcon {
+                        Icon(painterResource(R.drawable.icn_account_circle_24dp), contentDescription = null)
+                    }
+                },
+                modifier = Modifier.clickable { showChangeUsername = true }
+            )
 
             ListItem(
                 headlineContent = { Text(stringResource(R.string.account_change_email_title)) },

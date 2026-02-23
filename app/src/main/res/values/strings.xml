@@ -694,6 +694,8 @@
     <string name="settings_profile_profile_picture">Profile picture</string>
     <string name="settings_profile_custom_background">Custom background</string>
     <string name="settings_profile_save">Save</string>
+    <string name="settings_profile_display_name">Display name</string>
+    <string name="settings_profile_display_name_hint">2–32 characters</string>
 
     <string name="settings_sessions">Sessions</string>
     <string name="settings_sessions_this_device">This Device</string>
@@ -1105,6 +1107,10 @@
     <string name="account_mfa_enabled">Enabled</string>
     <string name="account_mfa_disabled">Disabled</string>
     <string name="account_actions_header">Actions</string>
+    <string name="account_change_username_title">Change Username</string>
+    <string name="account_new_username">New username</string>
+    <string name="account_username_hint">2–32 characters</string>
+    <string name="account_username_changed">Username changed</string>
     <string name="account_change_email_title">Change Email</string>
     <string name="account_new_email">New email</string>
     <string name="account_current_password">Current password</string>

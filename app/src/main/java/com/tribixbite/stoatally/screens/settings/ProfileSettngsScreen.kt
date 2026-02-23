@@ -93,11 +93,18 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
     var uploadProgress by mutableFloatStateOf(0f)
     var uploadError by mutableStateOf<String?>(null)
     var bioError by mutableStateOf<String?>(null)
+    var displayNameError by mutableStateOf<String?>(null)
+    var pendingDisplayName by mutableStateOf<String?>(null)
+    var currentDisplayName by mutableStateOf<String?>(null)
 
     init {
         StoatAPI.selfId?.let { self ->
-            StoatAPI.userCache[self]?.avatar?.id?.let {
-                pfpModel = "$STOAT_FILES/avatars/${it}"
+            StoatAPI.userCache[self]?.let { user ->
+                user.avatar?.id?.let {
+                    pfpModel = "$STOAT_FILES/avatars/${it}"
+                }
+                currentDisplayName = user.displayName ?: ""
+                pendingDisplayName = user.displayName ?: ""
             }
             viewModelScope.launch {
                 currentProfile = fetchUserProfile(self)
@@ -110,7 +117,6 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
                 isLoading = false
             }
         }
-
     }
 
     /**
@@ -264,6 +270,26 @@ class ProfileSettingsScreenViewModel @Inject constructor(@ApplicationContext val
                 }
             } catch (e: Exception) {
                 bioError = e.message
+            }
+        }
+    }
+
+    fun saveDisplayName() {
+        displayNameError = null
+        viewModelScope.launch {
+            try {
+                val name = pendingDisplayName?.trim()
+                if (name.isNullOrEmpty()) {
+                    // Remove display name — reverts to showing username
+                    patchSelf(remove = listOf("DisplayName"))
+                } else {
+                    patchSelf(displayName = name)
+                }
+                // Sync cached value
+                currentDisplayName = StoatAPI.userCache[StoatAPI.selfId]?.displayName ?: ""
+                pendingDisplayName = currentDisplayName
+            } catch (e: Exception) {
+                displayNameError = e.message
             }
         }
     }
@@ -457,6 +483,57 @@ fun ProfileSettingsScreen(
                             }
                         }
                     }
+                    // Display name field
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 0.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = viewModel.pendingDisplayName ?: "",
+                            onValueChange = { viewModel.pendingDisplayName = it },
+                            label = {
+                                Text(
+                                    text = stringResource(id = R.string.settings_profile_display_name),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            },
+                            placeholder = {
+                                Text(stringResource(R.string.settings_profile_display_name_hint))
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        AnimatedVisibility(visible = viewModel.displayNameError != null) {
+                            Text(
+                                text = viewModel.displayNameError ?: "",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    color = MaterialTheme.colorScheme.error
+                                ),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        TextButton(
+                            onClick = { viewModel.saveDisplayName() },
+                            enabled = viewModel.pendingDisplayName != viewModel.currentDisplayName,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_check_24dp),
+                                contentDescription = null
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(id = R.string.settings_profile_save),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    // Bio field
                     Column(
                         modifier = Modifier
                             .padding(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 20.dp)

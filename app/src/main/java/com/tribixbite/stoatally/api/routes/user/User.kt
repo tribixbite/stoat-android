@@ -45,6 +45,7 @@ suspend fun patchSelf(
     avatar: String? = null,
     background: String? = null,
     bio: String? = null,
+    displayName: String? = null,
     remove: List<String>? = null,
     pure: Boolean = false
 ) {
@@ -56,6 +57,10 @@ suspend fun patchSelf(
 
     if (avatar != null) {
         body["avatar"] = StoatJson.encodeToJsonElement(String.serializer(), avatar)
+    }
+
+    if (displayName != null) {
+        body["display_name"] = StoatJson.encodeToJsonElement(String.serializer(), displayName)
     }
 
     if (background != null || bio != null) {
@@ -111,6 +116,37 @@ suspend fun patchSelf(
     if (!pure) {
         StoatAPI.userCache[StoatAPI.selfId!!] = mergedUser
     }
+}
+
+/** Change username. Requires current account password for verification. */
+suspend fun changeUsername(username: String, password: String): String? {
+    val body = mapOf("username" to username, "password" to password)
+    val res = StoatHttp.patch("/users/@me/username".api()) {
+        contentType(ContentType.Application.Json)
+        setBody(
+            StoatJson.encodeToString(
+                MapSerializer(String.serializer(), String.serializer()),
+                body
+            )
+        )
+    }
+    val response = res.bodyAsText()
+
+    if (res.status.value !in 200..299) {
+        val error = try {
+            StoatJson.decodeFromString(StoatAPIError.serializer(), response)
+        } catch (_: Exception) { null }
+        return error?.type ?: "HTTP ${res.status.value}"
+    }
+
+    // Update cached user with new username
+    if (StoatAPI.selfId != null) {
+        val currentUser = StoatAPI.userCache[StoatAPI.selfId] ?: fetchSelf()
+        val newUserKeys = StoatJson.decodeFromString(User.serializer(), response)
+        StoatAPI.userCache[StoatAPI.selfId!!] = currentUser.mergeWithPartial(newUserKeys)
+    }
+
+    return null
 }
 
 suspend fun fetchUser(id: String): User {

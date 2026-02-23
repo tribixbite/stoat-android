@@ -502,7 +502,7 @@ Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth route
 |---------|-----------|--------|
 | Mutual friends/servers | `GET /users/{id}/mutual` | **Done** |
 | DM channel listing | `GET /users/dms` | Existing |
-| User profile display + editing | `GET /users/{id}/profile`, `PATCH /users/@me` | **Done** (avatar, background, bio with Autumn upload) |
+| User profile display + editing | `GET /users/{id}/profile`, `PATCH /users/@me`, `PATCH /users/@me/username` | **Done** (avatar, background, bio, display name, username change) |
 | Block/unblock users | `PUT/DELETE /users/{id}/block` | **Done** |
 | Friend requests | `POST /users/friend`, `PUT/DELETE /users/{id}/friend` | **Done** (send, accept, unfriend) |
 | Open DM channel | `GET /users/{id}/dm` | **Done** |
@@ -670,3 +670,5 @@ All changes from upstream divergence point:
 | `a7c3636` | fix | Handle missing WebSocket frame types for real-time cache sync |
 | `32353e7` | feat | Inline text file preview in message attachments |
 | `e7dec5c` | fix | Prevent NullPointerException crash on image/video with missing dimensions |
+| `ac41117` | feat | Pinned message system display and view pinned UI |
+| `a41d68d` | feat | Username change and display name editing |

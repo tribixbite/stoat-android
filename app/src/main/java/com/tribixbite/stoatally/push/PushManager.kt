@@ -7,6 +7,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -25,7 +26,7 @@ object PushManager {
     private const val TAG = "PushManager"
 
     // Default bot URL — user can override in settings
-    const val DEFAULT_BOT_URL = "http://10.0.0.131:3210"
+    const val DEFAULT_BOT_URL = "https://api.stoatcord.com"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -80,10 +81,12 @@ object PushManager {
         userId: String,
         deviceId: String,
         fcmToken: String,
+        apiKey: String = "",
     ): String? {
         return try {
             val response = httpClient.post("$botUrl/api/push/register") {
                 contentType(ContentType.Application.Json)
+                if (apiKey.isNotBlank()) header("x-api-key", apiKey)
                 setBody(
                     RegisterRequest(
                         userId = userId,
@@ -118,10 +121,12 @@ object PushManager {
         endpoint: String,
         p256dh: String,
         auth: String,
+        apiKey: String = "",
     ): String? {
         return try {
             val response = httpClient.post("$botUrl/api/push/register") {
                 contentType(ContentType.Application.Json)
+                if (apiKey.isNotBlank()) header("x-api-key", apiKey)
                 setBody(
                     RegisterRequest(
                         userId = userId,
@@ -151,10 +156,11 @@ object PushManager {
      * Unregister this device from the bot relay server.
      * @return null on success, error message on failure
      */
-    suspend fun unregister(botUrl: String, deviceId: String): String? {
+    suspend fun unregister(botUrl: String, deviceId: String, apiKey: String = ""): String? {
         return try {
             val response = httpClient.delete("$botUrl/api/push/unregister") {
                 contentType(ContentType.Application.Json)
+                if (apiKey.isNotBlank()) header("x-api-key", apiKey)
                 setBody(UnregisterRequest(deviceId = deviceId))
             }
             if (response.status.isSuccess()) {
@@ -174,9 +180,11 @@ object PushManager {
     /**
      * Check registration status for this device.
      */
-    suspend fun checkStatus(botUrl: String, deviceId: String): StatusResponse {
+    suspend fun checkStatus(botUrl: String, deviceId: String, apiKey: String = ""): StatusResponse {
         return try {
-            val response = httpClient.get("$botUrl/api/push/status?deviceId=$deviceId")
+            val response = httpClient.get("$botUrl/api/push/status?deviceId=$deviceId") {
+                if (apiKey.isNotBlank()) header("x-api-key", apiKey)
+            }
             if (response.status.isSuccess()) {
                 json.decodeFromString(StatusResponse.serializer(), response.bodyAsText())
             } else {

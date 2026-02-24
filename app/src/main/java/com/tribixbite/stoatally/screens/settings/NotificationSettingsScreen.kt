@@ -93,6 +93,8 @@ class NotificationSettingsViewModel @Inject constructor(
         private set
     var botRegistered by mutableStateOf(false)
         private set
+    var botApiKey by mutableStateOf("")
+        private set
     var botRegistrationError by mutableStateOf<String?>(null)
         private set
     var isSwitchingMode by mutableStateOf(false)
@@ -122,11 +124,13 @@ class NotificationSettingsViewModel @Inject constructor(
             }
             firebaseUnconfigured = isUnconfigured
 
-            // Load push mode and bot URL from storage
+            // Load push mode, bot URL, and API key from storage
             val storedMode = withContext(Dispatchers.IO) { kvStorage.get("pushMode") }
             val storedUrl = withContext(Dispatchers.IO) { kvStorage.get("pushBotUrl") }
+            val storedApiKey = withContext(Dispatchers.IO) { kvStorage.get("pushBotApiKey") }
             pushMode = PushMode.fromKey(storedMode)
             botUrl = storedUrl ?: PushManager.DEFAULT_BOT_URL
+            botApiKey = storedApiKey ?: ""
 
             if (isUnconfigured && pushMode == PushMode.BACKEND) {
                 lastError = "Replace app/google-services.json with real Firebase config"
@@ -142,7 +146,7 @@ class NotificationSettingsViewModel @Inject constructor(
             if (pushMode == PushMode.BOT_FCM) {
                 try {
                     val deviceId = withContext(Dispatchers.IO) { getOrCreateDeviceId() }
-                    val status = withContext(Dispatchers.IO) { PushManager.checkStatus(botUrl, deviceId) }
+                    val status = withContext(Dispatchers.IO) { PushManager.checkStatus(botUrl, deviceId, botApiKey) }
                     botRegistered = status.registered
                     if (status.error != null) {
                         botRegistrationError = status.error
@@ -184,7 +188,7 @@ class NotificationSettingsViewModel @Inject constructor(
                 PushMode.BOT_FCM -> {
                     withContext(Dispatchers.IO) {
                         val deviceId = getOrCreateDeviceId()
-                        PushManager.unregister(botUrl, deviceId)
+                        PushManager.unregister(botUrl, deviceId, botApiKey)
                     }
                     botRegistered = false
                 }
@@ -245,6 +249,17 @@ class NotificationSettingsViewModel @Inject constructor(
         }
     }
 
+    /** Save the bot API key and re-register if in bot mode */
+    fun saveBotApiKey(key: String) {
+        viewModelScope.launch {
+            botApiKey = key.trim()
+            withContext(Dispatchers.IO) { kvStorage.set("pushBotApiKey", botApiKey) }
+            if (pushMode == PushMode.BOT_FCM) {
+                registerWithBot()
+            }
+        }
+    }
+
     /** Register FCM token with the bot relay server */
     fun registerWithBot() {
         isRetrying = true
@@ -281,7 +296,7 @@ class NotificationSettingsViewModel @Inject constructor(
                 }
                 val deviceId = getOrCreateDeviceId()
 
-                val error = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                val error = PushManager.registerFcm(botUrl, userId, deviceId, token, botApiKey)
                 botRegistered = error == null
                 botRegistrationError = error
 
@@ -525,6 +540,28 @@ fun NotificationSettingsScreen(
                     }
                 )
 
+                // Bot API key field
+                var editingApiKey by mutableStateOf(viewModel.botApiKey)
+                ListItem(
+                    headlineContent = {
+                        OutlinedTextField(
+                            value = editingApiKey,
+                            onValueChange = { editingApiKey = it },
+                            label = { Text("API Key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    trailingContent = {
+                        TextButton(
+                            onClick = { viewModel.saveBotApiKey(editingApiKey) },
+                            enabled = editingApiKey != viewModel.botApiKey
+                        ) {
+                            Text("Save")
+                        }
+                    }
+                )
+
                 // Bot registration status
                 ListItem(
                     headlineContent = {
@@ -681,6 +718,28 @@ fun NotificationSettingsScreen(
                         TextButton(
                             onClick = { viewModel.saveBotUrl(editingUpUrl) },
                             enabled = editingUpUrl != viewModel.botUrl && editingUpUrl.isNotBlank()
+                        ) {
+                            Text("Save")
+                        }
+                    }
+                )
+
+                // Bot API key field for UP mode
+                var editingUpApiKey by mutableStateOf(viewModel.botApiKey)
+                ListItem(
+                    headlineContent = {
+                        OutlinedTextField(
+                            value = editingUpApiKey,
+                            onValueChange = { editingUpApiKey = it },
+                            label = { Text("API Key") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    },
+                    trailingContent = {
+                        TextButton(
+                            onClick = { viewModel.saveBotApiKey(editingUpApiKey) },
+                            enabled = editingUpApiKey != viewModel.botApiKey
                         ) {
                             Text("Save")
                         }

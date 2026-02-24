@@ -69,6 +69,7 @@ class StoatPushService : PushService() {
             kvStorage.remove("upRegistrationError")
 
             val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+            val apiKey = kvStorage.get("pushBotApiKey") ?: ""
             val userId = StoatAPI.selfId ?: run {
                 Log.w(TAG, "Not logged in, cannot register UP endpoint")
                 kvStorage.set("upRegistrationError", "Not logged in")
@@ -88,6 +89,7 @@ class StoatPushService : PushService() {
                 endpoint = endpoint.url,
                 p256dh = endpoint.pubKeySet?.pubKey ?: "",
                 auth = endpoint.pubKeySet?.auth ?: "",
+                apiKey = apiKey,
             )
             if (error != null) {
                 Log.e(TAG, "Failed to register UP endpoint with bot: $error")
@@ -128,8 +130,9 @@ class StoatPushService : PushService() {
 
             // Unregister from bot
             val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+            val apiKey = kvStorage.get("pushBotApiKey") ?: ""
             val deviceId = kvStorage.get("pushDeviceId") ?: return@launch
-            PushManager.unregister(botUrl, deviceId)
+            PushManager.unregister(botUrl, deviceId, apiKey)
         }
     }
 

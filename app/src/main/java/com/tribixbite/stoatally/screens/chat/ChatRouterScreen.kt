@@ -244,10 +244,11 @@ class ChatRouterViewModel @Inject constructor(
                         PushMode.BOT_FCM -> {
                             // Register with bot relay
                             val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+                            val apiKey = kvStorage.get("pushBotApiKey") ?: ""
                             val userId = StoatAPI.selfId
                             val deviceId = getOrCreateDeviceId()
                             if (userId != null) {
-                                val botError = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                                val botError = PushManager.registerFcm(botUrl, userId, deviceId, token, apiKey)
                                 if (botError != null) {
                                     Log.w("FCM", "Bot push registration failed: $botError")
                                 }

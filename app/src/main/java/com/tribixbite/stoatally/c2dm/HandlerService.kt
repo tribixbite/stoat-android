@@ -65,6 +65,7 @@ class HandlerService : FirebaseMessagingService() {
                     PushMode.BOT_FCM -> {
                         // Register with bot relay
                         val botUrl = kvStorage.get("pushBotUrl") ?: PushManager.DEFAULT_BOT_URL
+                        val apiKey = kvStorage.get("pushBotApiKey") ?: ""
                         val userId = com.tribixbite.stoatally.api.StoatAPI.selfId
                         var deviceId = kvStorage.get("pushDeviceId")
                         if (deviceId == null) {
@@ -72,7 +73,7 @@ class HandlerService : FirebaseMessagingService() {
                             kvStorage.set("pushDeviceId", deviceId)
                         }
                         if (userId != null) {
-                            val botError = PushManager.registerFcm(botUrl, userId, deviceId, token)
+                            val botError = PushManager.registerFcm(botUrl, userId, deviceId, token, apiKey)
                             if (botError != null) {
                                 Log.w("HandlerService", "Bot push registration failed: $botError")
                             } else {

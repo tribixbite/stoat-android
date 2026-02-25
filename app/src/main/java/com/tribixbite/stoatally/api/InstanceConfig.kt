@@ -24,6 +24,10 @@ object InstanceConfig {
     private const val KEY_VAPID = "instance_vapid"
     private const val KEY_INSTANCE_NAME = "instance_name"
 
+    // Per-instance session token prefix — allows hot-swapping between
+    // instances without losing sessions. Key format: "session_<apiUrl>"
+    private const val SESSION_KEY_PREFIX = "session_"
+
     // Default Stoat instance values
     private const val DEFAULT_API = "https://api.stoat.chat/0.8"
     private const val DEFAULT_WS = "wss://events.stoat.chat"
@@ -136,6 +140,30 @@ object InstanceConfig {
         proxyUrl = DEFAULT_PROXY
         appUrl = DEFAULT_APP
         vapid = DEFAULT_VAPID
+    }
+
+    /**
+     * Save the current session token keyed to the current instance URL.
+     * Called before switching instances so we can restore it later.
+     */
+    suspend fun saveSessionForCurrentInstance(kvStorage: KVStorage) {
+        val token = StoatAPI.sessionToken
+        if (token.isNotEmpty()) {
+            kvStorage.set("$SESSION_KEY_PREFIX$apiUrl", token)
+            Log.d(TAG, "Saved session for instance $apiUrl")
+        }
+    }
+
+    /**
+     * Restore a previously saved session token for the current instance URL.
+     * Returns the token if found, null otherwise.
+     */
+    suspend fun restoreSessionForCurrentInstance(kvStorage: KVStorage): String? {
+        val token = kvStorage.get("$SESSION_KEY_PREFIX$apiUrl")
+        if (token != null) {
+            Log.d(TAG, "Restored session for instance $apiUrl")
+        }
+        return token
     }
 
     /**

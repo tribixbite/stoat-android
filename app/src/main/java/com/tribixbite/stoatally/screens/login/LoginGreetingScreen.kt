@@ -7,16 +7,21 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.tribixbite.stoatally.BuildConfig
 import com.tribixbite.stoatally.R
+import com.tribixbite.stoatally.api.InstanceConfig
 import com.tribixbite.stoatally.api.STOAT_MARKETING
 import com.tribixbite.stoatally.composables.generic.AnyLink
 import com.tribixbite.stoatally.composables.generic.Weblink
@@ -56,11 +62,48 @@ fun LoginGreetingScreen(navController: NavController) {
     var catTaps by remember { mutableIntStateOf(0) }
     var showBoringButton by remember { mutableStateOf(false) }
 
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+    ) {
+        // Instance settings button — accessible before login so users can
+        // switch to a self-hosted instance or recover from a bad instance choice
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (InstanceConfig.isCustomInstance) {
+                Text(
+                    text = InstanceConfig.instanceName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.padding(end = 4.dp)
+                )
+            }
+            IconButton(
+                onClick = { navController.navigate("settings/instance") },
+                modifier = Modifier
+                    .size(40.dp)
+                    .testTag("login_instance_settings")
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.icn_cloud_24dp),
+                    contentDescription = "Server Instance",
+                    tint = if (InstanceConfig.isCustomInstance)
+                        MaterialTheme.colorScheme.tertiary
+                    else LocalContentColor.current.copy(alpha = 0.5f)
+                )
+            }
+        }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 20.dp, horizontal = 0.dp)
-            .safeDrawingPadding(),
+            .padding(vertical = 20.dp, horizontal = 0.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -206,4 +249,5 @@ fun LoginGreetingScreen(navController: NavController) {
             }
         }
     }
+    } // Box
 }

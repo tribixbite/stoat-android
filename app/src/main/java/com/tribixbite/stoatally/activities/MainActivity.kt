@@ -322,6 +322,9 @@ class MainActivityViewModel @Inject constructor(
                     StoatAPI.loginAs(token)
                     StoatAPI.setSessionId(id)
 
+                    // Save session token keyed to current instance for hot-swap restore
+                    com.tribixbite.stoatally.api.InstanceConfig.saveSessionForCurrentInstance(kvStorage)
+
                     // If launched from a notification tap, set the target channel
                     // so ChatRouterViewModel picks it up on initialization
                     val notifChannel = pendingNotificationChannelId

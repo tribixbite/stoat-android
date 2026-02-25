@@ -424,11 +424,12 @@ fun InstanceSettingsScreen(
                 Text(
                     if (isReset) {
                         "Reverting to official Stoat instance. " +
-                                "The app will restart and you will need to log in again."
+                                "The app will restart to connect to the new server. " +
+                                "Your session will be preserved if valid."
                     } else {
                         "Switching to ${pendingName}. " +
-                                "The app will restart and you will need to log in again " +
-                                "with an account on this instance."
+                                "The app will restart to connect to the new server. " +
+                                "Your session will be preserved if valid on this instance."
                     }
                 )
             },
@@ -436,6 +437,10 @@ fun InstanceSettingsScreen(
                 TextButton(onClick = {
                     showRestartDialog = false
                     scope.launch {
+                        // Save current session token keyed to current instance
+                        // so we can restore it when switching back later
+                        InstanceConfig.saveSessionForCurrentInstance(viewModel.kvStorage)
+
                         if (isReset) {
                             InstanceConfig.resetToDefault()
                             InstanceConfig.clearFromStorage(viewModel.kvStorage)
@@ -443,12 +448,18 @@ fun InstanceSettingsScreen(
                             InstanceConfig.apply(pendingName, apiUrl, config)
                             InstanceConfig.saveToStorage(viewModel.kvStorage)
                         }
-                        // Clear session — user must re-login on the new instance
-                        viewModel.kvStorage.remove("sessionToken")
-                        viewModel.kvStorage.remove("sessionId")
-                        viewModel.kvStorage.remove("fcmToken")
-                        com.tribixbite.stoatally.api.StoatAPI.logout()
-                        // Restart the app
+
+                        // Restore a previously saved session for the target instance,
+                        // or fall back to the current token (login check will validate)
+                        val restoredToken = InstanceConfig.restoreSessionForCurrentInstance(viewModel.kvStorage)
+                        if (restoredToken != null) {
+                            viewModel.kvStorage.set("sessionToken", restoredToken)
+                        }
+                        // If no saved session exists, the existing token stays —
+                        // checkLoggedInState() will validate it and redirect to
+                        // login if it's invalid on the new instance.
+
+                        // Restart the app to reinitialize API connections
                         val intent = context.packageManager
                             .getLaunchIntentForPackage(context.packageName)
                             ?.apply {

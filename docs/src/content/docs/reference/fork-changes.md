@@ -53,6 +53,19 @@ Full default and per-role permission editor matching the web client UI, for both
 - **5 categories**: Admin (5), Members (8), Channels (6), Messaging (6), Voice (7)
 - **API routes**: `PUT /servers/{id}/permissions/default`, `PUT /servers/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/{roleId}`, `PUT /channels/{id}/permissions/default`
 
+### Server Instance Settings (Self-Hosted Support)
+Full support for connecting to self-hosted Stoat/Revolt instances.
+
+- **InstanceConfig singleton** — runtime management of all server URLs (API, WebSocket, CDN, proxy, web app)
+- **Dynamic URL resolution** — StoatAPI constants replaced with `get()` accessors that delegate to InstanceConfig, so all network calls automatically use the selected instance
+- **Known instances** — pre-configured list with radio selection (Stoat official, Stoat Legacy/Revolt-era)
+- **Custom instance input** — API base URL + optional display name, with automatic discovery of all service URLs via `GET /` root endpoint
+- **Connection testing** — test button fetches server config and displays version, WebSocket URL, CDN, proxy, email/CAPTCHA/invite-only status
+- **Save & restart flow** — confirmation dialog, session clear, app restart to apply new instance
+- **Persistent storage** — instance config saved to KVStorage, loaded before session check on app start
+- **Reset to default** — one-tap revert to official Stoat instance (shown only when on custom instance)
+- **Settings integration** — "Server Instance" entry in main settings with cloud icon, shows current instance name highlighted if custom
+
 ### Push Notification Relay via stoatcord-bot
 Working push notifications via bot relay, bypassing the unconfigured Stoat backend FCM.
 

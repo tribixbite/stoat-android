@@ -290,6 +290,32 @@ fun SettingsScreen(
                             }
                     )
 
+                    ListItem(
+                        headlineContent = {
+                            Text(text = "Server Instance")
+                        },
+                        supportingContent = {
+                            Text(
+                                text = com.tribixbite.stoatally.api.InstanceConfig.instanceName,
+                                color = if (com.tribixbite.stoatally.api.InstanceConfig.isCustomInstance)
+                                    MaterialTheme.colorScheme.tertiary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        leadingContent = {
+                            SettingsIcon {
+                                Icon(
+                                    painter = painterResource(R.drawable.icn_cloud_24dp),
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .clickable {
+                                navController.navigate("settings/instance")
+                            }
+                    )
+
                     ListHeader {
                         Text(stringResource(R.string.settings_category_miscellaneous))
                     }

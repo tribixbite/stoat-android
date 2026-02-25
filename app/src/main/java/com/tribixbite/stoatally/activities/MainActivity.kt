@@ -263,9 +263,12 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("MainActivity", "Checking logged in state")
 
+            // Load saved instance config before any API calls
+            com.tribixbite.stoatally.api.InstanceConfig.loadFromStorage(kvStorage)
+
             isConnected.emit(hasInternetConnection())
 
-            Log.d("MainActivity", "Checking if we can reach Stoat")
+            Log.d("MainActivity", "Checking if we can reach instance (${com.tribixbite.stoatally.api.InstanceConfig.instanceName})")
 
             if (!isConnected.value) return@launch startWithoutDestination()
 
@@ -804,6 +807,7 @@ fun AppEntrypoint(
                     composable("settings/account") { AccountSettingsScreen(navController) }
                     composable("settings/mfa") { MfaSetupScreen(navController) }
                     composable("settings/bots") { BotManagementScreen(navController) }
+                    composable("settings/instance") { com.tribixbite.stoatally.screens.settings.InstanceSettingsScreen(navController) }
 
                     composable(
                         "search/{channelId}?pinned={pinned}",

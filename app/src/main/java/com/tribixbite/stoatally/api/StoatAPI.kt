@@ -60,20 +60,16 @@ import kotlinx.serialization.json.Json
 import java.net.SocketException
 import com.tribixbite.stoatally.core.model.schemas.Channel as ChannelSchema
 
-private const val USE_ALPHA_API = false
-
-val STOAT_BASE =
-    if (USE_ALPHA_API) "https://alpha.revolt.chat/api" else "https://api.stoat.chat/0.8"
+// Server URLs — resolved dynamically from InstanceConfig at runtime.
+// All code should use these accessors (or InstanceConfig directly) instead of hardcoded URLs.
+val STOAT_BASE: String get() = InstanceConfig.apiUrl
 const val STOAT_SUPPORT = "https://support.stoat.chat"
 const val STOAT_MARKETING = "https://stoat.chat"
-val STOAT_FILES =
-    if (USE_ALPHA_API) "https://alpha.revolt.chat/autumn" else "https://cdn.stoatusercontent.com"
-val STOAT_PROXY =
-    if (USE_ALPHA_API) "https://alpha.revolt.chat/january" else "https://proxy.stoatusercontent.com"
-const val STOAT_WEB_APP = "https://stoat.chat"
+val STOAT_FILES: String get() = InstanceConfig.filesUrl
+val STOAT_PROXY: String get() = InstanceConfig.proxyUrl
+val STOAT_WEB_APP: String get() = InstanceConfig.appUrl
 const val STOAT_INVITES = "https://stt.gg"
-val STOAT_WEBSOCKET =
-    if (USE_ALPHA_API) "wss://alpha.revolt.chat/ws" else "wss://events.stoat.chat"
+val STOAT_WEBSOCKET: String get() = InstanceConfig.wsUrl
 const val STOAT_KJBOOK = "https://stoatchat.github.io/for-android"
 
 fun String.api(): String {

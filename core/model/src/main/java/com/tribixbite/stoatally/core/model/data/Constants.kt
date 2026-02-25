@@ -1,5 +1,7 @@
 package com.tribixbite.stoatally.core.model.data
 
+// Default Stoat instance URLs. The app module's StoatAPI.kt overrides these
+// with dynamic accessors that read from InstanceConfig at runtime.
 const val STOAT_BASE = "https://api.stoat.chat/0.8"
 const val STOAT_SUPPORT = "https://support.stoat.chat"
 const val STOAT_MARKETING = "https://stoat.chat"

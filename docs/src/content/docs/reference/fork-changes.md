@@ -481,7 +481,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-Target: 121/121 API endpoints (100%). 96/96 backend delta routes + 27 auth routes + voice end ring + experimental member query. All 6 phases complete including Discord bridge integration. Search result navigation now scrolls to the target message in-channel. 39 Discord features require backend changes (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
+All 121 Stoat API endpoints have route functions (100% API coverage). ~110 endpoints have full GUI (screens/sheets/composables wired). ~11 endpoints are API-only with no GUI trigger: bot invite/public bot browse, webhook execute, webhook token-auth variants, resend email verification, password reset confirm, group DM add member, end voice ring, policy acknowledge, join invite by code. All 6 phases complete including Discord bridge integration. 39 Discord features require backend API changes and cannot be implemented client-side (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |

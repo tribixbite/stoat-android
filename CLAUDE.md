@@ -1,7 +1,7 @@
 # Stoatally for Android — Build & Development Guide
 
 ## Project Overview
-Stoatally is a native Android chat client (fork of Revolt) built with Kotlin + Jetpack Compose.
+Stoatally is a native Android chat client (fork of Revolt/Stoat) built with Kotlin + Jetpack Compose.
 - **Package**: `com.tribixbite.stoatally`
 - **Version**: 1.3.9a (code: 001003409)
 - **SDK**: compile 36 / min 26 / target 36
@@ -44,15 +44,15 @@ NDK 27 host tools are x86_64 and don't run on ARM64.
 ```
 app/                    # Main Android app (Kotlin + Compose)
   src/main/java/com/tribixbite/stoatally/
-    activities/         # MainActivity, media viewers
-    api/                # StoatAPI client, realtime WebSocket, routes
-    composables/        # Reusable Compose components
-    screens/            # Screen-level Composables
-    sheets/             # Bottom sheets
-    ndk/                # Native library bindings
+    activities/         # MainActivity (nav host), media viewers
+    api/                # StoatAPI client, realtime WebSocket, route functions
+    composables/        # Reusable Compose components (chat, markdown, media)
+    screens/            # Screen-level Composables (~68 screens)
+    sheets/             # Bottom sheets (~21 sheets)
+    ndk/                # Native library bindings (disabled)
 core/model/             # Shared data models (schemas, constants)
 tools/                  # Build tooling (aapt2 wrappers, x86_64 rootfs)
-docs/                   # Astro documentation site
+docs/                   # Astro documentation site (deployed to stoatcord.com)
 ```
 
 ## Key Dependencies
@@ -64,26 +64,22 @@ docs/                   # Astro documentation site
 - **Push**: Firebase Cloud Messaging
 - **Error Tracking**: Sentry 8.13.2
 
+## API Coverage Status
+All 121 Stoat API endpoints have route functions. All 6 Discord parity phases complete.
+- **Full GUI**: ~110 endpoints have screens/sheets/composables wired to call them
+- **API-only (no GUI trigger)**: ~11 endpoints — bot invite/public bot browse, webhook execute, webhook token-auth variants, resend email verification, password reset confirm, group DM add member, end voice ring, policy acknowledge, join invite by code
+- **Backend limitations**: 39 Discord features (threads, forums, AutoMod, audit log, slash commands, polls, etc.) cannot be implemented — documented in `docs/specs/backend-required-features.md`
+
 ## Commands
-- **`go`**: Continue adding missing features toward Discord parity (excluding documented backend restrictions in `docs/specs/backend-required-features.md`). Update `docs/src/content/docs/reference/fork-changes.md` roadmap and `docs/specs/` after each round. Build, test via ADB if available. Maintain conventional commits.
-
-## Feature Roadmap
-See `docs/specs/discord-parity-plan.md` for the 6-phase plan. Progress tracked in `docs/src/content/docs/reference/fork-changes.md` under the Roadmap section. Currently at 74% API coverage (89/121 endpoints). Target: 97% (117/121).
-
-### Remaining Work (Priority Order)
-1. **MFA TOTP setup** — 7 endpoints (Phase 1 completion)
-2. **Bot management** — 7 endpoints: create, edit, delete, fetch, invite bots (Phase 5)
-3. **Webhook management** — 4 endpoints: create, edit, delete, execute webhooks (Phase 5)
-4. **User profile editing** — enhance existing profile display with edit capabilities
-5. **Comprehensive UI testing** — screenshot every screen via ADB, verify all features work end-to-end
+- **`go`**: Continue working on next priority item. Check `git log --oneline -10` for recent progress, read fork-changes.md roadmap, pick next task. Build and test via ADB. Maintain conventional commits.
 
 ## Session Continuation
 When starting a new session, if told `go`:
-1. Read this file and `docs/src/content/docs/reference/fork-changes.md` roadmap section
+1. Read this file and `docs/src/content/docs/reference/fork-changes.md`
 2. Check `git log --oneline -10` for recent progress
-3. Pick the next unfinished phase/feature from the roadmap
+3. Identify bugs, UI gaps, or upstream issues to address
 4. Build, test via ADB (screenshot key screens), commit, update docs
-5. Repeat until all phases complete and all screens verified
+5. Focus areas: UI polish, bug fixes, missing GUI for API-only endpoints
 
 ## NEVER TOUCH UPSTREAM
 - NEVER post comments, replies, or questions on upstream GitHub issues (stoatchat/for-android)
@@ -96,3 +92,5 @@ When starting a new session, if told `go`:
 - LiveKit voice/video is temporarily disabled (commented out in build.gradle.kts)
 - Debug builds use `.debug` applicationId suffix and custom app name
 - Release builds enable R8 minification + resource shrinking
+- stoatcord-bot deployed on Railway at api.stoatcord.com (bridge, migration, push relay)
+- Astro docs site deployed at stoatcord.com via GitHub Pages + Cloudflare DNS

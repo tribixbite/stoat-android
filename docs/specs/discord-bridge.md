@@ -56,7 +56,26 @@ Stoat supports importing channel structures from Discord servers and setting up 
 | DELETE | /api/links/:discordChannelId | Remove a bridge link |
 | POST | /api/claim-code | Generate one-time code to authorize server linking |
 
-Auth: Optional `X-Api-Key` header (shared secret).
+**Auth (three tiers):**
+- **Admin API key**: `X-API-Key` header — gates all non-public endpoints (auto-generated if not set)
+- **Per-guild Bearer token**: `Authorization: Bearer <token>` — scopes archive endpoints to a guild
+- **Per-user push token**: `X-API-Key` header (overloaded) — scopes push endpoints to a user
+
+**Additional endpoints (not shown above):**
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/health | None | Healthcheck (Railway uptime monitors) |
+| GET | /api/diag | Admin key | Bot diagnostics and status |
+| POST | /api/test-notify | Admin key | Send a test mention to a Stoat channel |
+| GET | /api/push/vapid | None | VAPID public key for WebPush |
+| POST | /api/push/register | Admin or push token | Register device for push notifications |
+| DELETE | /api/push/unregister | Admin or push token | Remove a device registration |
+| GET | /api/push/status | Admin or push token | Check device registration status |
+| GET | /api/archive/status | Bearer token | Get archive job status |
+| POST | /api/archive/start | Bearer token | Start a message history export |
+| POST | /api/archive/pause | Bearer token | Pause a running archive job |
+| POST | /api/archive/resume | Bearer token | Resume a paused archive job |
 
 ### Bridge Mechanism
 
@@ -64,7 +83,16 @@ Auth: Optional `X-Api-Key` header (shared secret).
 
 **Stoat → Discord**: Bot receives Stoat WebSocket message → looks up linked Discord channel → sends via Discord webhook with custom username + avatar.
 
-**Echo prevention**: Two layers — masquerade check + 60s message ID tracking set.
+**Echo prevention**: Three layers — masquerade/bot check, 60s message ID tracking set, channel update dedup (10s TTL).
+
+**Additional sync features:**
+- **Edit/delete sync**: Message edits and deletes propagate both directions using `bridge_messages` table for ID mapping
+- **Reaction sync**: Emoji reactions forwarded bidirectionally with echo prevention
+- **Typing indicators**: Bidirectional relay with per-user 5s debounce
+- **Channel metadata**: Name, description, and NSFW flag changes sync with dedup
+- **Reply chains**: Resolved via bridge_messages lookup; falls back to quote-style formatting
+- **Attachment re-hosting**: Files uploaded to Autumn CDN (Stoat→Discord) or Discord CDN; >20MB uses URL fallback
+- **Outage recovery**: On WS reconnect, detects gaps via `last_bridged_*` timestamps, replays missed messages
 
 ### Discord Slash Commands
 
@@ -73,7 +101,10 @@ Auth: Optional `X-Api-Key` header (shared secret).
 | `/migrate` | Administrator | Interactive migration wizard with dual-admin auth |
 | `/link` | Manage Channels | Link current Discord channel to a Stoat channel for bridging |
 | `/unlink` | Manage Channels | Remove bridge link from current channel |
+| `/unlink-server` | Administrator | Remove the server-level link, all channel bridges, and role links |
 | `/status` | None | Show bridge status for the server |
+| `/token` | Administrator | View or regenerate the guild's archive API token |
+| `/archive` | Administrator | Export/import message history (start/status/pause/resume subcommands) |
 
 #### `/migrate` Options (in order)
 1. `claim_code` — One-time code from Stoat admin (includes server ID — no separate ID needed)
@@ -95,9 +126,16 @@ The bot listens for `!stoatcord` prefix or `<@BOT_ID>` mentions in Stoat channel
 | `!stoatcord code` | Yes | Generate one-time claim code (encodes server ID) |
 | `!stoatcord request <guild_id>` | Yes | Send migration request embed to a Discord guild |
 | `!stoatcord status` | No | Show bridge link status for this Stoat server |
+| `!stoatcord ping <user_id>` | No | Send a mention to test push notifications |
+| `!stoatcord diag` | No | Run notification diagnostics |
+| `!stoatcord archive` | No | Show archive job status for the linked guild |
+| `!stoatcord push setup` | No | Generate a push token (sent via DM) |
+| `!stoatcord push revoke` | No | Revoke push token and unregister all devices |
+| `!stoatcord push status` | No | Check push registration status |
 | `!stoatcord help` | No | List available commands |
 
 Admin check: server owner OR member with `ManageServer` permission on any role.
+DM commands: `help`, `ping`, and `push` subcommands work in direct messages.
 
 ### Security Model — Dual-Admin Authorization
 
@@ -127,14 +165,18 @@ Every migration into an existing Stoat server requires fresh authorization from 
 5. In-memory Promise resolves → migration proceeds in Discord
 6. 5-minute timeout if no response
 
-### Database Tables (Schema v2)
+### Database Tables (Schema V7)
 - `schema_version` — Tracks DB schema version for incremental migrations
-- `server_links` — Discord guild ↔ Stoat server mappings (one-to-one), auth method + user tracking
-- `channel_links` — Discord channel ↔ Stoat channel with webhook credentials
+- `server_links` — Discord guild ↔ Stoat server mappings (one-to-one), auth method + user tracking, per-guild `api_token` (V6)
+- `channel_links` — Discord channel ↔ Stoat channel with webhook credentials, `last_bridged_stoat`/`last_bridged_discord` for gap detection
 - `role_links` — Discord role ↔ Stoat role mappings
 - `claim_codes` — One-time codes with creator/consumer tracking, 1-hour expiry
 - `migration_requests` — Live approval flow tracking (pending/approved/rejected/expired/cancelled)
 - `migration_log` — Audit trail with Discord + Stoat user IDs per operation
+- `bridge_messages` — Message ID pair tracking (Discord ID ↔ Stoat ID) for edit/delete/reply sync (V3)
+- `archive_jobs` — Archive export/import job tracking with progress and status (V5)
+- `archive_messages` — Archived message content storage for import (V5)
+- `push_tokens` — Per-user push notification tokens with user ID binding (V7)
 
 ## Android App Screens
 
@@ -181,12 +223,23 @@ Gated behind `canManage || permissions has PermissionBit.ManageChannel`.
 
 ### stoatcord-bot `.env`
 ```
-DISCORD_TOKEN=     # Discord bot token
-STOAT_TOKEN=       # Stoat bot token
-STOAT_API_BASE=    # Default: https://api.stoat.chat/0.8
-STOAT_WS_URL=      # Default: wss://events.stoat.chat
-API_PORT=3210      # HTTP API port
-API_KEY=           # Shared secret (optional)
+DISCORD_TOKEN=           # Discord bot token
+STOAT_TOKEN=             # Stoat bot token
+STOAT_API_BASE=          # Default: https://api.stoat.chat/0.8
+STOAT_WS_URL=            # Default: wss://events.stoat.chat
+STOAT_CDN_URL=           # Default: https://cdn.stoatusercontent.com
+STOAT_AUTUMN_URL=        # Default: https://autumn.stoat.chat
+API_PORT=3210            # HTTP API port
+API_KEY=                 # Admin API key (auto-generated if not set)
+DB_PATH=stoatcord.db     # SQLite database path (absolute for containers)
+PUSH_ENABLED=true        # Enable push notification relay
+FIREBASE_SERVICE_ACCOUNT= # Path to Firebase service account JSON
+FIREBASE_SA_JSON=        # Or inline JSON (for containers)
+VAPID_PUBLIC_KEY=        # WebPush VAPID public key
+VAPID_PRIVATE_KEY=       # WebPush VAPID private key
+PUSH_BOT_API_URL=        # Public URL for push registration
+CORS_ORIGINS=            # Comma-separated allowed origins (default: block all)
+TENOR_API_KEY=           # Tenor v2 API key (utility script only)
 ```
 
 ### Android App
@@ -196,11 +249,25 @@ Default bot API URL: `http://localhost:3210` (user must change to actual bot hos
 ## Status
 - Import wizard (Android): Complete
 - Bridge settings (Android): Complete
-- Bot HTTP API: Complete
-- Bot message relay: Complete (user avatar resolution implemented)
-- Discord slash commands: Complete (/migrate, /link, /unlink, /status)
-- Migration wizard (Discord): Complete — selective mode, dedup, categories
+- Bot HTTP API: Complete (admin, guild-scoped, and per-user push token auth)
+- Bot message relay: Complete (bidirectional with echo prevention)
+- Edit/delete sync: Complete (both directions)
+- Reaction sync: Complete (emoji react/unreact forwarding)
+- Typing indicators: Complete (bidirectional, 5s debounce)
+- Channel metadata sync: Complete (name, description, NSFW)
+- Reply chain preservation: Complete (bridge_messages table lookups)
+- Attachment re-hosting: Complete (Autumn CDN upload, URL fallback for >20MB)
+- Outage recovery: Complete (gap detection on WS reconnect, replays missed messages)
+- Discord slash commands: Complete (/migrate, /link, /unlink, /unlink-server, /status, /token, /archive)
+- Migration wizard (Discord): Complete — selective mode, dedup, categories, dry-run
 - Dual-admin auth system: Complete — claim codes, live approval, user tracking
-- Stoat command system: Complete — !stoatcord code/request/status/help
+- Stoat command system: Complete — code/request/status/ping/diag/archive/push/help
+- DM command support: Complete — help, ping, push commands work in DMs
 - Role migration: Complete (19+ Discord→Revolt permission mappings)
 - Category organization: Complete (maps Discord categories to Stoat server categories)
+- Archive system: Complete — export Discord history, import to Stoat via masquerade
+- Push notification relay: Complete — FCM (HTTP v1), WebPush (VAPID), UnifiedPush
+- Per-user push tokens: Complete — DM-based token issuance, scoped push endpoints
+- CI/CD: Complete — GitHub Actions deploys to Railway on push to main
+- Rate limiting: Complete — IP-based (60/min general, 10/min push)
+- SSRF protection: Complete — unified validator blocking private IPv4/IPv6/metadata

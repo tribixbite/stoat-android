@@ -46,6 +46,12 @@
     <string name="password_manager_hint">Using a password manager?</string>
     <string name="password_forgot_heading">Forgot your password?</string>
     <string name="password_forgot_instructions">Enter your email and we\'ll send you instructions on how to reset your password.</string>
+    <string name="password_forgot_send">Send Reset Email</string>
+    <string name="password_forgot_success">Password reset email sent! Check your inbox.</string>
+    <string name="resend_verification_title">Resend Verification</string>
+    <string name="resend_verification_instructions">Enter the email you registered with and we\'ll send a new verification email.</string>
+    <string name="resend_verification_send">Send</string>
+    <string name="resend_verification_success">Verification email sent! Check your inbox.</string>
 
     <string name="register_heading">Welcome to Stoat</string>
     <string name="register_image_alt">Use Stoat to chat about stuff.</string>
@@ -458,6 +464,11 @@
 
     <string name="member_context_sheet_open">Open member options</string>
     <string name="member_context_sheet_remove_from_channel">Remove from %1$s</string>
+
+    <string name="group_dm_add_member">Add Member</string>
+    <string name="group_dm_add_member_title">Add a friend to this group</string>
+    <string name="group_dm_add_member_success">Member added</string>
+    <string name="group_dm_add_member_search">Search friends…</string>
 
     <string name="user_badge_developer">Developer</string>
     <string name="user_badge_translator">Translator</string>
@@ -1248,6 +1259,9 @@
     <string name="bot_management_delete">Delete Bot</string>
     <string name="bot_management_delete_confirm">Are you sure you want to permanently delete this bot? This cannot be undone.</string>
     <string name="bot_management_invite_to">Invite to Server</string>
+    <string name="bot_management_invite_title">Invite bot to server</string>
+    <string name="bot_management_invite_select_server">Select a server</string>
+    <string name="bot_management_invite_success">Bot invited successfully</string>
     <string name="bot_management_description">Description</string>
     <string name="bot_management_description_hint">Describe your bot…</string>
     <string name="bot_management_avatar">Avatar</string>
@@ -1268,6 +1282,12 @@
     <string name="webhook_management_delete_confirm">Are you sure you want to delete this webhook?</string>
     <string name="webhook_management_channel">Channel</string>
     <string name="webhook_management_select_channel">Select a channel</string>
+    <string name="webhook_management_test">Test Webhook</string>
+    <string name="webhook_management_test_title">Send a test message</string>
+    <string name="webhook_management_test_content">Message content</string>
+    <string name="webhook_management_test_content_hint">Hello from the webhook!</string>
+    <string name="webhook_management_test_success">Message sent successfully</string>
+    <string name="webhook_management_test_no_token">Webhook token is required to test</string>
 
     <!-- Server settings additions -->
     <string name="server_settings_bots">Bots</string>

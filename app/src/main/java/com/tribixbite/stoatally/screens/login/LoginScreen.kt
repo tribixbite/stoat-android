@@ -1,6 +1,7 @@
 package com.tribixbite.stoatally.screens.login
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,8 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
@@ -29,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,17 +55,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.StoatApplication
-import com.tribixbite.stoatally.api.STOAT_WEB_APP
 import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.account.EmailPasswordAssessment
 import com.tribixbite.stoatally.api.routes.account.negotiateAuthentication
+import com.tribixbite.stoatally.api.routes.account.resendVerification
+import com.tribixbite.stoatally.api.routes.account.sendPasswordReset
 import com.tribixbite.stoatally.api.routes.onboard.needsOnboarding
 import com.tribixbite.stoatally.composables.generic.FormTextField
-import com.tribixbite.stoatally.composables.generic.Weblink
 import com.tribixbite.stoatally.persistence.KVStorage
 import com.tribixbite.stoatally.ui.theme.FragmentMono
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -176,6 +182,9 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
     val showPassword = remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var showResendVerifyDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.navigateTo) {
         when (viewModel.navigateTo) {
@@ -203,6 +212,146 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
         if (viewModel.navigateTo != null) {
             viewModel.navigationComplete()
         }
+    }
+
+    // Forgot password dialog — native API call
+    if (showForgotPasswordDialog) {
+        var resetEmail by remember { mutableStateOf(viewModel.email) }
+        var isSending by remember { mutableStateOf(false) }
+        var dialogError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isSending) showForgotPasswordDialog = false },
+            title = { Text(stringResource(R.string.password_forgot_heading)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.password_forgot_instructions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    OutlinedTextField(
+                        value = resetEmail,
+                        onValueChange = { resetEmail = it },
+                        label = { Text(stringResource(R.string.email)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSending
+                    )
+                    if (dialogError != null) {
+                        Text(
+                            dialogError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isSending = true
+                        dialogError = null
+                        scope.launch {
+                            val err = withContext(Dispatchers.IO) { sendPasswordReset(resetEmail) }
+                            if (err != null) {
+                                dialogError = err
+                            } else {
+                                Toast.makeText(context, R.string.password_forgot_success, Toast.LENGTH_LONG).show()
+                                showForgotPasswordDialog = false
+                            }
+                            isSending = false
+                        }
+                    },
+                    enabled = resetEmail.isNotBlank() && !isSending
+                ) {
+                    if (isSending) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.password_forgot_send))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showForgotPasswordDialog = false },
+                    enabled = !isSending
+                ) {
+                    Text(stringResource(R.string.back))
+                }
+            }
+        )
+    }
+
+    // Resend verification dialog — native API call
+    if (showResendVerifyDialog) {
+        var verifyEmail by remember { mutableStateOf(viewModel.email) }
+        var isSending by remember { mutableStateOf(false) }
+        var dialogError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isSending) showResendVerifyDialog = false },
+            title = { Text(stringResource(R.string.resend_verification_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.resend_verification_instructions),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    OutlinedTextField(
+                        value = verifyEmail,
+                        onValueChange = { verifyEmail = it },
+                        label = { Text(stringResource(R.string.email)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isSending
+                    )
+                    if (dialogError != null) {
+                        Text(
+                            dialogError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isSending = true
+                        dialogError = null
+                        scope.launch {
+                            val err = withContext(Dispatchers.IO) { resendVerification(verifyEmail) }
+                            if (err != null) {
+                                dialogError = err
+                            } else {
+                                Toast.makeText(context, R.string.resend_verification_success, Toast.LENGTH_LONG).show()
+                                showResendVerifyDialog = false
+                            }
+                            isSending = false
+                        }
+                    },
+                    enabled = verifyEmail.isNotBlank() && !isSending
+                ) {
+                    if (isSending) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.resend_verification_send))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showResendVerifyDialog = false },
+                    enabled = !isSending
+                ) {
+                    Text(stringResource(R.string.back))
+                }
+            }
+        )
     }
 
     Column(
@@ -287,11 +436,15 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                     }
                 )
 
-                Weblink(
-                    text = stringResource(R.string.password_forgot),
-                    url = "$STOAT_WEB_APP/login/reset",
+                TextButton(
+                    onClick = { showForgotPasswordDialog = true },
                     modifier = Modifier.padding(vertical = 7.dp)
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.password_forgot),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
 
                 viewModel.error?.let { errorText ->
                     Text(
@@ -313,13 +466,17 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel = hiltVi
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Weblink(
-                text = stringResource(R.string.resend_verification),
-                url = "$STOAT_WEB_APP/login/resend",
+            TextButton(
+                onClick = { showResendVerifyDialog = true },
                 modifier = Modifier
                     .padding(vertical = 7.dp)
                     .testTag("resend_verification_link")
-            )
+            ) {
+                Text(
+                    text = stringResource(R.string.resend_verification),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

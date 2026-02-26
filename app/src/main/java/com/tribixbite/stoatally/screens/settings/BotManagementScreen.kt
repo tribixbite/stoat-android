@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.STOAT_FILES
+import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.bots.BotInfo
 import com.tribixbite.stoatally.api.routes.bots.OwnedBotsResponse
 import com.tribixbite.stoatally.api.routes.bots.createBot
@@ -65,6 +66,7 @@ import com.tribixbite.stoatally.api.routes.bots.deleteBot
 import com.tribixbite.stoatally.api.routes.bots.editBot
 import com.tribixbite.stoatally.api.routes.bots.editBotUserProfile
 import com.tribixbite.stoatally.api.routes.bots.fetchOwnedBots
+import com.tribixbite.stoatally.api.routes.bots.inviteBot
 import com.tribixbite.stoatally.api.routes.microservices.autumn.AutumnUploadType
 import com.tribixbite.stoatally.api.routes.microservices.autumn.ImageProcessor
 import com.tribixbite.stoatally.api.routes.microservices.autumn.uploadToAutumn
@@ -302,6 +304,7 @@ private fun BotListItem(
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showInviteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
@@ -359,6 +362,91 @@ private fun BotListItem(
                 }
                 isDeleting = false
                 showDeleteDialog = false
+            }
+        }
+    }
+
+    // Invite bot to server dialog
+    if (showInviteDialog) {
+        var selectedServerId by remember { mutableStateOf<String?>(null) }
+        var isInviting by remember { mutableStateOf(false) }
+        var inviteError by remember { mutableStateOf<String?>(null) }
+        val servers = remember { StoatAPI.serverCache.entries.toList() }
+
+        AlertDialog(
+            onDismissRequest = { if (!isInviting) showInviteDialog = false },
+            title = { Text(stringResource(R.string.bot_management_invite_title)) },
+            text = {
+                Column {
+                    if (servers.isEmpty()) {
+                        Text(
+                            stringResource(R.string.bot_management_invite_select_server),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        servers.forEach { (id, server) ->
+                            ListItem(
+                                headlineContent = { Text(server.name ?: id) },
+                                leadingContent = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.icn_language_24dp),
+                                        contentDescription = null,
+                                        tint = if (selectedServerId == id) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                modifier = Modifier.clickable { selectedServerId = id }
+                            )
+                        }
+                    }
+                    if (inviteError != null) {
+                        Text(
+                            inviteError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isInviting = true
+                        inviteError = null
+                    },
+                    enabled = selectedServerId != null && !isInviting
+                ) {
+                    if (isInviting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(20.dp).width(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(stringResource(R.string.bot_management_invite_to))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showInviteDialog = false },
+                    enabled = !isInviting
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+
+        if (isInviting && selectedServerId != null) {
+            LaunchedEffect(selectedServerId) {
+                try {
+                    withContext(Dispatchers.IO) { inviteBot(bot.id ?: "", serverId = selectedServerId) }
+                    Toast.makeText(context, R.string.bot_management_invite_success, Toast.LENGTH_SHORT).show()
+                    showInviteDialog = false
+                } catch (e: Exception) {
+                    inviteError = e.message
+                }
+                isInviting = false
             }
         }
     }
@@ -691,6 +779,13 @@ private fun BotListItem(
                         } else {
                             Text(stringResource(R.string.server_settings_save))
                         }
+                    }
+
+                    // Invite to server button
+                    TextButton(
+                        onClick = { showInviteDialog = true }
+                    ) {
+                        Text(stringResource(R.string.bot_management_invite_to))
                     }
 
                     Spacer(Modifier.weight(1f))

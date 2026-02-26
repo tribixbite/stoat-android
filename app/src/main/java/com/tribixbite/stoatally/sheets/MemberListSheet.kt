@@ -3,23 +3,31 @@ package com.tribixbite.stoatally.sheets
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,8 +36,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -39,9 +49,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.api.internals.FriendRequests
 import com.tribixbite.stoatally.api.internals.PermissionBit
 import com.tribixbite.stoatally.api.internals.Roles
 import com.tribixbite.stoatally.api.internals.hasPermission
+import com.tribixbite.stoatally.api.routes.channel.addMember
 import com.tribixbite.stoatally.api.routes.channel.fetchGroupParticipants
 import com.tribixbite.stoatally.api.routes.server.fetchMembers
 import com.tribixbite.stoatally.composables.chat.MemberListItem
@@ -53,7 +65,9 @@ import com.tribixbite.stoatally.core.model.schemas.Member
 import com.tribixbite.stoatally.core.model.schemas.User
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 val DO_NOT_FETCH_OFFLINE_MEMBERS_SERVERS = listOf(
@@ -299,6 +313,110 @@ fun MemberListSheet(
         }
     }
 
+    // Add member to group DM
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var showAddMemberDialog by remember { mutableStateOf(false) }
+    val channel = StoatAPI.channelCache[channelId]
+    val isGroupOwner = serverId == null && channel?.owner == StoatAPI.selfId
+
+    if (showAddMemberDialog) {
+        var friendSearch by remember { mutableStateOf("") }
+        var isAdding by remember { mutableStateOf(false) }
+        val currentMemberIds = remember {
+            viewModel.fullItemList.mapNotNull { item ->
+                when (item) {
+                    is MemberListSheetItem.UserItem -> item.user.id
+                    is MemberListSheetItem.MemberItem -> item.member.id?.user
+                    else -> null
+                }
+            }.toSet()
+        }
+        // Friends not already in the group
+        val availableFriends = remember(friendSearch, currentMemberIds) {
+            FriendRequests.getFriends().filter { friend ->
+                friend.id !in currentMemberIds &&
+                        (friendSearch.isBlank() ||
+                                friend.displayName?.contains(friendSearch, ignoreCase = true) == true ||
+                                friend.username?.contains(friendSearch, ignoreCase = true) == true)
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { if (!isAdding) showAddMemberDialog = false },
+            title = { Text(stringResource(R.string.group_dm_add_member_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = friendSearch,
+                        onValueChange = { friendSearch = it },
+                        placeholder = { Text(stringResource(R.string.group_dm_add_member_search)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isAdding
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyColumn(modifier = Modifier.height(250.dp)) {
+                        items(availableFriends.size) { index ->
+                            val friend = availableFriends[index]
+                            ListItem(
+                                headlineContent = {
+                                    Text(friend.displayName ?: friend.username ?: "")
+                                },
+                                supportingContent = {
+                                    if (friend.displayName != null && friend.username != null) {
+                                        Text("@${friend.username}")
+                                    }
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.icn_account_circle_24dp),
+                                        contentDescription = null
+                                    )
+                                },
+                                modifier = Modifier.clickable {
+                                    if (!isAdding) {
+                                        isAdding = true
+                                        scope.launch {
+                                            try {
+                                                withContext(Dispatchers.IO) {
+                                                    addMember(channelId, friend.id ?: "")
+                                                }
+                                                Toast.makeText(context, R.string.group_dm_add_member_success, Toast.LENGTH_SHORT).show()
+                                                // Refresh member list
+                                                viewModel.fetchGroupMemberList(channelId)
+                                                showAddMemberDialog = false
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                            isAdding = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    if (isAdding) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .padding(top = 8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { showAddMemberDialog = false },
+                    enabled = !isAdding
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
     var searchQuery by remember { mutableStateOf("") }
 
     // Filter items based on search query
@@ -346,10 +464,25 @@ fun MemberListSheet(
         }
 
         SheetHeaderPadding {
-            Text(
-                text = stringResource(R.string.channel_info_sheet_options_members),
-                style = MaterialTheme.typography.headlineSmall
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.channel_info_sheet_options_members),
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                // Add member button — only for group DM owners
+                if (isGroupOwner) {
+                    IconButton(onClick = { showAddMemberDialog = true }) {
+                        Icon(
+                            painter = painterResource(R.drawable.icn_group_add_24dp),
+                            contentDescription = stringResource(R.string.group_dm_add_member)
+                        )
+                    }
+                }
+            }
         }
 
         // Search field

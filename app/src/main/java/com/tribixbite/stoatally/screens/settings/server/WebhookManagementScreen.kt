@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,12 +61,14 @@ import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.webhooks.createWebhook
 import com.tribixbite.stoatally.api.routes.webhooks.deleteWebhook
 import com.tribixbite.stoatally.api.routes.webhooks.editWebhook
+import com.tribixbite.stoatally.api.routes.webhooks.executeWebhook
 import com.tribixbite.stoatally.api.routes.webhooks.fetchChannelWebhooks
 import com.tribixbite.stoatally.core.model.schemas.Channel
 import com.tribixbite.stoatally.core.model.schemas.ChannelType
 import com.tribixbite.stoatally.core.model.schemas.Webhook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -351,8 +354,10 @@ private fun WebhookListItem(
     onDeleted: () -> Unit,
     onUpdated: (Webhook) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showTestDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
@@ -398,6 +403,82 @@ private fun WebhookListItem(
                 showDeleteDialog = false
             }
         }
+    }
+
+    // Test webhook dialog
+    if (showTestDialog) {
+        var testContent by remember { mutableStateOf("") }
+        var isTesting by remember { mutableStateOf(false) }
+        var testError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isTesting) showTestDialog = false },
+            title = { Text(stringResource(R.string.webhook_management_test_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = testContent,
+                        onValueChange = { testContent = it },
+                        label = { Text(stringResource(R.string.webhook_management_test_content)) },
+                        placeholder = { Text(stringResource(R.string.webhook_management_test_content_hint)) },
+                        singleLine = false,
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isTesting
+                    )
+                    if (testError != null) {
+                        Text(
+                            testError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        isTesting = true
+                        testError = null
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    executeWebhook(
+                                        webhookId = webhook.id ?: "",
+                                        token = webhook.token ?: "",
+                                        content = testContent.ifBlank { null }
+                                    )
+                                }
+                                Toast.makeText(context, R.string.webhook_management_test_success, Toast.LENGTH_SHORT).show()
+                                showTestDialog = false
+                            } catch (e: Exception) {
+                                testError = e.message
+                            }
+                            isTesting = false
+                        }
+                    },
+                    enabled = testContent.isNotBlank() && !isTesting
+                ) {
+                    if (isTesting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.height(20.dp).width(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(stringResource(R.string.webhook_management_test))
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showTestDialog = false },
+                    enabled = !isTesting
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 
     // Save edits
@@ -551,6 +632,13 @@ private fun WebhookListItem(
                             )
                         } else {
                             Text(stringResource(R.string.server_settings_save))
+                        }
+                    }
+
+                    // Test webhook button — only if token is available
+                    if (webhook.token != null) {
+                        TextButton(onClick = { showTestDialog = true }) {
+                            Text(stringResource(R.string.webhook_management_test))
                         }
                     }
 

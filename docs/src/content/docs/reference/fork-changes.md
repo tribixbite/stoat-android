@@ -481,7 +481,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-All 121 Stoat API endpoints have route functions (100% API coverage). ~110 endpoints have full GUI (screens/sheets/composables wired). ~11 endpoints are API-only with no GUI trigger: bot invite/public bot browse, webhook execute, webhook token-auth variants, resend email verification, password reset confirm, group DM add member, end voice ring, policy acknowledge, join invite by code. All 6 phases complete including Discord bridge integration. 39 Discord features require backend API changes and cannot be implemented client-side (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
+All 121 Stoat API endpoints have route functions (100% API coverage). ~117 endpoints have full GUI wired. Remaining API-only endpoints: `fetchPublicBot` (needs discovery screen), `confirmPasswordReset` (needs deep link handler), `endRing` (voice disabled), `acknowledgePolicies` (login flow auto-call). All 6 phases complete including Discord bridge integration. 39 Discord features require backend API changes and cannot be implemented client-side (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -519,7 +519,7 @@ All 121 Stoat API endpoints have route functions (100% API coverage). ~110 endpo
 | Block/unblock users | `PUT/DELETE /users/{id}/block` | **Done** |
 | Friend requests | `POST /users/friend`, `PUT/DELETE /users/{id}/friend` | **Done** (send, accept, unfriend) |
 | Open DM channel | `GET /users/{id}/dm` | **Done** |
-| Group DM management | `POST /channels/create`, `PUT/DELETE /channels/{id}/recipients/{userId}` | **Done** |
+| Group DM management | `POST /channels/create`, `PUT/DELETE /channels/{id}/recipients/{userId}` | **Done** (add member via friend picker in MemberListSheet) |
 | Content reporting | `POST /safety/report` | **Done** (messages, servers, users) |
 
 ### Phase 4: Content Management (Medium Priority) — Complete
@@ -558,8 +558,8 @@ All 121 Stoat API endpoints have route functions (100% API coverage). ~110 endpo
 | Webhook CRUD (auth) | `GET/PATCH/DELETE /webhooks/{id}` | **Done** (3) |
 | Webhook CRUD (token) | `GET/PATCH/DELETE /webhooks/{id}/{token}` | **Done** (3) |
 | Webhook execute | `POST /webhooks/{id}/{token}` | **Done** |
-| Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy, avatar, description) |
-| Webhook management UI | `WebhookManagementScreen` | **Done** (create, edit, delete, URL copy) |
+| Bot management UI | `BotManagementScreen` | **Done** (create, edit, delete, token copy, avatar, description, invite to server) |
+| Webhook management UI | `WebhookManagementScreen` | **Done** (create, edit, delete, URL copy, test webhook execution) |
 
 ### Phase 6: Polish & Edge Cases (Low Priority) — Complete
 | Feature | Endpoints | Status |
@@ -573,7 +573,8 @@ All 121 Stoat API endpoints have route functions (100% API coverage). ~110 endpo
 | FCM notification-only handling | `HandlerService` fallback | **Done** |
 | Robust push registration | `ChatRouterScreen` retry logic | **Done** |
 | Push relay via bot | `PushManager` + bot HTTP API | **Done** (FCM via stoatcord-bot) |
-| Password reset | `POST/PATCH /auth/account/reset_password` | **Done** (2 endpoints) |
+| Password reset | `POST/PATCH /auth/account/reset_password` | **Done** (2 endpoints, native dialog on login screen) |
+| Resend verification | `POST /auth/account/reverify` | **Done** (native dialog on login screen) |
 | Email verify (code) | `POST /auth/account/verify/{code}` | **Done** |
 | Mass mention parsing | `@everyone`/`@here` in markdown | **Done** (MassMentionParser + renderer) |
 | Webhook info sheet | `WebHookUserSheet` | **Done** (replaces stub) |

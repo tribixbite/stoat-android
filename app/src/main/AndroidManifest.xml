@@ -155,6 +155,20 @@
                     <data android:pathPrefix="/discover/" />
                 </uri-relative-filter-group>
             </intent-filter>
+            <!-- Bot invite links (discover page bot cards) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="app.revolt.chat" />
+
+                <data android:pathPrefix="/bot/" />
+            </intent-filter>
             <!-- Stoat invite links -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -168,6 +182,19 @@
                 <data android:host="stoat.chat" />
 
                 <data android:pathPrefix="/invite/" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="stoat.chat" />
+
+                <data android:pathPrefix="/bot/" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

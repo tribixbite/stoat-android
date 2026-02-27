@@ -102,7 +102,9 @@ fun ColumnScope.DiscoverView() {
                             view: WebView?,
                             request: WebResourceRequest?
                         ): Boolean {
-                            val host = request?.url?.host ?: return true
+                            val url = request?.url ?: return true
+                            val host = url.host ?: return true
+                            val path = url.path ?: ""
                             // All known Revolt/Stoat invite and app domains
                             val inviteHosts = setOf(
                                 Uri.parse(STOAT_WEB_APP).host,  // stoat.chat
@@ -112,12 +114,18 @@ fun ColumnScope.DiscoverView() {
                             )
 
                             if (host in inviteHosts) {
-                                // Route invite/server URLs to InviteActivity
+                                // Let discover page tab navigation stay in WebView
+                                // (servers/bots/themes tabs)
+                                if (path.startsWith("/discover")) {
+                                    return false
+                                }
+
+                                // Route invite/bot/server URLs to InviteActivity
                                 val intent = Intent(
                                     context,
                                     InviteActivity::class.java
                                 ).setAction(Intent.ACTION_VIEW)
-                                intent.data = request.url
+                                intent.data = url
                                 context.startActivity(intent)
                                 return true
                             }

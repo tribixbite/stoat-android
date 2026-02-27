@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +51,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tribixbite.stoatally.R
 import com.tribixbite.stoatally.api.STOAT_FILES
+import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.StoatAPIError
+import com.tribixbite.stoatally.api.routes.bots.PublicBot
+import com.tribixbite.stoatally.api.routes.bots.fetchPublicBot
+import com.tribixbite.stoatally.api.routes.bots.inviteBot
 import com.tribixbite.stoatally.api.routes.invites.fetchInviteByCode
 import com.tribixbite.stoatally.api.routes.invites.joinInviteByCode
 import com.tribixbite.stoatally.core.model.schemas.Invite
@@ -61,22 +68,36 @@ import com.tribixbite.stoatally.composables.generic.RemoteImage
 import com.tribixbite.stoatally.ui.theme.StoatTheme
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class InviteActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val inviteCode = intent.data?.lastPathSegment
+        val uri = intent.data
+        val path = uri?.path ?: ""
+        // Detect /bot/{botId} URLs from discover page bot cards
+        val isBotInvite = path.startsWith("/bot/")
+        val botId = if (isBotInvite) uri?.lastPathSegment else null
+        val inviteCode = if (!isBotInvite) uri?.lastPathSegment else null
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.Transparent.toArgb()
 
         setContent {
-            InviteScreen(
-                inviteCode = inviteCode,
-                onFinish = { finish() }
-            )
+            if (isBotInvite && botId != null) {
+                BotInviteScreen(
+                    botId = botId,
+                    onFinish = { finish() }
+                )
+            } else {
+                InviteScreen(
+                    inviteCode = inviteCode,
+                    onFinish = { finish() }
+                )
+            }
         }
     }
 }
@@ -319,6 +340,245 @@ fun InvalidInviteError(error: StoatAPIError? = null, onDismissRequest: () -> Uni
         },
         confirmButton = {}
     )
+}
+
+/** Bot invite screen — fetches public bot info and shows a server picker to add it. */
+@Composable
+fun BotInviteScreen(
+    botId: String,
+    onFinish: () -> Unit = {}
+) {
+    var bot by remember { mutableStateOf<PublicBot?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Server picker state
+    var selectedServerId by remember { mutableStateOf<String?>(null) }
+    var isInviting by remember { mutableStateOf(false) }
+    var inviteError by remember { mutableStateOf<String?>(null) }
+    val servers = remember { StoatAPI.serverCache.entries.toList() }
+    val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(botId) {
+        try {
+            bot = withContext(Dispatchers.IO) { fetchPublicBot(botId) }
+        } catch (e: Exception) {
+            errorMessage = e.message ?: "Failed to fetch bot"
+        }
+        isLoading = false
+    }
+
+    StoatTheme(
+        requestedTheme = LoadedSettings.theme,
+        requestedUserInterfaceFont = LoadedSettings.font,
+        colourOverrides = SyncedSettings.android.colourOverrides
+    ) {
+        Surface(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .fillMaxSize()
+        ) {
+            when {
+                isLoading -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                    }
+                }
+
+                errorMessage != null -> {
+                    AlertDialog(
+                        onDismissRequest = onFinish,
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.icn_error_24dp),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        },
+                        title = {
+                            Text(
+                                text = stringResource(R.string.invite_error_header),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = errorMessage ?: "",
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        dismissButton = {
+                            TextButton(onClick = onFinish) {
+                                Text(stringResource(R.string.invite_cancel))
+                            }
+                        },
+                        confirmButton = {}
+                    )
+                }
+
+                bot != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Bot avatar
+                            val avatarUrl = bot?.avatar?.let { "$STOAT_FILES/avatars/$it" }
+                            if (avatarUrl != null) {
+                                RemoteImage(
+                                    url = avatarUrl,
+                                    allowAnimation = false,
+                                    description = bot?.username ?: stringResource(R.string.unknown),
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                )
+                            } else {
+                                IconPlaceholder(
+                                    name = bot?.username ?: "?",
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                )
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Text(
+                                text = bot?.username ?: stringResource(R.string.unknown),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 24.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            bot?.description?.let { desc ->
+                                if (desc.isNotBlank()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        text = desc,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // Server picker
+                            Text(
+                                text = stringResource(R.string.bot_management_invite_select_server),
+                                style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+
+                            if (servers.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.invite_error_unknown),
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            } else {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    servers.forEach { (id, server) ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(MaterialTheme.shapes.small)
+                                                .background(
+                                                    if (selectedServerId == id)
+                                                        MaterialTheme.colorScheme.primaryContainer
+                                                    else MaterialTheme.colorScheme.surfaceContainerHigh
+                                                )
+                                                .clickable { selectedServerId = id }
+                                                .padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = server.name ?: id,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (selectedServerId == id)
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                        Spacer(Modifier.height(4.dp))
+                                    }
+                                }
+                            }
+
+                            inviteError?.let { err ->
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    text = err,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Row {
+                                Button(
+                                    onClick = {
+                                        val serverId = selectedServerId ?: return@Button
+                                        isInviting = true
+                                        inviteError = null
+                                        coroutineScope.launch {
+                                            try {
+                                                withContext(Dispatchers.IO) {
+                                                    inviteBot(botId, serverId = serverId)
+                                                }
+                                                onFinish()
+                                            } catch (e: Exception) {
+                                                inviteError = e.message
+                                            }
+                                            isInviting = false
+                                        }
+                                    },
+                                    enabled = selectedServerId != null && !isInviting
+                                ) {
+                                    if (isInviting) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Text(stringResource(R.string.bot_management_invite_to))
+                                    }
+                                }
+
+                                Spacer(Modifier.width(8.dp))
+
+                                TextButton(onClick = onFinish) {
+                                    Text(stringResource(R.string.invite_cancel))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

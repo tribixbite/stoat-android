@@ -44,7 +44,7 @@ import com.tribixbite.stoatally.core.model.schemas.AutumnResource
 import com.tribixbite.stoatally.core.model.schemas.Profile
 import com.tribixbite.stoatally.core.model.schemas.User
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SelfUserOverview() {
@@ -82,7 +82,7 @@ fun RawUserOverview(
     var teamMemberFlair by remember { mutableStateOf<Brush?>(null) }
 
     LaunchedEffect(user) {
-        runBlocking(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             user.id?.let {
                 teamMemberFlair = SpecialUsers.teamFlairAsBrush(
                     context,

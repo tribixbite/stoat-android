@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.tribixbite.stoatally.BuildConfig
 import com.tribixbite.stoatally.R
@@ -43,7 +44,8 @@ import com.tribixbite.stoatally.api.settings.LoadedSettings
 import com.tribixbite.stoatally.composables.generic.ListHeader
 import com.tribixbite.stoatally.persistence.KVStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -51,14 +53,13 @@ class SettingsScreenViewModel @Inject constructor(
     private val kvStorage: KVStorage
 ) : ViewModel() {
     fun logout() {
-        runBlocking {
-            // Unsubscribe push and revoke session server-side before clearing local state
-            try {
-                unsubscribePush()
-            } catch (_: Exception) { /* best-effort */ }
-            try {
-                logoutCurrentSession()
-            } catch (_: Exception) { /* best-effort — server may be unreachable */ }
+        // Fire-and-forget server-side cleanup (best-effort, don't block UI)
+        viewModelScope.launch(Dispatchers.IO) {
+            try { unsubscribePush() } catch (_: Exception) { }
+            try { logoutCurrentSession() } catch (_: Exception) { }
+        }
+        // Clear local state asynchronously — completes before login screen composes
+        viewModelScope.launch {
             kvStorage.remove("sessionToken")
             kvStorage.remove("fcmToken")
             kvStorage.remove("pushRegistrationFailed")

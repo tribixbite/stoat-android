@@ -161,11 +161,17 @@ val mainHandler = Handler(Looper.getMainLooper())
 object StoatAPI {
     const val TOKEN_HEADER_NAME = "x-session-token"
 
-    val userCache = mutableStateMapOf<String, User>()
+    // LRU-bounded: grows as user browses channels with different authors
+    val userCache: MutableMap<String, User> = SnapshotStateLruMap(maxSize = 2000)
+    // Naturally bounded by servers user has joined — no eviction needed
     val serverCache = mutableStateMapOf<String, Server>()
+    // Naturally bounded by channels across joined servers — no eviction needed
     val channelCache = mutableStateMapOf<String, ChannelSchema>()
-    val emojiCache = mutableStateMapOf<String, Emoji>()
+    // LRU-bounded: grows as user encounters emoji from different servers
+    val emojiCache: MutableMap<String, Emoji> = SnapshotStateLruMap(maxSize = 3000)
+    // LRU-bounded: 2000 most recent messages retained
     val messageCache: MutableMap<String, Message> = SnapshotStateLruMap(maxSize = 2000)
+    // Naturally bounded by active voice sessions — no eviction needed
     val voiceStateCache = mutableStateMapOf<String, ChannelVoiceState>()
 
     val members = Members()

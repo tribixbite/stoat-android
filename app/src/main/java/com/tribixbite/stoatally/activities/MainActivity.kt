@@ -108,6 +108,7 @@ import com.tribixbite.stoatally.screens.create.CreateGroupScreen
 import com.tribixbite.stoatally.screens.labs.LabsRootScreen
 import com.tribixbite.stoatally.screens.login.LoginGreetingScreen
 import com.tribixbite.stoatally.screens.login.LoginScreen
+import com.tribixbite.stoatally.screens.login.PasswordResetConfirmScreen
 import com.tribixbite.stoatally.screens.login.MfaScreen
 import com.tribixbite.stoatally.screens.login2.InitScreen
 import com.tribixbite.stoatally.screens.main.MainScreen
@@ -172,6 +173,9 @@ class MainActivityViewModel @Inject constructor(
     // Channel ID from notification tap — consumed after login to navigate directly
     var pendingNotificationChannelId: String? = null
 
+    // Deep link route — consumed before login state check to bypass normal flow
+    var pendingDeepLinkRoute: String? = null
+
     /**
      * Extract channelId from a notification tap intent.
      * Called from onCreate before the login state check coroutine progresses.
@@ -181,6 +185,22 @@ class MainActivityViewModel @Inject constructor(
         if (channelId != null) {
             Log.d("MainActivity", "Notification tap: pending navigation to channel $channelId")
             pendingNotificationChannelId = channelId
+        }
+    }
+
+    /**
+     * Extract deep link route from a password reset URI.
+     * Called from onCreate before the login state check coroutine progresses.
+     */
+    fun handleDeepLinkIntent(intent: Intent?) {
+        val uri = intent?.data ?: return
+        val path = uri.path ?: return
+        if (path.startsWith("/login/reset/")) {
+            val token = path.removePrefix("/login/reset/").trimEnd('/')
+            if (token.isNotEmpty()) {
+                Log.d("MainActivity", "Deep link: password reset with token $token")
+                pendingDeepLinkRoute = "login/reset/$token"
+            }
         }
     }
 
@@ -195,6 +215,8 @@ class MainActivityViewModel @Inject constructor(
         viewModelScope.launch {
             ActionChannel.send(Action.SwitchChannel(channelId))
         }
+        // TODO: Handle deep link intents (e.g. password reset) in warm-start via
+        // a shared StateFlow observed in AppEntrypoint, or by restarting the activity
     }
 
     private fun hasInternetConnection(): Boolean {
@@ -268,6 +290,15 @@ class MainActivityViewModel @Inject constructor(
             com.tribixbite.stoatally.api.InstanceConfig.loadFromStorage(kvStorage)
 
             isConnected.emit(hasInternetConnection())
+
+            // If launched via deep link (e.g. password reset from email),
+            // navigate directly to that route and skip normal login flow
+            pendingDeepLinkRoute?.let { route ->
+                Log.d("MainActivity", "Deep link pending: navigating to $route")
+                pendingDeepLinkRoute = null
+                startWithDestination(route)
+                return@launch
+            }
 
             Log.d("MainActivity", "Checking if we can reach instance (${com.tribixbite.stoatally.api.InstanceConfig.instanceName})")
 
@@ -397,7 +428,9 @@ class MainActivityViewModel @Inject constructor(
     init {
         Log.d("MainActivity", "Starting up")
         doPreStartupTasks()
-        checkLoggedInState()
+        // Note: checkLoggedInState() is called from onCreate after intent parsing
+        // so that deep link routes and notification channel IDs are set before the
+        // login flow checks them.
     }
 }
 
@@ -428,8 +461,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Extract notification channel ID before the ViewModel's login coroutine progresses
+        // Extract notification channel ID or deep link route, then start login flow.
+        // Order matters: intent parsing must complete before checkLoggedInState() so
+        // pendingDeepLinkRoute and pendingNotificationChannelId are set when checked.
         viewModel.handleNotificationIntent(intent)
+        viewModel.handleDeepLinkIntent(intent)
+        viewModel.checkLoggedInState()
 
         SentryAndroid.init(this) { options ->
             options.dsn = BuildConfig.SENTRY_DSN
@@ -673,6 +710,11 @@ fun AppEntrypoint(
                             backStackEntry.arguments?.getString("allowedAuthTypes") ?: ""
 
                         MfaScreen(navController, allowedAuthTypes, mfaTicket)
+                    }
+
+                    composable("login/reset/{token}") { backStackEntry ->
+                        val token = backStackEntry.arguments?.getString("token") ?: ""
+                        PasswordResetConfirmScreen(navController, token)
                     }
 
                     composable("register/greeting") { RegisterGreetingScreen(navController) }

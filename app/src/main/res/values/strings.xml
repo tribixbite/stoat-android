@@ -48,6 +48,16 @@
     <string name="password_forgot_instructions">Enter your email and we\'ll send you instructions on how to reset your password.</string>
     <string name="password_forgot_send">Send Reset Email</string>
     <string name="password_forgot_success">Password reset email sent! Check your inbox.</string>
+    <string name="password_reset_confirm_title">Reset Password</string>
+    <string name="password_reset_confirm_instructions">Enter your new password below.</string>
+    <string name="password_reset_confirm_new_password">New password</string>
+    <string name="password_reset_confirm_confirm_password">Confirm new password</string>
+    <string name="password_reset_confirm_revoke_sessions">Log out other sessions</string>
+    <string name="password_reset_confirm_revoke_sessions_desc">Sign out of all other devices after resetting</string>
+    <string name="password_reset_confirm_too_short">Password must be at least 8 characters</string>
+    <string name="password_reset_confirm_mismatch">Passwords do not match</string>
+    <string name="password_reset_confirm_success">Password reset successfully! Please log in.</string>
+    <string name="password_reset_confirm_submit">Reset Password</string>
     <string name="resend_verification_title">Resend Verification</string>
     <string name="resend_verification_instructions">Enter the email you registered with and we\'ll send a new verification email.</string>
     <string name="resend_verification_send">Send</string>

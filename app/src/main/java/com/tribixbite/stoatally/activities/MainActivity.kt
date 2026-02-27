@@ -94,6 +94,7 @@ import com.tribixbite.stoatally.api.settings.LoadedSettings
 import com.tribixbite.stoatally.api.settings.SyncedSettings
 import com.tribixbite.stoatally.composables.generic.HealthAlert
 import com.tribixbite.stoatally.composables.voice.VoicePermissionSwitch
+import com.tribixbite.stoatally.composables.voice.VoiceSheet
 import com.tribixbite.stoatally.material.EasingTokens
 import com.tribixbite.stoatally.ndk.NativeLibraries
 import com.tribixbite.stoatally.persistence.KVStorage
@@ -952,18 +953,14 @@ fun AppEntrypoint(
                                 showVoiceUI = false
                             }
                         ) {
-                            LaunchedEffect(Unit) {
-                                showVoiceUI = false
-                                voiceChannelId = null
-                            }
                             voiceChannelId?.let {
-                                /*VoiceSheet(
+                                VoiceSheet(
                                     it,
                                     onDisconnect = {
                                         showVoiceUI = false
                                         voiceChannelId = null
                                     }
-                                )*/
+                                )
                             }
                         }
                     }

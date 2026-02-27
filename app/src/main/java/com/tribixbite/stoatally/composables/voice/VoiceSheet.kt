@@ -1,5 +1,5 @@
 package com.tribixbite.stoatally.composables.voice
-/*
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -46,6 +46,8 @@ import io.livekit.android.compose.local.RoomScope
 import io.livekit.android.compose.state.rememberTracks
 import io.livekit.android.compose.ui.VideoTrackView
 import io.livekit.android.room.Room
+import io.livekit.android.room.track.LocalAudioTrack
+import io.livekit.android.room.track.LocalVideoTrack
 import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
@@ -70,6 +72,9 @@ class VoiceSheetViewModel(private val state: SavedStateHandle) : ViewModel() {
 
     var errorResource by mutableStateOf<Int?>(null)
         private set
+
+    var isMuted by mutableStateOf(false)
+    var isVideoEnabled by mutableStateOf(false)
 
     suspend fun getVoiceToken() {
         errorResource = null
@@ -138,7 +143,7 @@ fun VoiceSheet(
             LazyColumn(modifier = Modifier.animateContentSize()) {
                 val voiceStates = StoatAPI.voiceStateCache[viewModel.channelId]
                 items(voiceStates?.participants?.size ?: 0) { index ->
-                    val participantState = voiceStates?.participants[index]
+                    val participantState = voiceStates?.participants?.get(index)
                     participantState?.let {
                         VoiceParticipant(
                             state = participantState,
@@ -155,7 +160,8 @@ fun VoiceSheet(
                 }
                 item(key = "status") {
                     AnimatedContent(
-                        room.state
+                        room.state,
+                        label = "voiceStatus"
                     ) { roomState ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(
@@ -224,12 +230,22 @@ fun VoiceSheet(
                     bottom = 16.dp,
                 )
             ) {
+                // Mute/unmute microphone
                 Button(
                     onClick = {
+                        val localParticipant = room.localParticipant
+                        val audioTrack = localParticipant.trackPublications.values
+                            .firstOrNull { it.track is LocalAudioTrack }?.track as? LocalAudioTrack
+                        if (audioTrack != null) {
+                            viewModel.isMuted = !viewModel.isMuted
+                            audioTrack.enabled = !viewModel.isMuted
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = if (viewModel.isMuted) MaterialTheme.colorScheme.errorContainer
+                        else MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = if (viewModel.isMuted) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onSecondaryContainer
                     ),
                     shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
@@ -237,17 +253,34 @@ fun VoiceSheet(
                         .height(64.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.icn_mic_off_24dp),
+                        painter = painterResource(
+                            if (viewModel.isMuted) R.drawable.icn_mic_off_24dp
+                            else R.drawable.icn_mic_24dp
+                        ),
                         contentDescription = stringResource(R.string.voice_toggle_mute)
                     )
                 }
                 Spacer(Modifier.width(4.dp))
+                // Toggle video
                 Button(
                     onClick = {
+                        val localParticipant = room.localParticipant
+                        val videoTrack = localParticipant.trackPublications.values
+                            .firstOrNull { it.track is LocalVideoTrack }?.track as? LocalVideoTrack
+                        if (videoTrack != null) {
+                            viewModel.isVideoEnabled = !viewModel.isVideoEnabled
+                            videoTrack.enabled = viewModel.isVideoEnabled
+                        } else if (!viewModel.isVideoEnabled) {
+                            // TODO: Publish new camera track via room.localParticipant.setCameraEnabled(true)
+                            // when LiveKit Compose APIs stabilize
+                            viewModel.isVideoEnabled = true
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = if (viewModel.isVideoEnabled) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = if (viewModel.isVideoEnabled) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSecondaryContainer
                     ),
                     shapes = ButtonDefaults.shapes(),
                     modifier = Modifier
@@ -255,13 +288,19 @@ fun VoiceSheet(
                         .height(64.dp)
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.icn_videocam_off_24dp),
+                        painter = painterResource(
+                            if (viewModel.isVideoEnabled) R.drawable.icn_videocam_24dp
+                            else R.drawable.icn_videocam_off_24dp
+                        ),
                         contentDescription = stringResource(R.string.voice_toggle_video)
                     )
                 }
                 Spacer(Modifier.width(4.dp))
+                // Screen share (placeholder — requires MediaProjection API)
                 Button(
                     onClick = {
+                        // TODO: Screen share requires MediaProjection permission flow
+                        // and LiveKit screen capture track publishing
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -278,6 +317,7 @@ fun VoiceSheet(
                     )
                 }
                 Spacer(Modifier.width(4.dp))
+                // Disconnect
                 Button(
                     onClick = {
                         room.disconnect()
@@ -300,4 +340,4 @@ fun VoiceSheet(
             }
         }
     }
-}*/
+}

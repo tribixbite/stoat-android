@@ -307,12 +307,12 @@ fun ExperimentsSettingsScreen(
                 Text("Voice Chats 2.0")
             },
             supportingContent = {
-                RichMarkdown("Enable voice chats support.\n‼️ **Not available in this build!** ‼️")
+                RichMarkdown("Enable voice chats support via LiveKit. Requires server-side LiveKit configuration.")
             },
             trailingContent = {
                 Switch(
                     checked = viewModel.useVoiceChats2p0.value,
-                    onCheckedChange = null
+                    onCheckedChange = { viewModel.setUseVoiceChats2p0(it) }
                 )
             },
             modifier = Modifier.clickable { viewModel.setUseVoiceChats2p0(!viewModel.useVoiceChats2p0.value) }

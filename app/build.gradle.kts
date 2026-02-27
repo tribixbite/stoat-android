@@ -172,6 +172,11 @@ sentry {
     }
 }
 
+// Resolve protobuf conflict: LiveKit brings protobuf-java, Firebase uses protobuf-javalite
+configurations.all {
+    exclude(group = "com.google.protobuf", module = "protobuf-java")
+}
+
 dependencies {
     implementation(project(":core:model"))
 
@@ -261,9 +266,9 @@ dependencies {
     implementation(libs.jetbrains.markdown)
     implementation(libs.highlights)
 
-    // implementation(libs.livekit.android)
-    // implementation(libs.livekit.android.camerax)
-    // implementation(libs.livekit.android.compose)
+    implementation(libs.livekit.android)
+    implementation(libs.livekit.android.camerax)
+    implementation(libs.livekit.android.compose)
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)

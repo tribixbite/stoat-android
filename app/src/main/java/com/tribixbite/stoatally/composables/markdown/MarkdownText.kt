@@ -38,6 +38,7 @@ import com.tribixbite.stoatally.activities.InviteActivity
 import com.tribixbite.stoatally.api.STOAT_FILES
 import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.routes.custom.fetchEmoji
+import com.tribixbite.stoatally.core.model.schemas.User
 import com.tribixbite.stoatally.core.model.schemas.isInviteUri
 import com.tribixbite.stoatally.callbacks.Action
 import com.tribixbite.stoatally.callbacks.ActionChannel
@@ -104,7 +105,7 @@ fun annotateText(node: AstNode): AnnotatedString {
                         StoatAPI.members.getMember(serverId, mention.groupValues[1])
                     }
                     val content = member?.nickname?.let { nick -> "@$nick" }
-                        ?: StoatAPI.userCache[mention.groupValues[1]]?.username?.let { username -> "@$username" }
+                        ?: StoatAPI.userCache[mention.groupValues[1]]?.let { "@${User.resolveDefaultName(it)}" }
                         ?: "<@${mention.groupValues[1]}>"
                     append(content)
                     pop()

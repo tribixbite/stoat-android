@@ -1,6 +1,7 @@
 package com.tribixbite.stoatally.markdown.jbm
 
 import com.tribixbite.stoatally.api.StoatAPI
+import com.tribixbite.stoatally.core.model.schemas.User
 
 object MentionResolver {
     /**
@@ -14,7 +15,7 @@ object MentionResolver {
     fun resolveUser(userId: String, serverId: String? = null): String {
         val maybeMember = serverId?.let { StoatAPI.members.getMember(serverId, userId) }
         return maybeMember?.nickname
-            ?: StoatAPI.userCache[userId]?.username
+            ?: StoatAPI.userCache[userId]?.let { User.resolveDefaultName(it) }
             ?: "<@$userId>"
     }
 

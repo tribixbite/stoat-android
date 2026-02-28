@@ -210,13 +210,26 @@ class MainActivityViewModel @Inject constructor(
      * ChatRouterScreen's listener is already active.
      */
     fun handleNewIntent(intent: Intent?) {
+        // Deep link URIs (e.g. password reset from email while app is already open)
+        val uri = intent?.data
+        if (uri != null) {
+            val path = uri.path ?: ""
+            if (path.startsWith("/login/reset/")) {
+                val token = path.removePrefix("/login/reset/").trimEnd('/')
+                if (token.isNotEmpty()) {
+                    Log.d("MainActivity", "Warm-start deep link: password reset")
+                    updateNextDestination("login/reset/$token")
+                    return
+                }
+            }
+        }
+
+        // Notification tap — switch to the target channel
         val channelId = intent?.getStringExtra("channelId") ?: return
         Log.d("MainActivity", "New intent: switching to channel $channelId")
         viewModelScope.launch {
             ActionChannel.send(Action.SwitchChannel(channelId))
         }
-        // TODO: Handle deep link intents (e.g. password reset) in warm-start via
-        // a shared StateFlow observed in AppEntrypoint, or by restarting the activity
     }
 
     private fun hasInternetConnection(): Boolean {

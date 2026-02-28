@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,9 +74,12 @@ fun Reaction(
     ) {
         CompositionLocalProvider(LocalContentColor provides foreground) {
             if (emoji.isUlid()) {
+                val emojiSizePx = with(LocalDensity.current) { 16.dp.roundToPx() }
                 RemoteImage(
                     url = "$STOAT_FILES/emojis/${emoji}",
                     description = null,
+                    width = emojiSizePx,
+                    height = emojiSizePx,
                     modifier = Modifier.size(16.dp)
                 )
             } else {

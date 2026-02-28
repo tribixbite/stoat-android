@@ -1,0 +1,44 @@
+---
+const items = [
+    {
+        stat: "45+",
+        label: "upstream bug fixes",
+        detail: "Server join sync, blocked reply visibility, timeout races, deep link handling, scroll position, pending message management",
+    },
+    {
+        stat: "15+",
+        label: "null-safety audits",
+        detail: "Eliminated force-unwrap operators across message rendering, permission checks, and cache access",
+    },
+    {
+        stat: "0",
+        label: "ANR regressions",
+        detail: "Replaced blocking calls with coroutines in user profiles, settings, and data loading",
+    },
+    {
+        stat: "3x",
+        label: "faster list updates",
+        detail: "In-place message edits and prepends instead of full list recomposition. LRU eviction for caches",
+    },
+]
+---
+
+<section class="py-20 lg:py-28" id="quality">
+    <div class="mx-auto max-w-6xl px-6">
+        <h2 class="mb-4 text-2xl font-semibold tracking-tight lg:text-3xl">Reliability</h2>
+        <p class="mb-12 max-w-lg text-text-secondary">
+            Systematic fixes over the upstream codebase. Focused on stability, null-safety, and responsiveness.
+        </p>
+        <div class="grid gap-6 sm:grid-cols-2">
+            {items.map((item) => (
+                <div class="rounded-xl border border-border/50 bg-bg-surface/50 p-6">
+                    <div class="mb-1 flex items-baseline gap-3">
+                        <span class="text-2xl font-semibold text-accent-light">{item.stat}</span>
+                        <span class="text-sm font-medium text-text-primary">{item.label}</span>
+                    </div>
+                    <p class="text-sm text-text-secondary">{item.detail}</p>
+                </div>
+            ))}
+        </div>
+    </div>
+</section>

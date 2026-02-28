@@ -1,0 +1,47 @@
+---
+const steps = [
+    {
+        number: "1",
+        title: "Download",
+        description: "Grab the latest APK from GitHub Releases.",
+    },
+    {
+        number: "2",
+        title: "Sign in",
+        description: "Connect to any Stoat or Revolt-compatible instance.",
+    },
+    {
+        number: "3",
+        title: "Done",
+        description: "Start chatting. All features available immediately.",
+    },
+]
+---
+
+<section class="border-t border-border/50 bg-bg-surface/30 py-20 lg:py-28" id="get-started">
+    <div class="mx-auto max-w-6xl px-6 text-center">
+        <h2 class="mb-4 text-2xl font-semibold tracking-tight lg:text-3xl">Get Started</h2>
+        <div class="mx-auto mt-12 grid max-w-2xl gap-8 sm:grid-cols-3">
+            {steps.map((step) => (
+                <div>
+                    <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-bg-elevated text-sm font-medium text-text-secondary">
+                        {step.number}
+                    </div>
+                    <h3 class="mb-1 text-base font-medium text-text-primary">{step.title}</h3>
+                    <p class="text-sm text-text-secondary">{step.description}</p>
+                </div>
+            ))}
+        </div>
+        <div class="mt-12">
+            <a
+                href="https://github.com/tribixbite/stoatally/releases"
+                class="inline-flex items-center gap-2 rounded-lg bg-cta px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-cta-hover"
+            >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download Latest Release
+            </a>
+        </div>
+    </div>
+</section>

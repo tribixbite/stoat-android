@@ -1,0 +1,23 @@
+---
+const stats = [
+    { value: "121", label: "API endpoints" },
+    { value: "100%", label: "coverage" },
+    { value: "45+", label: "bug fixes" },
+    { value: "Kotlin", label: "Jetpack Compose" },
+]
+---
+
+<section class="border-y border-border/50 bg-bg-surface/50">
+    <div class="mx-auto grid max-w-6xl grid-cols-2 gap-px px-6 py-10 md:grid-cols-4">
+        {stats.map((stat) => (
+            <div class="text-center">
+                <div class="text-2xl font-semibold tracking-tight text-text-primary md:text-3xl">
+                    {stat.value}
+                </div>
+                <div class="mt-1 text-sm text-text-secondary">
+                    {stat.label}
+                </div>
+            </div>
+        ))}
+    </div>
+</section>

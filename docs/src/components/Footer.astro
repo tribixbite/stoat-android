@@ -1,0 +1,17 @@
+---
+const base = import.meta.env.BASE_URL
+---
+
+<footer class="border-t border-border/50 py-10">
+    <div class="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 sm:flex-row sm:justify-between">
+        <div class="flex flex-wrap items-center gap-6 text-sm text-text-muted">
+            <a href={`${base}privacy-policy/`} class="transition-colors hover:text-text-secondary">Privacy Policy</a>
+            <a href={`${base}terms-of-service/`} class="transition-colors hover:text-text-secondary">Terms of Service</a>
+            <a href="https://github.com/tribixbite/stoatally" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-text-secondary">GitHub</a>
+            <a href="https://github.com/tribixbite/stoatcord-bot" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-text-secondary">stoatcord-bot</a>
+        </div>
+        <div class="text-xs text-text-muted">
+            Kotlin + Jetpack Compose
+        </div>
+    </div>
+</footer>

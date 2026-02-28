@@ -1,5 +1,5 @@
 {
-  "name": "android-docs",
+  "name": "stoatally-site",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",
-    "@astrojs/starlight": "^0.36.2",
     "@astropub/md": "^0.4.0",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/vite": "^4.1.7",
     "astro": "^5.16.0",
-    "sharp": "^0.32.5",
-    "starlight-theme-next": "^0.3.3",
+    "tailwindcss": "^4.1.7",
     "typescript": "^5.4.5"
   },
   "packageManager": "pnpm@9.1.1+sha256.9551e803dcb7a1839fdf5416153a844060c7bce013218ce823410532504ac10b"

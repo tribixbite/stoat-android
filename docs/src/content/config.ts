@@ -1,8 +1,6 @@
 import { defineCollection, z } from "astro:content"
-import { docsSchema } from "@astrojs/starlight/schema"
 
 export const collections = {
-    docs: defineCollection({ schema: docsSchema() }),
     changelogs: defineCollection({
         schema: z.object({
             version: z.object({
@@ -17,5 +15,3 @@ export const collections = {
         }),
     }),
 }
-
-//

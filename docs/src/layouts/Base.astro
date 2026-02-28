@@ -1,0 +1,38 @@
+---
+import "../styles/global.css"
+
+interface Props {
+    title?: string
+    description?: string
+}
+
+const {
+    title = "Stoatally — Native Android Client for Stoat",
+    description = "A native Android client for the Stoat chat platform. 121 API endpoints, full server administration, push notifications, Discord bridge.",
+} = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content={description} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://tribixbite.github.io/stoatally/" />
+        <meta name="theme-color" content="#0b0c0f" />
+        <title>{title}</title>
+        <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body class="min-h-screen bg-bg-primary text-text-primary">
+        <slot />
+    </body>
+</html>

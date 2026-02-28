@@ -1,0 +1,77 @@
+---
+import Legal from "../layouts/Legal.astro"
+---
+
+<Legal title="Privacy Policy" description="Privacy policy for Stoat and the Stoatcord Bot Discord application.">
+    <p><strong>Effective Date:</strong> February 14, 2026<br /><strong>Last Updated:</strong> February 14, 2026</p>
+
+    <h2>Introduction</h2>
+    <p>This privacy policy explains how the Stoat for Android application and the Stoatcord Bot Discord application ("we", "our", "the Services") collect, use, and protect your information.</p>
+
+    <h2>Information We Collect</h2>
+
+    <h3>Stoat for Android</h3>
+    <ul>
+        <li><strong>Account credentials</strong>: Your Stoat/Revolt authentication token, stored locally on your device. This is never transmitted to any third party.</li>
+        <li><strong>Push notification tokens</strong>: Firebase Cloud Messaging tokens used solely for delivering push notifications.</li>
+        <li><strong>Device information</strong>: Crash reports via Sentry may include device model, OS version, and stack traces to help diagnose issues.</li>
+    </ul>
+
+    <h3>Stoatcord Bot</h3>
+    <p>When the Stoatcord Bot is added to a Discord server, it accesses:</p>
+    <ul>
+        <li><strong>Server metadata</strong>: Server name, ID, icon, member count, and channel list — used to facilitate channel migration and message bridging.</li>
+        <li><strong>Message content</strong>: Messages in bridged channels are relayed between Discord and Stoat. Messages are not stored permanently; they are forwarded in real time and may be temporarily held in memory for processing.</li>
+        <li><strong>User display names and avatars</strong>: Used to attribute relayed messages to the correct sender via webhooks. No user credentials or tokens are collected.</li>
+    </ul>
+
+    <h2>How We Use Your Information</h2>
+    <ul>
+        <li><strong>Channel migration</strong>: Server and channel metadata is used to create matching channels on Stoat when you use the import wizard.</li>
+        <li><strong>Message bridging</strong>: Message content is relayed between linked Discord and Stoat channels so conversations stay synchronized.</li>
+        <li><strong>Crash reporting</strong>: Error data helps us identify and fix bugs.</li>
+        <li><strong>Push notifications</strong>: FCM tokens deliver message notifications to your device.</li>
+    </ul>
+
+    <h2>Data Storage</h2>
+    <ul>
+        <li><strong>On-device</strong>: Stoat for Android stores all user data locally on the device (authentication tokens, preferences, cached messages).</li>
+        <li><strong>Stoatcord Bot</strong>: The bot maintains a local SQLite database with channel link mappings and migration logs. No message content is persisted in this database.</li>
+        <li><strong>Third-party services</strong>: Crash reports are sent to Sentry. Push notification tokens are sent to Firebase Cloud Messaging. No other third-party services receive your data.</li>
+    </ul>
+
+    <h2>Data Sharing</h2>
+    <p>We do not sell, trade, or share your personal information with third parties, except:</p>
+    <ul>
+        <li><strong>Sentry</strong>: Anonymous crash reports for debugging.</li>
+        <li><strong>Firebase</strong>: Push notification delivery tokens.</li>
+        <li><strong>Discord API</strong>: The bot interacts with Discord's API as required for its bridging functionality.</li>
+        <li><strong>Stoat/Revolt API</strong>: The bot interacts with the Stoat API to relay messages and create channels.</li>
+    </ul>
+
+    <h2>Data Retention</h2>
+    <ul>
+        <li><strong>Bot database</strong>: Channel link mappings are retained as long as the bot is in your server. Migration logs are retained for troubleshooting. You can request deletion by removing the bot from your server.</li>
+        <li><strong>On-device data</strong>: Cleared when you uninstall the app or clear app data.</li>
+        <li><strong>Crash reports</strong>: Retained by Sentry per their standard retention policy (90 days).</li>
+    </ul>
+
+    <h2>Your Rights</h2>
+    <ul>
+        <li><strong>Remove the bot</strong>: Kick the Stoatcord Bot from your Discord server at any time to stop all data access.</li>
+        <li><strong>Uninstall the app</strong>: Removes all locally stored data.</li>
+        <li><strong>Request data deletion</strong>: Contact us to request deletion of any data associated with your server.</li>
+    </ul>
+
+    <h2>Security</h2>
+    <p>We use HTTPS for all API communications. Authentication tokens are stored securely on-device. The bot API supports optional API key authentication. No passwords are ever stored or transmitted in plaintext.</p>
+
+    <h2>Children's Privacy</h2>
+    <p>The Services are not directed at children under 13. We do not knowingly collect information from children under 13.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>We may update this privacy policy from time to time. Changes will be reflected in the "Last Updated" date above and published to this page.</p>
+
+    <h2>Contact</h2>
+    <p>For questions about this privacy policy, open an issue at <a href="https://github.com/tribixbite/stoatally/issues">github.com/tribixbite/stoatally</a> or contact the project maintainer.</p>
+</Legal>

@@ -1,0 +1,15 @@
+import { defineConfig, passthroughImageService } from "astro/config"
+import markdownIntegration from "@astropub/md"
+import tailwindcss from "@tailwindcss/vite"
+
+export default defineConfig({
+    site: "https://tribixbite.github.io",
+    base: "/stoatally",
+    image: {
+        service: passthroughImageService(),
+    },
+    vite: {
+        plugins: [tailwindcss()],
+    },
+    integrations: [markdownIntegration()],
+})

@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+    --color-bg-primary: #0b0c0f;
+    --color-bg-surface: #17181c;
+    --color-bg-elevated: #24272f;
+    --color-text-primary: #eceef2;
+    --color-text-secondary: #888b96;
+    --color-text-muted: #545861;
+    --color-accent: #0071a7;
+    --color-accent-light: #92d1fe;
+    --color-accent-glow: oklch(0.55 0.15 230 / 0.2);
+    --color-cta: #d4714a;
+    --color-cta-hover: #e07d54;
+    --color-border: #353841;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prose overrides for legal pages */
+.prose {
+    --tw-prose-body: var(--color-text-secondary);
+    --tw-prose-headings: var(--color-text-primary);
+    --tw-prose-links: var(--color-accent-light);
+    --tw-prose-bold: var(--color-text-primary);
+    --tw-prose-bullets: var(--color-text-muted);
+    --tw-prose-hr: var(--color-border);
+    --tw-prose-quotes: var(--color-text-secondary);
+    --tw-prose-code: var(--color-accent-light);
+}

@@ -1,0 +1,59 @@
+---
+const base = import.meta.env.BASE_URL
+---
+
+<section class="relative flex min-h-screen items-center overflow-hidden pt-16">
+    <!-- Warm radial glow behind the phone -->
+    <div class="pointer-events-none absolute inset-0">
+        <div class="absolute top-1/2 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cta/8 blur-[120px]"></div>
+        <div class="absolute top-1/3 right-1/4 h-[400px] w-[400px] rounded-full bg-accent/6 blur-[100px]"></div>
+    </div>
+
+    <div class="relative mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-2 lg:gap-16 lg:py-0">
+        <!-- Text -->
+        <div class="flex flex-col justify-center">
+            <div class="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-border px-3 py-1 text-xs text-text-secondary">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                v1.3.9a
+            </div>
+            <h1 class="mb-4 text-5xl font-bold tracking-tight lg:text-6xl">
+                Stoatally
+            </h1>
+            <p class="mb-8 max-w-md text-lg text-text-secondary">
+                A native Android client for the Stoat chat platform, built with Kotlin and Jetpack Compose.
+            </p>
+            <div class="flex flex-wrap gap-3">
+                <a
+                    href="https://github.com/tribixbite/stoatally/releases"
+                    class="inline-flex items-center gap-2 rounded-lg bg-cta px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cta-hover"
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                </a>
+                <a
+                    href="https://github.com/tribixbite/stoatally"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:border-text-muted hover:text-text-primary"
+                >
+                    View Source
+                </a>
+            </div>
+        </div>
+
+        <!-- Phone mockup -->
+        <div class="flex items-center justify-center">
+            <div class="relative">
+                <div class="absolute inset-0 rounded-3xl bg-cta/10 blur-2xl"></div>
+                <img
+                    src={`${base}phone.png`}
+                    alt="Stoatally app screenshot"
+                    class="relative z-10 w-64 drop-shadow-2xl lg:w-80"
+                    loading="eager"
+                />
+            </div>
+        </div>
+    </div>
+</section>

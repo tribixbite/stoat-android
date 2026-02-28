@@ -22,6 +22,7 @@ import com.tribixbite.stoatally.api.StoatAPI
 import com.tribixbite.stoatally.api.StoatJson
 import com.tribixbite.stoatally.api.internals.ULID
 import com.tribixbite.stoatally.api.settings.NotificationSettingsProvider
+import com.tribixbite.stoatally.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MENTIONS
 import com.tribixbite.stoatally.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
 import com.tribixbite.stoatally.c2dm.NotificationID
 import com.tribixbite.stoatally.core.model.schemas.Message
@@ -277,7 +278,12 @@ class StoatPushService : PushService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
+        // Use mentions channel if message mentions the current user
+        val isMention = message.mentions?.contains(StoatAPI.selfId) == true
+        val notifChannelId = if (isMention) CHANNEL_ID_GROUP_CONVERSATIONS_MENTIONS
+            else CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
+
+        val builder = NotificationCompat.Builder(this, notifChannelId)
             .setSmallIcon(R.drawable.icn_chat_24dp)
             .setContentTitle(user.displayName ?: user.username)
             .setContentText(message.content)

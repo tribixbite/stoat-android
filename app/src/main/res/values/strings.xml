@@ -857,10 +857,15 @@
 
     <string name="notification_channel_group_conversations">Conversations</string>
     <string name="notification_channel_group_social">Friends and Social</string>
+    <string name="notification_channel_group_voice">Voice</string>
     <string name="notification_channel_friend_requests">Friend Requests</string>
     <string name="notification_channel_friend_requests_description">Incoming friend requests, as well as accepted requests you\'ve sent.</string>
     <string name="notification_channel_messages">Messages</string>
     <string name="notification_channel_messages_description">Unread messages from your conversations and channels.</string>
+    <string name="notification_channel_mentions">Mentions</string>
+    <string name="notification_channel_mentions_description">Messages that directly mention you or @everyone.</string>
+    <string name="notification_channel_voice_calls">Voice Calls</string>
+    <string name="notification_channel_voice_calls_description">Incoming voice and video call invitations.</string>
 
     <string name="keyboard_shortcut_messaging">Messaging</string>
     <string name="keyboard_shortcut_messaging_new_line">New Line</string>

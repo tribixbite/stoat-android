@@ -27,6 +27,7 @@ import com.tribixbite.stoatally.push.PushManager
 import com.tribixbite.stoatally.push.PushMode
 import com.tribixbite.stoatally.core.model.schemas.Message
 import com.tribixbite.stoatally.core.model.schemas.User
+import com.tribixbite.stoatally.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MENTIONS
 import com.tribixbite.stoatally.c2dm.ChannelRegistrator.Companion.CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
 import com.tribixbite.stoatally.persistence.Database
 import com.tribixbite.stoatally.persistence.SqlStorage
@@ -293,7 +294,12 @@ class HandlerService : FirebaseMessagingService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES)
+        // Use mentions channel if message mentions the current user
+        val isMention = message.mentions?.contains(com.tribixbite.stoatally.api.StoatAPI.selfId) == true
+        val channelId = if (isMention) CHANNEL_ID_GROUP_CONVERSATIONS_MENTIONS
+            else CHANNEL_ID_GROUP_CONVERSATIONS_MESSAGES
+
+        val builder = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.icn_chat_24dp)
             .setContentTitle(user.displayName ?: user.username)
             .setContentText(message.content)

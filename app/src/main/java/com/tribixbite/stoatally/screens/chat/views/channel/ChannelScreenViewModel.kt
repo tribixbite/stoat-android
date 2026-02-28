@@ -99,6 +99,9 @@ class ChannelScreenViewModel @Inject constructor(
     var endOfChannel by mutableStateOf(false)
     var didInitialChannelFetch by mutableStateOf(false)
 
+    /** True when viewing history (after loadMessagesAround) instead of the latest messages. */
+    var isViewingHistory by mutableStateOf(false)
+
     var ensuredSelfMember by mutableStateOf(false)
 
     var denyMessageField by mutableStateOf(false)
@@ -140,6 +143,7 @@ class ChannelScreenViewModel @Inject constructor(
         this.typingUsers = mutableStateListOf()
         this.endOfChannel = false
         this.didInitialChannelFetch = false
+        this.isViewingHistory = false
         this.ensuredSelfMember = false
         this.denyMessageField = false
         this.denyMessageFieldReasonResource = R.string.typing_blank
@@ -653,8 +657,19 @@ class ChannelScreenViewModel @Inject constructor(
     fun loadMessagesAround(messageId: String) {
         endOfChannel = false
         didInitialChannelFetch = false
+        isViewingHistory = true
         items = mutableStateListOf(ChannelScreenItem.Loading)
         loadMessages(50, around = messageId)
+    }
+
+    /** Return to the latest messages after viewing history. */
+    fun jumpToPresent() {
+        if (!isViewingHistory) return
+        isViewingHistory = false
+        endOfChannel = false
+        didInitialChannelFetch = false
+        items = mutableStateListOf(ChannelScreenItem.Loading)
+        loadMessages(50)
     }
 
     suspend fun ackMessage(messageId: String) {

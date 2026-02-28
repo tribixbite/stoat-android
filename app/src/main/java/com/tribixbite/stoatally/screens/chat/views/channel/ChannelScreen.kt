@@ -425,10 +425,15 @@ fun ChannelScreen(
     )
 
     // Scroll to a specific message when requested (upstream #23 — jump to reply, search result click)
-    LaunchedEffect(scrollToMessageId) {
-        val targetId = scrollToMessageId ?: return@LaunchedEffect
+    // Consume the ID immediately into a local variable so the LaunchedEffect key stays stable
+    // while the scroll animation runs (resetting the key mid-animation cancels it).
+    var pendingScrollTarget by remember { mutableStateOf<String?>(null) }
+    if (scrollToMessageId != null) {
+        pendingScrollTarget = scrollToMessageId
         onScrollToMessageConsumed()
-
+    }
+    LaunchedEffect(pendingScrollTarget) {
+        val targetId = pendingScrollTarget ?: return@LaunchedEffect
         fun findMessageIndex(): Int = viewModel.items.indexOfFirst { item ->
             when (item) {
                 is ChannelScreenItem.RegularMessage -> item.message.id == targetId
@@ -442,6 +447,7 @@ fun ChannelScreen(
         var index = findMessageIndex()
         if (index >= 0) {
             lazyListState.animateScrollToItem(index)
+            pendingScrollTarget = null
             return@LaunchedEffect
         }
 
@@ -455,7 +461,7 @@ fun ChannelScreen(
                     .first { it >= 0 }
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            // Message not found even after fetch — may have been deleted
+            pendingScrollTarget = null
             return@LaunchedEffect
         }
 
@@ -463,6 +469,7 @@ fun ChannelScreen(
         if (index >= 0) {
             lazyListState.animateScrollToItem(index)
         }
+        pendingScrollTarget = null
     }
 
     // Load more messages when we reach the top of the list
@@ -979,8 +986,9 @@ fun ChannelScreen(
                                 serverId = viewModel.channel?.server
                             )
 
+                            // Show FAB when scrolled away from bottom OR viewing history
                             androidx.compose.animation.AnimatedVisibility(
-                                !isScrolledToBottom.value,
+                                !isScrolledToBottom.value || viewModel.isViewingHistory,
                                 enter = slideInVertically(
                                     animationSpec = StoatTweenInt,
                                     initialOffsetY = { it }
@@ -996,8 +1004,13 @@ fun ChannelScreen(
                                         .align(Alignment.BottomCenter)
                                         .padding(16.dp),
                                     onClick = {
-                                        scope.launch {
-                                            lazyListState.animateScrollToItem(0)
+                                        if (viewModel.isViewingHistory) {
+                                            // Reload latest messages and scroll to bottom
+                                            viewModel.jumpToPresent()
+                                        } else {
+                                            scope.launch {
+                                                lazyListState.animateScrollToItem(0)
+                                            }
                                         }
                                     },
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,

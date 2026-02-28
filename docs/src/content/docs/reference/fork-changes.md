@@ -697,3 +697,11 @@ All changes from upstream divergence point:
 | `0e611d4` | feat | Wire fetchPublicBot to discover page bot cards |
 | `3a2b7ba` | perf | Fix ANR risks, wire real DM list, add LRU cache eviction |
 | `f8f0b32` | docs | Correct performance delta report with accurate fix status |
+| `0fd8179` | docs | Update roadmap and commit history through Feb 2026 |
+| `d6c5269` | perf | Fast paths for message edits and new message prepend |
+| `46ee6fb` | fix | Use production bot URL instead of localhost in bridge screens |
+| `afa3d98` | feat | Notification channel groups and route mentions to dedicated channel |
+| `0c3eef9` | feat | Cancel/retry/discard context menus for pending/failed messages |
+| `070b036` | fix | Scroll-to-reply and jump-to-present FAB |
+| `24d2ea0` | fix | Handle password reset deep links during warm-start |
+| `941d419` | fix | Replace crash-prone !! assertions with safe null handling |

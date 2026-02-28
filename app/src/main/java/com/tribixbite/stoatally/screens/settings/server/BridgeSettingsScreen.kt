@@ -63,10 +63,8 @@ import com.tribixbite.stoatally.api.routes.discord.fetchBotGuilds
 import com.tribixbite.stoatally.api.routes.discord.fetchGuildChannels
 import com.tribixbite.stoatally.api.routes.discord.fetchGuildLinks
 import com.tribixbite.stoatally.composables.generic.ListHeader
+import com.tribixbite.stoatally.push.PushManager
 import kotlinx.coroutines.launch
-
-// Reuse bot URL defaults from import screen
-private const val DEFAULT_BOT_API_URL = "http://localhost:3210"
 
 /**
  * Bridge Settings screen — manage message bridge links between Discord and Stoat channels.
@@ -83,7 +81,7 @@ fun BridgeSettingsScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     // --- State ---
-    var botApiUrl by remember { mutableStateOf(DEFAULT_BOT_API_URL) }
+    var botApiUrl by remember { mutableStateOf(PushManager.DEFAULT_BOT_URL) }
     var apiKey by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 

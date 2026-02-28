@@ -481,7 +481,7 @@ Cross-referenced against [stoatchat/stoatchat](https://github.com/stoatchat/stoa
 
 ## Roadmap to Discord Parity
 
-All 121 Stoat API endpoints have route functions (100% API coverage). ~117 endpoints have full GUI wired. Remaining API-only endpoints: `fetchPublicBot` (needs discovery screen), `confirmPasswordReset` (needs deep link handler), `endRing` (voice disabled), `acknowledgePolicies` (login flow auto-call). All 6 phases complete including Discord bridge integration. 39 Discord features require backend API changes and cannot be implemented client-side (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
+All 121 Stoat API endpoints have route functions (100% API coverage). ~119 endpoints have full GUI wired. Remaining API-only: `endRing` (voice currently disabled in Termux build), `acknowledgePolicies` (auto-called during login flow — no manual trigger needed). All 6 phases complete including Discord bridge integration. 39 Discord features require backend API changes and cannot be implemented client-side (documented in [backend-required-features.md](https://github.com/tribixbite/stoatally/blob/dev/docs/specs/backend-required-features.md)).
 
 ### Phase 1: Account & Security (High Priority) — Complete
 | Feature | Endpoints | Status |
@@ -686,3 +686,14 @@ All changes from upstream divergence point:
 | `e7dec5c` | fix | Prevent NullPointerException crash on image/video with missing dimensions |
 | `ac41117` | feat | Pinned message system display and view pinned UI |
 | `a41d68d` | feat | Username change and display name editing |
+| `250d31e` | feat | API key auth support for push bot relay |
+| `06e0fd6` | feat | Server instance settings for self-hosted support |
+| `ba1d7b6` | docs | Add server instance settings to fork changes |
+| `9523365` | fix | Preserve session on instance switch, add pre-login access |
+| `d73443b` | feat | Wire remaining API-only endpoints to GUI |
+| `f37b2b3` | feat | Pulsing green border on voice participant avatar when speaking |
+| `7d0bf87` | feat | Enable full voice/LiveKit support in client |
+| `6c2214a` | feat | In-app password reset confirmation with deep link support |
+| `0e611d4` | feat | Wire fetchPublicBot to discover page bot cards |
+| `3a2b7ba` | perf | Fix ANR risks, wire real DM list, add LRU cache eviction |
+| `f8f0b32` | docs | Correct performance delta report with accurate fix status |

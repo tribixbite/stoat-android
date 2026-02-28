@@ -705,3 +705,6 @@ All changes from upstream divergence point:
 | `070b036` | fix | Scroll-to-reply and jump-to-present FAB |
 | `24d2ea0` | fix | Handle password reset deep links during warm-start |
 | `941d419` | fix | Replace crash-prone !! assertions with safe null handling |
+| `da54700` | docs | Add recent commits to fork-changes history |
+| `4c52643` | fix | Server join cache sync (#81), blocked reply visibility (#74), timeout input deny (#70) |
+| `143f23c` | fix | Resolve mention display names instead of raw usernames (#79) |

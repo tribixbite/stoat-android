@@ -827,11 +827,12 @@ fun ChannelScreen(
                                         }
 
                                         is ChannelScreenItem.ProspectiveMessage -> {
+                                            var showMenu by remember { mutableStateOf(false) }
                                             Box(Modifier.alpha(0.5f)) {
                                                 Message(
                                                     message = item.message,
                                                     onMessageContextMenu = {
-                                                        // TODO Context menu that allows you to cancel send
+                                                        showMenu = true
                                                     },
                                                     onAvatarClick = {},
                                                     onNameClick = {},
@@ -839,15 +840,30 @@ fun ChannelScreen(
                                                     onReply = {},
                                                     onAddReaction = {}
                                                 )
+                                                DropdownMenu(
+                                                    expanded = showMenu,
+                                                    onDismissRequest = { showMenu = false }
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.message_pending_cancel)) },
+                                                        onClick = {
+                                                            showMenu = false
+                                                            item.message.id?.let { viewModel.dismissPendingMessage(it) }
+                                                        }
+                                                    )
+                                                }
                                             }
                                         }
 
                                         is ChannelScreenItem.FailedMessage -> {
+                                            var showMenu by remember { mutableStateOf(false) }
                                             CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.error) {
                                                 Column {
                                                     Message(
                                                         message = item.message,
-                                                        onMessageContextMenu = {},
+                                                        onMessageContextMenu = {
+                                                            showMenu = true
+                                                        },
                                                         onAvatarClick = {},
                                                         onNameClick = {},
                                                         canReply = false,
@@ -869,6 +885,25 @@ fun ChannelScreen(
                                                             )
                                                         )
                                                     }
+                                                }
+                                                DropdownMenu(
+                                                    expanded = showMenu,
+                                                    onDismissRequest = { showMenu = false }
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.message_failed_retry)) },
+                                                        onClick = {
+                                                            showMenu = false
+                                                            item.message.id?.let { viewModel.retryFailedMessage(it) }
+                                                        }
+                                                    )
+                                                    DropdownMenuItem(
+                                                        text = { Text(stringResource(R.string.message_failed_discard)) },
+                                                        onClick = {
+                                                            showMenu = false
+                                                            item.message.id?.let { viewModel.dismissPendingMessage(it) }
+                                                        }
+                                                    )
                                                 }
                                             }
                                         }

@@ -477,6 +477,57 @@ class ChannelScreenViewModel @Inject constructor(
         }
     }
 
+    /** Remove a prospective or failed message from the list by its nonce/id. */
+    fun dismissPendingMessage(nonce: String) {
+        viewModelScope.launch {
+            updateItems(items.filter {
+                when (it) {
+                    is ChannelScreenItem.ProspectiveMessage -> it.message.id != nonce
+                    is ChannelScreenItem.FailedMessage -> it.message.id != nonce
+                    else -> true
+                }
+            })
+        }
+    }
+
+    /** Retry sending a failed message: moves it back to prospective and re-sends. */
+    fun retryFailedMessage(nonce: String) {
+        val failed = items.firstOrNull {
+            it is ChannelScreenItem.FailedMessage && it.message.id == nonce
+        } as? ChannelScreenItem.FailedMessage ?: return
+
+        val msg = failed.message
+        val sendChannelId = msg.channel ?: return
+
+        viewModelScope.launch {
+            // Swap FailedMessage → ProspectiveMessage
+            updateItems(items.map {
+                if (it is ChannelScreenItem.FailedMessage && it.message.id == nonce) {
+                    ChannelScreenItem.ProspectiveMessage(msg)
+                } else it
+            })
+
+            try {
+                sendMessage(
+                    channelId = sendChannelId,
+                    content = msg.content ?: "",
+                    nonce = nonce,
+                    // Reconstruct reply list from stored string IDs (mention=false safe default)
+                    replies = msg.replies?.map { SendMessageReply(it, mention = false) } ?: listOf(),
+                    attachments = msg.attachments?.mapNotNull { it.id } ?: listOf(),
+                    idempotencyKey = ULID.makeNext()
+                )
+            } catch (e: Exception) {
+                Log.e("ChannelScreenViewModel", "Retry failed: ${e.message}", e)
+                updateItems(items.map {
+                    if (it is ChannelScreenItem.ProspectiveMessage && it.message.id == nonce) {
+                        ChannelScreenItem.FailedMessage(msg)
+                    } else it
+                })
+            }
+        }
+    }
+
     /**
      * Load messages from the channel. If the channel is switched, the job will be cancelled.
      *

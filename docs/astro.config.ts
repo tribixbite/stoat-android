@@ -3,8 +3,7 @@ import markdownIntegration from "@astropub/md"
 import tailwindcss from "@tailwindcss/vite"
 
 export default defineConfig({
-    site: "https://tribixbite.github.io",
-    base: "/stoatally",
+    site: "https://stoatally.app",
     image: {
         service: passthroughImageService(),
     },

@@ -252,13 +252,19 @@ class ChannelScreenViewModel @Inject constructor(
 
         val partnerId = ChannelUtils.resolveDMPartner(channel!!)
 
+        // Explicit member timeout check — covers the startup race where the server
+        // isn't cached yet so permissionFor grants full access (upstream #70)
+        val isTimedOut = selfMember?.timeoutTimestamp()?.let { it > Clock.System.now() } == true
+
         denyMessageField = when {
+            isTimedOut -> true
             partnerId == SpecialUsers.PLATFORM_MODERATION_USER -> true
             !canSend -> true
             else -> false
         }
 
         denyMessageFieldReasonResource = when {
+            isTimedOut -> R.string.message_field_denied_timeout
             partnerId == SpecialUsers.PLATFORM_MODERATION_USER -> R.string.message_field_denied_platform_moderation
             !canSend -> R.string.message_field_denied_no_permission
             else -> R.string.message_field_denied_generic

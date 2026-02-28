@@ -576,6 +576,20 @@ object RealtimeSocket {
                     if (channelCreateFrame.nsfw == true) 1L else 0L,
                     channelCreateFrame.server
                 )
+
+                // Add channel to parent server's channel list so sidebar picks it up
+                val serverId = channelCreateFrame.server
+                if (serverId != null) {
+                    val existingServer = StoatAPI.serverCache[serverId]
+                    if (existingServer != null) {
+                        val currentChannels = existingServer.channels ?: emptyList()
+                        if (createChId !in currentChannels) {
+                            StoatAPI.serverCache[serverId] = existingServer.copy(
+                                channels = currentChannels + createChId
+                            )
+                        }
+                    }
+                }
             }
 
             "ChannelDelete" -> {
@@ -638,24 +652,34 @@ object RealtimeSocket {
                     "Received server create frame for ${serverCreateFrame.id}, with name ${serverCreateFrame.server.name}. Adding to cache."
                 )
 
-                StoatAPI.serverCache[serverCreateFrame.id] = serverCreateFrame.server
-
+                // Cache channels first so they're available when sidebar reads them
+                val channelIds = mutableListOf<String>()
                 serverCreateFrame.channels.forEach { channel ->
                     val chId = channel.id ?: return@forEach
+                    channelIds.add(chId)
                     StoatAPI.channelCache[chId] = channel
                 }
 
-                val srvOwner = serverCreateFrame.server.owner
-                val srvName = serverCreateFrame.server.name
+                // Ensure server has its own ID and channel list populated —
+                // the WS frame sends id at the top level and channels as separate
+                // objects, but the Server model needs both for sidebar rendering
+                val completeServer = serverCreateFrame.server.copy(
+                    id = serverCreateFrame.server.id ?: serverCreateFrame.id,
+                    channels = serverCreateFrame.server.channels ?: channelIds
+                )
+                StoatAPI.serverCache[serverCreateFrame.id] = completeServer
+
+                val srvOwner = completeServer.owner
+                val srvName = completeServer.name
                 if (srvOwner != null && srvName != null) {
                     database.serverQueries.upsert(
                         serverCreateFrame.id,
                         srvOwner,
                         srvName,
-                        serverCreateFrame.server.description,
-                        serverCreateFrame.server.icon?.id,
-                        serverCreateFrame.server.banner?.id,
-                        serverCreateFrame.server.flags
+                        completeServer.description,
+                        completeServer.icon?.id,
+                        completeServer.banner?.id,
+                        completeServer.flags
                     )
                 }
             }

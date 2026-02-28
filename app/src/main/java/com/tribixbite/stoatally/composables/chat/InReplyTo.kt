@@ -49,6 +49,7 @@ fun InReplyTo(
 ) {
     val message = StoatAPI.messageCache[messageId]
     val author = StoatAPI.userCache[message?.author ?: ""]
+    val authorIsBlocked = remember(author) { author?.relationship == "Blocked" }
 
     val username = message?.let { authorName(it) }
         ?: author?.let { User.resolveDefaultName(it) }
@@ -83,7 +84,18 @@ fun InReplyTo(
         ) {
             Spacer(modifier = Modifier.width(40.dp))
 
-            if (message != null) {
+            if (authorIsBlocked) {
+                // Hide reply content from blocked users (upstream #74)
+                Text(
+                    text = stringResource(R.string.message_blocked),
+                    fontSize = 12.sp,
+                    color = contentColor.copy(alpha = 0.5f),
+                    fontStyle = FontStyle.Italic,
+                    fontFamily = FontFamily.Default,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else if (message != null) {
                 UserAvatar(
                     username = username,
                     userId = author?.id ?: "",

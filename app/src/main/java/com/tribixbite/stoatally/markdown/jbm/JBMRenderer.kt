@@ -830,13 +830,19 @@ private fun JBMText(node: ASTNode, modifier: Modifier) {
                     return@InlineTextContent
                 } else {
                     with(LocalDensity.current) {
+                        val sizeDp = (LocalTextStyle.current.fontSize * 1.5).toDp()
+                        // Pass pixel size to Glide so it decodes at correct resolution
+                        // instead of full-res → hardware downscale which causes blur (#71)
+                        val sizePx = sizeDp.roundToPx()
                         RemoteImage(
                             url = "$STOAT_FILES/emojis/${id}",
                             description = emote.name,
                             contentScale = ContentScale.Fit,
+                            width = sizePx,
+                            height = sizePx,
                             modifier = Modifier
-                                .width((LocalTextStyle.current.fontSize * 1.5).toDp())
-                                .height((LocalTextStyle.current.fontSize * 1.5).toDp())
+                                .width(sizeDp)
+                                .height(sizeDp)
                         )
                     }
                 }

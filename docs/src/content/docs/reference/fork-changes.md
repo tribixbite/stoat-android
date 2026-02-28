@@ -708,3 +708,6 @@ All changes from upstream divergence point:
 | `da54700` | docs | Add recent commits to fork-changes history |
 | `4c52643` | fix | Server join cache sync (#81), blocked reply visibility (#74), timeout input deny (#70) |
 | `143f23c` | fix | Resolve mention display names instead of raw usernames (#79) |
+| `2307947` | fix | Sharper custom emoji rendering by passing pixel size to Glide (#71) |
+| `920cd78` | fix | Pass pixel size to Glide for reaction emoji chips (#71) |
+| `febad25` | fix | Eliminate 21 crash-prone !! assertions in SystemMessage and ViewModel |

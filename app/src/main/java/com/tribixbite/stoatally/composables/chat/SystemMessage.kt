@@ -53,13 +53,13 @@ fun String?.mention(): String {
 
 @Composable
 fun SystemMessage(message: Message) {
-    if (message.system == null) return
+    val system = message.system ?: return
 
     val systemMessageType =
-        SystemMessageType.entries.firstOrNull { it.type == message.system!!.type }
+        SystemMessageType.entries.firstOrNull { it.type == system.type }
 
     if (systemMessageType == null) {
-        UnsupportedMessage(context = message.system!!.type)
+        UnsupportedMessage(context = system.type)
         return
     }
 
@@ -84,8 +84,8 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_ownership_changed,
-                            message.system!!.from.mention(),
-                            message.system!!.to.mention()
+                            system.from.mention(),
+                            system.to.mention()
                         )
                     )
                 }
@@ -94,7 +94,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_channel_icon_changed,
-                            message.system!!.by.mention()
+                            system.by.mention()
                         )
                     )
                 }
@@ -103,7 +103,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_channel_description_changed,
-                            message.system!!.by.mention()
+                            system.by.mention()
                         )
                     )
                 }
@@ -112,8 +112,8 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_channel_renamed,
-                            message.system!!.by.mention(),
-                            "**${message.system!!.name ?: stringResource(R.string.unknown)}**"
+                            system.by.mention(),
+                            "**${system.name ?: stringResource(R.string.unknown)}**"
                         )
                     )
                 }
@@ -122,8 +122,8 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_removed,
-                            message.system!!.by.mention(),
-                            message.system!!.id.mention()
+                            system.by.mention(),
+                            system.id.mention()
                         )
                     )
                 }
@@ -132,8 +132,8 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_added,
-                            message.system!!.by.mention(),
-                            message.system!!.id.mention()
+                            system.by.mention(),
+                            system.id.mention()
                         )
                     )
                 }
@@ -142,7 +142,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_banned,
-                            message.system!!.id.mention()
+                            system.id.mention()
                         )
                     )
                 }
@@ -151,7 +151,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_kicked,
-                            message.system!!.id.mention()
+                            system.id.mention()
                         )
                     )
                 }
@@ -160,7 +160,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_left,
-                            message.system!!.id.mention()
+                            system.id.mention()
                         )
                     )
                 }
@@ -169,7 +169,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_user_joined,
-                            message.system!!.id.mention()
+                            system.id.mention()
                         )
                     )
                 }
@@ -178,7 +178,7 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_message_pinned,
-                            message.system!!.by.mention()
+                            system.by.mention()
                         )
                     )
                 }
@@ -187,13 +187,13 @@ fun SystemMessage(message: Message) {
                     RichMarkdown(
                         stringResource(
                             R.string.system_message_message_unpinned,
-                            message.system!!.by.mention()
+                            system.by.mention()
                         )
                     )
                 }
 
                 SystemMessageType.TEXT -> {
-                    message.system!!.content?.let { RichMarkdown(it) }
+                    system.content?.let { RichMarkdown(it) }
                 }
             }
         }

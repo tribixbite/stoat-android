@@ -228,17 +228,18 @@ class ChannelScreenViewModel @Inject constructor(
     }
 
     private suspend fun denyMessageFieldIfNeeded() {
-        if (channel == null) return
+        val ch = channel ?: return
 
         val selfUser = StoatAPI.userCache[StoatAPI.selfId] ?: return
-        val selfMember = if (channel!!.server == null) {
+        val selfUserId = selfUser.id ?: return
+        val selfMember = if (ch.server == null) {
             null
         } else {
-            channel?.server?.let { serverId ->
+            ch.server?.let { serverId ->
                 try {
-                    StoatAPI.members.getMember(serverId, selfUser.id!!) ?: fetchMember(
+                    StoatAPI.members.getMember(serverId, selfUserId) ?: fetchMember(
                         serverId,
-                        selfUser.id!!
+                        selfUserId
                     )
                 } catch (e: Exception) {
                     Log.e("ChannelScreenViewModel", "Failed to fetch member", e)
@@ -247,10 +248,10 @@ class ChannelScreenViewModel @Inject constructor(
             }
         }
 
-        val permission = Roles.permissionFor(channel!!, selfUser, selfMember)
+        val permission = Roles.permissionFor(ch, selfUser, selfMember)
         val canSend = permission has PermissionBit.SendMessage
 
-        val partnerId = ChannelUtils.resolveDMPartner(channel!!)
+        val partnerId = ChannelUtils.resolveDMPartner(ch)
 
         // Explicit member timeout check — covers the startup race where the server
         // isn't cached yet so permissionFor grants full access (upstream #70)

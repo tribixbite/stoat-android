@@ -643,13 +643,15 @@ class ChannelScreenViewModel @Inject constructor(
                                 it.system != null -> ChannelScreenItem.SystemMessage(it)
                                 else -> ChannelScreenItem.RegularMessage(it)
                             }
-                            updateItems(listOf(newItem) + items.filter { m ->
+                            val nonce = it.nonce
+                            prependNewMessage(newItem) { m ->
+                                // Filter out prospective messages matching this nonce
                                 if (m is ChannelScreenItem.ProspectiveMessage) {
-                                    m.message.id != it.nonce
+                                    m.message.id != nonce
                                 } else {
                                     true
                                 }
-                            })
+                            }
                         }
 
                         it.id?.let { mid -> ackMessage(mid) }
@@ -677,96 +679,54 @@ class ChannelScreenViewModel @Inject constructor(
                         val messageFrame =
                             StoatJson.decodeFromJsonElement(MessageFrame.serializer(), it.data)
 
-                        val currentMessage = items.find { m ->
+                        val hasMessage = items.any { m ->
                             m is ChannelScreenItem.RegularMessage && m.message.id == it.id
                         }
-                        if (currentMessage == null) return@onEach
+                        if (!hasMessage) return@onEach
 
                         if (messageFrame.author != null) {
                             addUserIfUnknown(messageFrame.author!!)
                         }
 
-                        updateItems(
-                            items.map { m ->
-                                if (m is ChannelScreenItem.RegularMessage && m.message.id == it.id) {
-                                    ChannelScreenItem.RegularMessage(
-                                        m.message.mergeWithPartial(messageFrame)
-                                    )
-                                } else {
-                                    m
-                                }
-                            }
-                        )
+                        // Fast path: edits don't change grouping (author/timestamp unchanged)
+                        editItemInPlace(it.id!!) { item ->
+                            ChannelScreenItem.RegularMessage(
+                                item.message.mergeWithPartial(messageFrame)
+                            )
+                        }
                     }
 
                     is MessageAppendFrame -> {
                         if (it.channel != channel?.id) return@onEach
 
-                        val hasMessage = items.any { currentMsg ->
-                            currentMsg is ChannelScreenItem.RegularMessage && currentMsg.message.id == it.id
+                        // Fast path: appends (embeds loading) don't change grouping
+                        editItemInPlace(it.id!!) { item ->
+                            StoatAPI.messageCache[it.id]?.let { m ->
+                                ChannelScreenItem.RegularMessage(m)
+                            } ?: item
                         }
-
-                        if (!hasMessage) return@onEach
-
-                        updateItems(
-                            items.map { currentMsg ->
-                                if (currentMsg is ChannelScreenItem.RegularMessage && currentMsg.message.id == it.id) {
-                                    StoatAPI.messageCache[it.id]?.let { m ->
-                                        ChannelScreenItem.RegularMessage(m)
-                                    } ?: return@map currentMsg
-                                } else {
-                                    currentMsg
-                                }
-                            }
-                        )
                     }
 
                     is MessageReactFrame -> {
                         if (it.channel_id != channel?.id) return@onEach
 
-                        val hasMessage = items
-                            .filterIsInstance<ChannelScreenItem.RegularMessage>()
-                            .any { msg ->
-                                msg.message.id == it.id
-                            }
-
-                        if (!hasMessage) return@onEach
-
-                        updateItems(
-                            items.map { currentMsg ->
-                                if (currentMsg is ChannelScreenItem.RegularMessage && currentMsg.message.id == it.id) {
-                                    StoatAPI.messageCache[it.id]?.let { m ->
-                                        ChannelScreenItem.RegularMessage(m)
-                                    } ?: return@map currentMsg
-                                } else {
-                                    currentMsg
-                                }
-                            }
-                        )
+                        // Fast path: reactions don't change grouping
+                        editItemInPlace(it.id!!) { item ->
+                            StoatAPI.messageCache[it.id]?.let { m ->
+                                ChannelScreenItem.RegularMessage(m)
+                            } ?: item
+                        }
                     }
 
                     is MessageUnreactFrame -> {
                         if (it.channel_id != channel?.id) return@onEach
 
-                        val hasMessage = items
-                            .filterIsInstance<ChannelScreenItem.RegularMessage>()
-                            .any { msg ->
-                                msg.message.id == it.id
-                            }
-
-                        if (!hasMessage) return@onEach
-
-                        updateItems(
-                            items.map { currentMsg ->
-                                if (currentMsg is ChannelScreenItem.RegularMessage && currentMsg.message.id == it.id) {
-                                    StoatAPI.messageCache[it.id]?.let { m ->
-                                        ChannelScreenItem.RegularMessage(m)
-                                    } ?: return@map currentMsg
-                                } else {
-                                    currentMsg
-                                }
-                            }
-                        )
+                        // Fast path: reactions don't change grouping
+                        editItemInPlace(it.id!!) { item ->
+                            StoatAPI.messageCache[it.id]?.let { m ->
+                                ChannelScreenItem.RegularMessage(m)
+                            } ?: item
+                        }
                     }
 
                     is ChannelStartTypingFrame -> {
@@ -974,6 +934,106 @@ class ChannelScreenViewModel @Inject constructor(
                 }
             })
         }
+    }
+
+    /**
+     * Fast path for in-place message edits (reactions, content updates).
+     * Skips the full grouping algorithm since author/timestamp/order don't change.
+     * Only triggers a single snapshot mutation instead of clear()+addAll().
+     */
+    private fun editItemInPlace(
+        messageId: String,
+        transform: (ChannelScreenItem.RegularMessage) -> ChannelScreenItem
+    ) {
+        val index = items.indexOfFirst {
+            it is ChannelScreenItem.RegularMessage && it.message.id == messageId
+        }
+        if (index >= 0) {
+            items[index] = transform(items[index] as ChannelScreenItem.RegularMessage)
+        }
+    }
+
+    /**
+     * Fast path for prepending a new incoming message.
+     * Only computes tail grouping for the new item against the current first message,
+     * and inserts a date divider if the day changed. Avoids full list regrouping.
+     */
+    private fun prependNewMessage(
+        newItem: ChannelScreenItem,
+        filterPredicate: ((ChannelScreenItem) -> Boolean)? = null
+    ) {
+        // Remove matching prospective/nonce messages if needed
+        if (filterPredicate != null) {
+            items.removeAll { !filterPredicate(it) }
+        }
+
+        val message = when (newItem) {
+            is ChannelScreenItem.RegularMessage -> newItem.message
+            is ChannelScreenItem.SystemMessage -> newItem.message
+            else -> null
+        }
+
+        // Find the first real message in the current list for grouping comparison
+        val nextItem = items.firstOrNull {
+            it is ChannelScreenItem.RegularMessage || it is ChannelScreenItem.SystemMessage
+        }
+        val nextMessage = when (nextItem) {
+            is ChannelScreenItem.RegularMessage -> nextItem.message
+            is ChannelScreenItem.SystemMessage -> nextItem.message
+            else -> null
+        }
+
+        var tail = true
+        var dateDivider: ChannelScreenItem.DateDivider? = null
+
+        if (nextMessage != null && message != null) {
+            val adate = message.id?.let { ULID.asTimestamp(it) }?.let {
+                kotlinx.datetime.Instant.fromEpochMilliseconds(it)
+            }
+            val bdate = nextMessage.id?.let { ULID.asTimestamp(it) }?.let {
+                kotlinx.datetime.Instant.fromEpochMilliseconds(it)
+            }
+
+            if (adate != null && bdate != null) {
+                val adateLocal = adate.toJavaInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val bdateLocal = bdate.toJavaInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                if (!adateLocal.isEqual(bdateLocal)) {
+                    dateDivider = ChannelScreenItem.DateDivider(adate)
+                }
+
+                val minuteDifference = adate.minus(bdate).inWholeMinutes
+                val authorsMatch = message.author == nextMessage.author
+                val closeEnough = minuteDifference >= 7
+                val masqueradesMatch = message.masquerade == nextMessage.masquerade
+                val eitherIsSystem = message.system != null || nextMessage.system != null
+                val messageHasReplies = message.replies?.isNotEmpty() == true
+
+                if (!authorsMatch || closeEnough || !masqueradesMatch || eitherIsSystem || messageHasReplies) {
+                    tail = false
+                }
+            } else {
+                tail = false
+            }
+        } else {
+            tail = false
+        }
+
+        val itemWithTail = when (newItem) {
+            is ChannelScreenItem.RegularMessage -> ChannelScreenItem.RegularMessage(
+                newItem.message.copy(tail = tail)
+            )
+            is ChannelScreenItem.SystemMessage -> ChannelScreenItem.SystemMessage(
+                newItem.message.copy(tail = tail)
+            )
+            else -> newItem
+        }
+
+        // Insert date divider first (after new message, before old messages)
+        if (dateDivider != null) {
+            items.add(0, dateDivider)
+        }
+        // Then insert the new message at position 0 (newest first)
+        items.add(0, itemWithTail)
     }
 
     var showPhysicalKeyboardSpark by mutableStateOf(false)

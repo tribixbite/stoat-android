@@ -153,11 +153,13 @@ fun UserButtons(
                 FilledTonalButton(
                     onClick = {
                         scope.launch {
-                            val dm = openDM(user.id!!)
-                            if (dm.id != null) {
-                                if (StoatAPI.channelCache[dm.id] == null)
-                                    StoatAPI.channelCache[dm.id!!] = dm
-                                ActionChannel.send(Action.SwitchChannel(dm.id!!))
+                            val userId = user.id ?: return@launch
+                            val dm = openDM(userId)
+                            val dmId = dm.id
+                            if (dmId != null) {
+                                if (StoatAPI.channelCache[dmId] == null)
+                                    StoatAPI.channelCache[dmId] = dm
+                                ActionChannel.send(Action.SwitchChannel(dmId))
                                 dismissSheet()
                             } else {
                                 Toast.makeText(

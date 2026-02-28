@@ -72,13 +72,12 @@ class CreateGroupScreenViewModel : ViewModel() {
                 return@filter true
             }
 
-            if (it.displayName == null || it.username == null) {
-                return@filter false
-            }
+            val name = it.displayName ?: return@filter false
+            val uname = it.username ?: return@filter false
 
-            it.displayName!!.contains(friendSearchQuery, ignoreCase = true) ||
-                    it.username!!.contains(friendSearchQuery, ignoreCase = true)
-        }.map { it.id!! })
+            name.contains(friendSearchQuery, ignoreCase = true) ||
+                    uname.contains(friendSearchQuery, ignoreCase = true)
+        }.mapNotNull { it.id })
     }
 
     fun createGroup(popBackStack: () -> Unit) {
@@ -208,19 +207,20 @@ fun CreateGroupScreen(
                 items(viewModel.friendsFilteredBySearch.size) { index ->
                     val friend = StoatAPI.userCache[viewModel.friendsFilteredBySearch[index]]
                         ?: return@items
-                    val isMember = viewModel.groupMembers.contains(friend.id)
+                    val friendId = friend.id ?: return@items
+                    val isMember = viewModel.groupMembers.contains(friendId)
 
                     MemberListItem(
                         member = null,
                         user = friend,
                         serverId = null,
-                        userId = friend.id!!,
+                        userId = friendId,
                         modifier = Modifier.clickable {
                             if (isMember) {
-                                viewModel.groupMembers.remove(friend.id)
+                                viewModel.groupMembers.remove(friendId)
                             } else {
                                 if (viewModel.groupMembers.size < MAX_ADDABLE_PEOPLE_IN_GROUP) {
-                                    viewModel.groupMembers.add(friend.id!!)
+                                    viewModel.groupMembers.add(friendId)
                                 }
                             }
                         },

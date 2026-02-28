@@ -254,8 +254,9 @@ fun BotManagementScreen(navController: NavController) {
                 }
 
                 else -> {
-                    val bots = botsResponse!!.bots
-                    val users = botsResponse!!.users
+                    val resp = botsResponse ?: return@Box
+                    val bots = resp.bots
+                    val users = resp.users
 
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(bots, key = { it.id ?: "" }) { bot ->
@@ -266,21 +267,21 @@ fun BotManagementScreen(navController: NavController) {
                                 context = context,
                                 onDeleted = {
                                     botsResponse = botsResponse?.copy(
-                                        bots = botsResponse!!.bots.filter { it.id != bot.id }
+                                        bots = botsResponse?.bots?.filter { it.id != bot.id } ?: emptyList()
                                     )
                                 },
                                 onUpdated = { updated ->
                                     botsResponse = botsResponse?.copy(
-                                        bots = botsResponse!!.bots.map {
+                                        bots = botsResponse?.bots?.map {
                                             if (it.id == updated.id) updated else it
-                                        }
+                                        } ?: emptyList()
                                     )
                                 },
                                 onUserUpdated = { updatedUser ->
                                     botsResponse = botsResponse?.copy(
-                                        users = botsResponse!!.users.map {
+                                        users = botsResponse?.users?.map {
                                             if (it.id == updatedUser.id) updatedUser else it
-                                        }
+                                        } ?: emptyList()
                                     )
                                 }
                             )

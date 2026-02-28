@@ -438,18 +438,19 @@ fun UserInfoSheet(
             }
         }
 
-        if (profile?.content.isNullOrBlank().not()) {
+        val bioContent = profile?.content
+        if (!bioContent.isNullOrBlank()) {
             item(key = "bio", span = StaggeredGridItemSpan.FullLine) {
                 SheetTile(
                     header = {
                         Text(stringResource(R.string.user_info_sheet_category_bio))
                     },
                     contentPreview = {
-                        RichMarkdown(input = profile?.content!!)
+                        RichMarkdown(input = bioContent)
                     }
                 ) {
                     SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        RichMarkdown(input = profile?.content!!)
+                        RichMarkdown(input = bioContent)
                     }
                 }
             }

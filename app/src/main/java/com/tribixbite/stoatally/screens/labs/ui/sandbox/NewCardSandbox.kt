@@ -45,8 +45,8 @@ fun NewCardSandboxScreen(navController: NavController) {
     var uidInput by remember { mutableStateOf(StoatAPI.selfId ?: "") }
     var activeUid by remember { mutableStateOf(StoatAPI.selfId) }
     val activeUser = remember(activeUid) {
-        StoatAPI.userCache[activeUid]!!
-    }
+        StoatAPI.userCache[activeUid]
+    } ?: return
 
     val context = LocalContext.current
 

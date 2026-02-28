@@ -160,7 +160,7 @@ fun StatusTextEditDialog(
 
 @Composable
 fun StatusSheet(onBeforeNavigation: () -> Unit, onGoSettings: () -> Unit) {
-    val selfUser = StoatAPI.userCache[StoatAPI.selfId]!!
+    val selfUser = StoatAPI.userCache[StoatAPI.selfId] ?: return
     val scope = rememberCoroutineScope()
 
     var showStatusEditDialog by remember { mutableStateOf(false) }

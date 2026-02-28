@@ -122,7 +122,8 @@ fun InReplyTo(
                     }
                 )
 
-                if (message.content.isNullOrBlank()) {
+                val content = message.content
+                if (content.isNullOrBlank()) {
                     Text(
                         text = stringResource(id = R.string.reply_message_empty_has_attachments),
                         fontSize = 12.sp,
@@ -142,11 +143,11 @@ fun InReplyTo(
                             LocalContentColor provides contentColor.copy(alpha = 0.7f),
                             LocalTextStyle provides LocalTextStyle.current.copy(fontSize = 12.sp)
                         ) {
-                            JBMRenderer(message.content!!)
+                            JBMRenderer(content)
                         }
                     } else {
                         Text(
-                            text = message.content!!,
+                            text = content,
                             fontSize = 12.sp,
                             color = contentColor.copy(alpha = 0.7f),
                             maxLines = 1,

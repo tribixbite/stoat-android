@@ -973,7 +973,7 @@ fun ChannelScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(8.dp))
-                                                    Text("Retry")
+                                                    Text(stringResource(R.string.message_failed_retry))
                                                 }
                                             }
                                         }
